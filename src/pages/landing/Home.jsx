@@ -1,4 +1,4 @@
-// components/Hero.jsx - Alternative Design
+// components/Hero.jsx - Fully Responsive for All Devices
 import React from "react";
 import {
   Box,
@@ -9,12 +9,11 @@ import {
   Stack,
   Grid,
   Paper,
-  Avatar,
   useTheme,
   useMediaQuery,
   alpha,
 } from "@mui/material";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import GroupsIcon from "@mui/icons-material/Groups";
@@ -26,13 +25,13 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 const Hero = ({ scrollToSection }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isDarkMode = theme.palette.mode === "dark";
 
   const features = [
-    { icon: <VerifiedIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />, label: "Real-time Tracking" },
-    { icon: <FactCheckIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />, label: "Smart Inspections" },
-    { icon: <GroupsIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />, label: "Team Sync" },
-    { icon: <AnalyticsIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />, label: "AI Analytics" },
+    { icon: <VerifiedIcon sx={{ fontSize: { xs: 14, sm: 16, md: 18 } }} />, label: "Real-time Tracking" },
+    { icon: <FactCheckIcon sx={{ fontSize: { xs: 14, sm: 16, md: 18 } }} />, label: "Smart Inspections" },
+    { icon: <GroupsIcon sx={{ fontSize: { xs: 14, sm: 16, md: 18 } }} />, label: "Team Sync" },
+    { icon: <AnalyticsIcon sx={{ fontSize: { xs: 14, sm: 16, md: 18 } }} />, label: "AI Analytics" },
   ];
 
   const stats = [
@@ -41,30 +40,34 @@ const Hero = ({ scrollToSection }) => {
     { value: "99.9%", label: "Uptime SLA" },
   ];
 
+  const getPrimaryColor = () => theme.palette.primary.main;
+  const getPrimaryGradient = () =>
+    `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`;
+
   return (
     <Box
       id="home"
       component="section"
       sx={{
         position: "relative",
-        minHeight: { xs: "100vh", md: "90vh" },
+        minHeight: { xs: "auto", md: "100vh" },
         display: "flex",
         alignItems: "center",
         overflow: "hidden",
         bgcolor: "background.default",
-        pt: { xs: 10, sm: 12, md: 14, lg: 16 },
-        pb: { xs: 6, sm: 8, md: 10, lg: 12 },
+        pt: { xs: 10, sm: 10, md: 12, lg: 14 },
+        pb: { xs: 8, sm: 8, md: 10, lg: 12 },
       }}
     >
-      {/* Background Gradient Effects - Enhanced */}
+      {/* Background Gradient Effects */}
       <Box
         sx={{
           position: "absolute",
           top: "20%",
-          left: { xs: "-20%", md: "-10%" },
-          width: { xs: "100%", md: "60%" },
-          height: { xs: "80%", md: "70%" },
-          background: "radial-gradient(circle, rgba(26,74,107,0.05) 0%, rgba(26,74,107,0) 70%)",
+          left: { xs: "-30%", sm: "-20%", md: "-10%" },
+          width: { xs: "120%", sm: "100%", md: "50%" },
+          height: { xs: "70%", sm: "70%", md: "70%" },
+          background: `radial-gradient(circle, ${alpha(getPrimaryColor(), isDarkMode ? 0.08 : 0.05)} 0%, ${alpha(getPrimaryColor(), 0)} 70%)`,
           borderRadius: "50%",
           pointerEvents: "none",
         }}
@@ -73,29 +76,28 @@ const Hero = ({ scrollToSection }) => {
         sx={{
           position: "absolute",
           bottom: "10%",
-          right: { xs: "-20%", md: "-5%" },
-          width: { xs: "100%", md: "50%" },
-          height: { xs: "60%", md: "50%" },
-          background: "radial-gradient(circle, rgba(26,74,107,0.03) 0%, rgba(26,74,107,0) 70%)",
+          right: { xs: "-30%", sm: "-20%", md: "-5%" },
+          width: { xs: "120%", sm: "100%", md: "40%" },
+          height: { xs: "60%", sm: "60%", md: "50%" },
+          background: `radial-gradient(circle, ${alpha(getPrimaryColor(), isDarkMode ? 0.06 : 0.03)} 0%, ${alpha(getPrimaryColor(), 0)} 70%)`,
           borderRadius: "50%",
           pointerEvents: "none",
         }}
       />
 
-      <Container 
-        maxWidth="xl" 
-        sx={{
-          px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 },
-        }}
+      <Container
+        maxWidth="xl"
+        sx={{ px: { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 } }}
       >
-        <Grid 
-          container 
-          spacing={{ xs: 4, sm: 6, md: 8, lg: 10 }} 
+        {/* ── Main Content with Image in Same Row ── */}
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={{ xs: 5, sm: 5, md: 6, lg: 8 }}
           alignItems="center"
           justifyContent="center"
         >
-          {/* Left Content */}
-          <Grid item xs={12} md={6} lg={6}>
+          {/* ── Left: Text Content ── */}
+          <Box sx={{ flex: 1, width: "100%" }}>
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -106,15 +108,14 @@ const Hero = ({ scrollToSection }) => {
               <Chip
                 label="✨ NEW PLATFORM LAUNCH"
                 sx={{
-                  backgroundColor: alpha("#1a4a6b", 0.08),
-                  color: "#1a4a6b",
+                  backgroundColor: alpha(getPrimaryColor(), isDarkMode ? 0.12 : 0.08),
+                  color: getPrimaryColor(),
                   fontWeight: 600,
-                  fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                  fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
                   letterSpacing: "0.02em",
-                  mb: { xs: 2.5, sm: 3, md: 4 },
-                  borderRadius: "full",
-                  height: { xs: 26, sm: 28 },
-                  "& .MuiChip-label": { px: { xs: 1.5, sm: 2 } },
+                  mb: { xs: 2, sm: 2.5, md: 3 },
+                  height: { xs: 24, sm: 26, md: 28 },
+                  "& .MuiChip-label": { px: { xs: 1.5, sm: 1.5, md: 2 } },
                 }}
               />
 
@@ -122,17 +123,18 @@ const Hero = ({ scrollToSection }) => {
               <Typography
                 variant="h1"
                 sx={{
-                  fontSize: { 
-                    xs: "1.8rem", 
-                    sm: "2.2rem", 
-                    md: "2.5rem", 
-                    lg: "3rem", 
-                    xl: "3.5rem" 
+                  fontSize: {
+                    xs: "1.75rem",
+                    sm: "2.2rem",
+                    md: "2.5rem",
+                    lg: "3rem",
+                    xl: "3.5rem",
                   },
                   fontWeight: 800,
                   lineHeight: 1.2,
                   mb: { xs: 1.5, sm: 2 },
                   letterSpacing: "-0.02em",
+                  color: "text.primary",
                 }}
               >
                 Transform Your
@@ -140,7 +142,7 @@ const Hero = ({ scrollToSection }) => {
                   component="span"
                   sx={{
                     display: "block",
-                    background: "linear-gradient(135deg, #1a4a6b 0%, #003350 100%)",
+                    background: getPrimaryGradient(),
                     backgroundClip: "text",
                     WebkitBackgroundClip: "text",
                     color: "transparent",
@@ -156,14 +158,14 @@ const Hero = ({ scrollToSection }) => {
                 variant="body1"
                 sx={{
                   color: "text.secondary",
-                  fontSize: { xs: "0.9rem", sm: "1rem", md: "1.05rem", lg: "1.1rem" },
+                  fontSize: { xs: "0.875rem", sm: "1rem", md: "1.05rem", lg: "1.1rem" },
                   lineHeight: 1.6,
                   mb: { xs: 3, sm: 4, md: 5 },
                   maxWidth: { xs: "100%", md: "90%" },
                 }}
               >
-                The intelligent platform that gives you complete visibility and control over your assets, 
-                from acquisition to retirement. Trusted by industry leaders worldwide.
+                The intelligent platform that gives you complete visibility and control over your
+                assets, from acquisition to retirement. Trusted by industry leaders worldwide.
               </Typography>
 
               {/* CTA Buttons */}
@@ -182,14 +184,15 @@ const Hero = ({ scrollToSection }) => {
                     py: { xs: 1, sm: 1.2, md: 1.3 },
                     fontSize: { xs: "0.8rem", sm: "0.85rem", md: "0.9rem" },
                     fontWeight: 600,
-                    background: "linear-gradient(135deg, #1a4a6b 0%, #003350 100%)",
+                    background: getPrimaryGradient(),
                     borderRadius: "1rem",
-                    boxShadow: "0 4px 14px rgba(26,74,107,0.25)",
+                    boxShadow: `0 4px 14px ${alpha(getPrimaryColor(), 0.25)}`,
                     transition: "all 0.3s ease",
                     "&:hover": {
                       transform: "translateY(-2px)",
-                      boxShadow: "0 8px 20px rgba(26,74,107,0.35)",
+                      boxShadow: `0 8px 20px ${alpha(getPrimaryColor(), 0.35)}`,
                     },
+                    width: { xs: "100%", sm: "auto" },
                   }}
                 >
                   Start Free Trial
@@ -203,12 +206,13 @@ const Hero = ({ scrollToSection }) => {
                     py: { xs: 1, sm: 1.2, md: 1.3 },
                     fontSize: { xs: "0.8rem", sm: "0.85rem", md: "0.9rem" },
                     fontWeight: 600,
-                    borderColor: alpha("#1a4a6b", 0.3),
-                    color: "#1a4a6b",
+                    borderColor: alpha(getPrimaryColor(), 0.3),
+                    color: getPrimaryColor(),
                     borderRadius: "1rem",
+                    width: { xs: "100%", sm: "auto" },
                     "&:hover": {
-                      borderColor: "#1a4a6b",
-                      backgroundColor: alpha("#1a4a6b", 0.04),
+                      borderColor: getPrimaryColor(),
+                      backgroundColor: alpha(getPrimaryColor(), 0.04),
                     },
                   }}
                 >
@@ -216,15 +220,14 @@ const Hero = ({ scrollToSection }) => {
                 </Button>
               </Stack>
 
-              {/* Trust Indicators */}
+              {/* Stats */}
               <Stack
                 direction="row"
-                spacing={{ xs: 2, sm: 3, md: 4 }}
-                sx={{ 
-                  mb: { xs: 3, sm: 4, md: 5 }, 
-                  flexWrap: "wrap", 
-                  gap: { xs: 1.5, sm: 2 },
-                  justifyContent: { xs: "flex-start", sm: "flex-start" }
+                sx={{
+                  mb: { xs: 3, sm: 4, md: 5 },
+                  flexWrap: "wrap",
+                  gap: { xs: 2, sm: 3, md: 4 },
+                  justifyContent: { xs: "space-around", sm: "flex-start" },
                 }}
               >
                 {stats.map((stat, index) => (
@@ -233,8 +236,8 @@ const Hero = ({ scrollToSection }) => {
                       variant="h5"
                       sx={{
                         fontWeight: 800,
-                        color: "#1a4a6b",
-                        fontSize: { xs: "1.1rem", sm: "1.3rem", md: "1.5rem" },
+                        color: getPrimaryColor(),
+                        fontSize: { xs: "1rem", sm: "1.2rem", md: "1.5rem" },
                       }}
                     >
                       {stat.value}
@@ -255,24 +258,20 @@ const Hero = ({ scrollToSection }) => {
               </Stack>
 
               {/* Feature List */}
-              <Grid 
-                container 
-                spacing={{ xs: 1.5, sm: 2 }} 
-                sx={{ maxWidth: "100%" }}
-              >
+              <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                 {features.map((feature, index) => (
-                  <Grid item xs={12} sm={6} key={index}>
+                  <Grid item xs={6} sm={6} key={index}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Box
                         sx={{
                           width: { xs: 28, sm: 32 },
                           height: { xs: 28, sm: 32 },
                           borderRadius: "0.75rem",
-                          bgcolor: alpha("#1a4a6b", 0.08),
+                          bgcolor: alpha(getPrimaryColor(), 0.08),
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: "#1a4a6b",
+                          color: getPrimaryColor(),
                           flexShrink: 0,
                         }}
                       >
@@ -282,7 +281,7 @@ const Hero = ({ scrollToSection }) => {
                         variant="body2"
                         sx={{
                           fontWeight: 500,
-                          color: "#334155",
+                          color: "text.primary",
                           fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
                         }}
                       >
@@ -293,10 +292,10 @@ const Hero = ({ scrollToSection }) => {
                 ))}
               </Grid>
             </motion.div>
-          </Grid>
+          </Box>
 
-          {/* Right Content - Image/Visual */}
-          <Grid item xs={12} md={6} lg={5.5} xl={5}>
+          {/* ── Right: Image / Visual ── */}
+          <Box sx={{ flex: 1, width: "100%" }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -310,84 +309,68 @@ const Hero = ({ scrollToSection }) => {
                   justifyContent: "center",
                   alignItems: "center",
                   width: "100%",
+                  px: { xs: 2, sm: 3, md: 4, lg: 2 },
+                  py: { xs: 4, sm: 5, md: 6 },
                 }}
               >
-                {/* Floating Elements - Responsive Positioning */}
+                {/* Floating Badge – Top Left */}
                 <motion.div
-                  animate={{
-                    y: [0, -10, 0],
-                  }}
-                  transition={{
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  style={{
-                    position: "absolute",
-                    top: { xs: "5%", sm: "10%", md: "5%" },
-                    left: { xs: "0%", sm: "-5%", md: "-10%", lg: "-15%" },
-                    zIndex: 2,
-                  }}
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ position: "absolute", zIndex: 2, left: 0, top: 0 }}
                 >
                   <Paper
                     elevation={0}
                     sx={{
-                      p: { xs: 1, sm: 1.5, md: 2 },
-                      borderRadius: { xs: "1rem", sm: "1.25rem", md: "1.5rem" },
-                      bgcolor: "white",
-                      boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                      border: "1px solid rgba(0,0,0,0.05)",
+                      p: { xs: 0.75, sm: 1, md: 1.25 },
+                      borderRadius: { xs: "0.875rem", sm: "1rem", md: "1.25rem" },
+                      bgcolor: "background.paper",
+                      boxShadow: `0 8px 20px ${alpha(theme.palette.common.black, 0.08)}`,
+                      border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
                       display: "flex",
                       alignItems: "center",
                       gap: { xs: 0.75, sm: 1 },
+                      whiteSpace: "nowrap",
+                      transform: { xs: "translate(-20%, -20%)", sm: "translate(-30%, -30%)", md: "translate(-40%, -40%)" },
                     }}
                   >
-                    <CheckCircleIcon sx={{ color: "#10b981", fontSize: { xs: 16, sm: 18, md: 20 } }} />
-                    <Typography 
-                      variant="caption" 
+                    <CheckCircleIcon sx={{ color: "#10b981", fontSize: { xs: 14, sm: 16, md: 18 } }} />
+                    <Typography
+                      variant="caption"
                       fontWeight={600}
-                      sx={{ fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" } }}
+                      sx={{ fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" }, color: "text.primary" }}
                     >
                       Real-time sync
                     </Typography>
                   </Paper>
                 </motion.div>
 
+                {/* Floating Badge – Bottom Right */}
                 <motion.div
-                  animate={{
-                    y: [0, -15, 0],
-                  }}
-                  transition={{
-                    duration: 5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 1,
-                  }}
-                  style={{
-                    position: "absolute",
-                    bottom: { xs: "10%", sm: "15%", md: "10%" },
-                    right: { xs: "0%", sm: "-5%", md: "-10%", lg: "-15%" },
-                    zIndex: 2,
-                  }}
+                  animate={{ y: [0, -15, 0] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                  style={{ position: "absolute", zIndex: 2, right: 0, bottom: 0 }}
                 >
                   <Paper
                     elevation={0}
                     sx={{
-                      p: { xs: 1, sm: 1.5, md: 2 },
-                      borderRadius: { xs: "1rem", sm: "1.25rem", md: "1.5rem" },
-                      bgcolor: "white",
-                      boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                      border: "1px solid rgba(0,0,0,0.05)",
+                      p: { xs: 0.75, sm: 1, md: 1.25 },
+                      borderRadius: { xs: "0.875rem", sm: "1rem", md: "1.25rem" },
+                      bgcolor: "background.paper",
+                      boxShadow: `0 8px 20px ${alpha(theme.palette.common.black, 0.08)}`,
+                      border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
                       display: "flex",
                       alignItems: "center",
                       gap: { xs: 0.75, sm: 1 },
+                      whiteSpace: "nowrap",
+                      transform: { xs: "translate(20%, 20%)", sm: "translate(30%, 30%)", md: "translate(40%, 40%)" },
                     }}
                   >
-                    <AnalyticsIcon sx={{ color: "#1a4a6b", fontSize: { xs: 16, sm: 18, md: 20 } }} />
-                    <Typography 
-                      variant="caption" 
+                    <AnalyticsIcon sx={{ color: getPrimaryColor(), fontSize: { xs: 14, sm: 16, md: 18 } }} />
+                    <Typography
+                      variant="caption"
                       fontWeight={600}
-                      sx={{ fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" } }}
+                      sx={{ fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" }, color: "text.primary" }}
                     >
                       +32% efficiency
                     </Typography>
@@ -399,7 +382,7 @@ const Hero = ({ scrollToSection }) => {
                   sx={{
                     position: "relative",
                     width: "100%",
-                    maxWidth: { xs: "100%", sm: 500, md: 550, lg: 600 },
+                    maxWidth: { xs: "100%", sm: 400, md: 450, lg: 500 },
                     mx: "auto",
                   }}
                 >
@@ -407,8 +390,8 @@ const Hero = ({ scrollToSection }) => {
                     sx={{
                       position: "absolute",
                       inset: 0,
-                      background: "radial-gradient(circle at 30% 40%, rgba(26,74,107,0.1), transparent 70%)",
-                      borderRadius: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
+                      background: `radial-gradient(circle at 30% 40%, ${alpha(getPrimaryColor(), 0.1)}, transparent 70%)`,
+                      borderRadius: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
                       filter: "blur(40px)",
                     }}
                   />
@@ -417,26 +400,21 @@ const Hero = ({ scrollToSection }) => {
                     sx={{
                       position: "relative",
                       bgcolor: "background.paper",
-                      borderRadius: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
+                      borderRadius: { xs: "1rem", sm: "1.25rem", md: "1.5rem" },
                       overflow: "hidden",
-                      boxShadow: "0 20px 40px -12px rgba(0,0,0,0.15)",
-                      border: "1px solid rgba(0,0,0,0.05)",
+                      boxShadow: `0 20px 40px -12px ${alpha(theme.palette.common.black, 0.15)}`,
+                      border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
                       transition: "transform 0.3s ease",
                       "&:hover": {
-                        transform: "scale(1.02)",
+                        transform: { xs: "none", sm: "scale(1.02)" },
                       },
                     }}
                   >
                     <img
                       src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop"
                       alt="Asset Management Dashboard"
-                      style={{
-                        width: "100%",
-                        height: "auto",
-                        display: "block",
-                      }}
+                      style={{ width: "100%", height: "auto", display: "block" }}
                     />
-                    {/* Gradient Overlay */}
                     <Box
                       sx={{
                         position: "absolute",
@@ -444,7 +422,7 @@ const Hero = ({ scrollToSection }) => {
                         left: 0,
                         right: 0,
                         height: "30%",
-                        background: "linear-gradient(to top, rgba(0,0,0,0.05), transparent)",
+                        background: `linear-gradient(to top, ${alpha(theme.palette.common.black, 0.05)}, transparent)`,
                         pointerEvents: "none",
                       }}
                     />
@@ -452,51 +430,49 @@ const Hero = ({ scrollToSection }) => {
                 </Box>
               </Box>
             </motion.div>
-          </Grid>
-        </Grid>
+          </Box>
+        </Stack>
 
         {/* Scroll Indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.5 }}
-          style={{
-            position: "absolute",
-            bottom: { xs: 20, sm: 25, md: 30 },
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: isMobile ? "none" : "block",
-          }}
-        >
-          <Stack
-            alignItems="center"
-            spacing={1}
-            sx={{
-              cursor: "pointer",
-              "&:hover": { opacity: 0.7 },
+        {!isMobile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1, duration: 0.5 }}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: "50%",
+              transform: "translateX(-50%)",
             }}
-            onClick={() => window.scrollBy({ top: window.innerHeight, behavior: "smooth" })}
           >
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.secondary",
-                fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                letterSpacing: "0.1em",
-              }}
+            <Stack
+              alignItems="center"
+              spacing={1}
+              sx={{ cursor: "pointer", "&:hover": { opacity: 0.7 } }}
+              onClick={() => window.scrollBy({ top: window.innerHeight, behavior: "smooth" })}
             >
-              SCROLL
-            </Typography>
-            <Box
-              sx={{
-                width: 2,
-                height: { xs: 30, sm: 35, md: 40 },
-                bgcolor: alpha("#1a4a6b", 0.3),
-                borderRadius: 1,
-              }}
-            />
-          </Stack>
-        </motion.div>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                  letterSpacing: "0.1em",
+                }}
+              >
+                SCROLL
+              </Typography>
+              <Box
+                sx={{
+                  width: 2,
+                  height: { xs: 24, sm: 30, md: 36 },
+                  bgcolor: alpha(getPrimaryColor(), 0.3),
+                  borderRadius: 1,
+                }}
+              />
+            </Stack>
+          </motion.div>
+        )}
       </Container>
     </Box>
   );

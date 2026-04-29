@@ -14,7 +14,6 @@ import {
   IconButton,
   InputAdornment,
   useTheme,
-  useMediaQuery,
   alpha,
   Badge,
   Tooltip,
@@ -23,8 +22,9 @@ import {
   Snackbar,
   CircularProgress,
   Divider,
+  LinearProgress,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { styled, keyframes } from '@mui/material/styles';
 import { TeamProvider, useTeam } from '../context/TeamContext';
 
 // Icons
@@ -33,9 +33,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LockIcon from '@mui/icons-material/Lock';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import StarIcon from '@mui/icons-material/Star';
-import StarHalfIcon from '@mui/icons-material/StarHalf';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import EditIcon from '@mui/icons-material/Edit';
@@ -47,918 +45,670 @@ import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
 import HomeIcon from '@mui/icons-material/Home';
 import WorkIcon from '@mui/icons-material/Work';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import SpeedIcon from '@mui/icons-material/Speed';
 
-// Styled Components (keep all your existing styled components here)
-const PageContainer = styled(Box)(({ theme }) => ({
+// ─── Animations ────────────────────────────────────────────────────────────────
+const fadeSlideUp = keyframes`
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.35); }
+  50%       { box-shadow: 0 0 0 5px rgba(16,185,129,0); }
+`;
+
+// ─── Design Tokens ─────────────────────────────────────────────────────────────
+const TOKEN = {
+  navy:    '#0f4c61',
+  navyDim: alpha('#0f4c61', 0.08),
+  navyMid: alpha('#0f4c61', 0.15),
+  ink:     '#1e293b',
+  muted:   '#64748b',
+  ghost:   '#94a3b8',
+  surface: '#f8fafc',
+  white:   '#ffffff',
+  border:  alpha('#cbd5e1', 0.45),
+  green:   '#10b981',
+  greenBg: alpha('#10b981', 0.1),
+  red:     '#ef4444',
+  redBg:   alpha('#ef4444', 0.1),
+  radius:  14,
+  radiusSm: 10,
+};
+
+// ─── Styled Components ─────────────────────────────────────────────────────────
+
+const PageContainer = styled(Box)({
   minHeight: '100vh',
-  backgroundColor: '#f8fafc',
-  fontFamily: '"Inter", "Public Sans", sans-serif',
-  padding: theme.spacing(1.5),
-  [theme.breakpoints.up('md')]: {
-    padding: theme.spacing(2.5),
-  },
-}));
+  padding: '20px 16px 40px',
+  '@media (min-width:900px)': { padding: '28px 24px 48px' },
+});
 
-const ProfileCard = styled(Paper)(({ theme }) => ({
-  borderRadius: 14,
-  padding: theme.spacing(2.5),
-  backgroundColor: '#ffffff',
-  border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-  height: '100%',
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    boxShadow: '0 8px 24px rgba(15,76,97,0.08)',
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
-    borderRadius: 12,
-  },
-}));
-
-const SectionCard = styled(Paper)(({ theme }) => ({
-  borderRadius: 14,
-  backgroundColor: '#ffffff',
-  border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+const Card = styled(Paper)({
+  borderRadius: TOKEN.radius,
+  background: TOKEN.white,
+  border: `1px solid ${TOKEN.border}`,
+  boxShadow: '0 2px 8px rgba(15,76,97,0.04), 0 1px 2px rgba(0,0,0,0.04)',
   overflow: 'hidden',
-  transition: 'all 0.2s ease',
+  animation: `${fadeSlideUp} 0.35s ease both`,
+  transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
   '&:hover': {
-    boxShadow: '0 8px 24px rgba(15,76,97,0.08)',
+    boxShadow: '0 8px 28px rgba(15,76,97,0.09)',
+    borderColor: alpha(TOKEN.navy, 0.18),
   },
-}));
+});
 
-const SectionHeader = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(1.5, 2.5),
-  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-  backgroundColor: alpha('#f8fafc', 0.5),
+const SectionHeader = styled(Box)({
+  padding: '12px 20px',
+  borderBottom: `1px solid ${TOKEN.border}`,
+  background: `linear-gradient(90deg, ${alpha(TOKEN.surface, 0.8)}, ${TOKEN.white})`,
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1.2, 2),
-  },
-}));
+});
 
-const StatCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(1.5),
-  borderRadius: 12,
-  backgroundColor: '#ffffff',
-  border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-  display: 'flex',
-  flexDirection: 'column',
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    borderColor: alpha('#0f4c61', 0.2),
-    transform: 'translateY(-2px)',
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1.2),
-  },
-}));
-
-const StyledTextField = styled(TextField)(({ theme }) => ({
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 8,
-    fontSize: '0.75rem',
-    backgroundColor: '#ffffff',
-    transition: 'all 0.2s ease',
-    '& fieldset': {
-      borderColor: alpha(theme.palette.divider, 0.15),
-      borderWidth: 1,
-    },
-    '&:hover fieldset': {
-      borderColor: alpha('#0f4c61', 0.4),
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: '#0f4c61',
-      borderWidth: 1.5,
-    },
-  },
-  '& .MuiInputLabel-root': {
-    fontSize: '0.7rem',
-    color: '#64748b',
-  },
-  '& .MuiInputBase-input': {
-    fontSize: '0.75rem',
-    padding: theme.spacing(1, 1.2),
-  },
-  [theme.breakpoints.down('sm')]: {
-    '& .MuiOutlinedInput-root': {
-      fontSize: '0.7rem',
-    },
-    '& .MuiInputBase-input': {
-      fontSize: '0.7rem',
-      padding: theme.spacing(0.8, 1),
-    },
-  },
-}));
-
-const PasswordField = styled(TextField)(({ theme }) => ({
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 8,
-    fontSize: '0.75rem',
-    backgroundColor: '#ffffff',
-    '& fieldset': {
-      borderColor: alpha(theme.palette.divider, 0.15),
-    },
-    '&:hover fieldset': {
-      borderColor: alpha('#0f4c61', 0.4),
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: '#0f4c61',
-      borderWidth: 1.5,
-    },
-  },
-  '& .MuiInputBase-input': {
-    fontSize: '0.75rem',
-    padding: theme.spacing(1, 1.2),
-  },
-  '& .MuiInputAdornment-root .MuiIconButton-root': {
-    padding: theme.spacing(0.5),
-  },
-  [theme.breakpoints.down('sm')]: {
-    '& .MuiOutlinedInput-root': {
-      fontSize: '0.7rem',
-    },
-    '& .MuiInputBase-input': {
-      fontSize: '0.7rem',
-      padding: theme.spacing(0.8, 1),
-    },
-  },
-}));
-
-const PrimaryButton = styled(Button)(({ theme }) => ({
-  backgroundColor: '#0f4c61',
-  color: '#ffffff',
-  fontWeight: 600,
-  fontSize: '0.7rem',
-  padding: theme.spacing(0.8, 2),
+const IconBox = styled(Box)({
+  width: 28,
+  height: 28,
   borderRadius: 8,
+  background: TOKEN.navyDim,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  '& .MuiSvgIcon-root': { fontSize: '0.85rem', color: TOKEN.navy },
+});
+
+const StyledField = styled(TextField)({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: TOKEN.radiusSm,
+    fontSize: '0.78rem',
+    background: TOKEN.white,
+    transition: 'box-shadow 0.15s ease',
+    '& fieldset': { borderColor: TOKEN.border, borderWidth: 1 },
+    '&:hover fieldset': { borderColor: alpha(TOKEN.navy, 0.35) },
+    '&.Mui-focused': {
+      boxShadow: `0 0 0 3px ${alpha(TOKEN.navy, 0.08)}`,
+    },
+    '&.Mui-focused fieldset': { borderColor: TOKEN.navy, borderWidth: 1.5 },
+    '&.Mui-disabled': { background: TOKEN.surface },
+    '&.Mui-disabled fieldset': { borderColor: TOKEN.border },
+  },
+  '& .MuiInputBase-input': {
+    fontSize: '0.78rem',
+    padding: '9px 12px',
+    color: TOKEN.ink,
+    '&::placeholder': { color: TOKEN.ghost, opacity: 1 },
+  },
+  '& .MuiInputBase-input.Mui-disabled': { color: TOKEN.muted, WebkitTextFillColor: TOKEN.muted },
+  '& .MuiInputLabel-root': { fontSize: '0.7rem', color: TOKEN.muted },
+  '& .MuiInputBase-inputMultiline': {
+    fontSize: '0.78rem',
+    lineHeight: 1.6,
+    padding: '9px 12px',
+  },
+});
+
+const PrimaryBtn = styled(Button)({
+  background: TOKEN.navy,
+  color: TOKEN.white,
+  fontWeight: 600,
+  fontSize: '0.72rem',
+  padding: '7px 18px',
+  borderRadius: TOKEN.radiusSm,
   textTransform: 'none',
-  boxShadow: `0 4px 8px ${alpha('#0f4c61', 0.2)}`,
-  transition: 'all 0.2s ease',
+  letterSpacing: '0.2px',
+  boxShadow: `0 3px 10px ${alpha(TOKEN.navy, 0.22)}`,
+  transition: 'all 0.18s ease',
   '&:hover': {
-    backgroundColor: alpha('#0f4c61', 0.9),
+    background: alpha(TOKEN.navy, 0.88),
     transform: 'translateY(-1px)',
-    boxShadow: `0 6px 12px ${alpha('#0f4c61', 0.25)}`,
+    boxShadow: `0 5px 16px ${alpha(TOKEN.navy, 0.28)}`,
   },
-  '&:active': {
-    transform: 'translateY(0)',
-  },
-  '&.Mui-disabled': {
-    backgroundColor: alpha('#0f4c61', 0.5),
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(0.6, 1.5),
-    fontSize: '0.65rem',
-  },
-}));
+  '&:active': { transform: 'translateY(0)' },
+  '&.Mui-disabled': { background: alpha(TOKEN.navy, 0.4), color: TOKEN.white },
+});
 
-const SecondaryButton = styled(Button)(({ theme }) => ({
-  color: '#64748b',
+const SecondaryBtn = styled(Button)({
+  color: TOKEN.muted,
   fontWeight: 500,
-  fontSize: '0.7rem',
-  padding: theme.spacing(0.8, 2),
-  borderRadius: 8,
+  fontSize: '0.72rem',
+  padding: '7px 18px',
+  borderRadius: TOKEN.radiusSm,
   textTransform: 'none',
-  border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-  backgroundColor: '#ffffff',
-  transition: 'all 0.2s ease',
+  border: `1px solid ${TOKEN.border}`,
+  background: TOKEN.white,
+  transition: 'all 0.18s ease',
   '&:hover': {
-    backgroundColor: alpha('#f1f5f9', 0.8),
-    borderColor: alpha('#0f4c61', 0.3),
-    color: '#0f4c61',
+    background: TOKEN.surface,
+    borderColor: alpha(TOKEN.navy, 0.3),
+    color: TOKEN.navy,
   },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(0.6, 1.5),
-    fontSize: '0.65rem',
-  },
-}));
+});
 
-const InfoItem = styled(Box)(({ theme }) => ({
+const InfoRow = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: theme.spacing(1),
-  padding: theme.spacing(0.4, 0),
-  '& .MuiSvgIcon-root': {
-    fontSize: '0.9rem',
-    color: '#94a3b8',
-  },
-  '& .info-text': {
-    fontSize: '0.7rem',
-    color: '#475569',
-    fontWeight: 500,
-  },
-  [theme.breakpoints.down('sm')]: {
-    gap: theme.spacing(0.8),
-    '& .MuiSvgIcon-root': {
-      fontSize: '0.8rem',
-    },
-    '& .info-text': {
-      fontSize: '0.65rem',
-    },
-  },
-}));
+  gap: 8,
+  padding: '4px 0',
+  '& .MuiSvgIcon-root': { fontSize: '0.85rem', color: TOKEN.ghost },
+});
 
-const StatusChip = styled(Chip)(({ theme }) => ({
-  backgroundColor: alpha('#10b981', 0.1),
-  color: '#059669',
-  fontSize: '0.6rem',
-  fontWeight: 600,
-  height: 22,
-  '& .MuiChip-label': {
-    padding: '0 8px',
-  },
-}));
-
-const LabelText = styled(Typography)(({ theme }) => ({
-  fontSize: '0.6rem',
-  fontWeight: 600,
-  color: '#64748b',
+const Label = styled(Typography)({
+  fontSize: '0.58rem',
+  fontWeight: 700,
+  color: TOKEN.ghost,
   textTransform: 'uppercase',
-  letterSpacing: '0.3px',
-  marginBottom: theme.spacing(0.5),
-}));
+  letterSpacing: '0.5px',
+  marginBottom: 4,
+});
 
-const TrendIndicator = styled(Box)(({ theme, up }) => ({
-  display: 'flex',
+const StatBadge = styled(Box)(({ color = TOKEN.navy }) => ({
+  display: 'inline-flex',
   alignItems: 'center',
-  color: up ? '#10b981' : '#ef4444',
-  '& svg': {
-    fontSize: '0.7rem',
-  },
-  '& span': {
-    fontSize: '0.55rem',
-    fontWeight: 600,
-    marginLeft: '2px',
-  },
+  gap: 4,
+  padding: '3px 8px',
+  borderRadius: 20,
+  background: alpha(color, 0.08),
+  color: color,
+  fontSize: '0.58rem',
+  fontWeight: 700,
+  letterSpacing: '0.3px',
 }));
 
-// Profile Content Component (uses useTeam hook)
+// ─── ProfileContent ─────────────────────────────────────────────────────────────
 const ProfileContent = () => {
   const theme = useTheme();
-  const { 
-    profile, 
-    loading, 
-    updateTeamProfile, 
+  const {
+    profile,
+    loading,
+    updateTeamProfile,
     changePassword,
     formatDate,
     formatJoinDate,
     getFullName,
     getInitials,
-    fetchTeamProfile
+    fetchTeamProfile,
   } = useTeam();
-  
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [showPwd, setShowPwd] = useState({ current: false, next: false, confirm: false });
   const [isEditing, setIsEditing] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    location: '',
-    bio: '',
-    department: ''
-  });
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', location: '', bio: '', department: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Initialize form data when profile loads
   useEffect(() => {
     if (profile) {
       setFormData({
-        firstName: profile.firstName || '',
-        lastName: profile.lastName || '',
-        phone: profile.phone || '',
-        location: profile.location || '',
-        bio: profile.bio || '',
-        department: profile.department || ''
+        firstName:  profile.firstName  || '',
+        lastName:   profile.lastName   || '',
+        phone:      profile.phone      || '',
+        location:   profile.location   || '',
+        bio:        profile.bio        || '',
+        department: profile.department || '',
       });
     }
   }, [profile]);
 
-  // Fetch profile on component mount
-  useEffect(() => {
-    fetchTeamProfile();
-  }, [fetchTeamProfile]);
+  useEffect(() => { fetchTeamProfile(); }, [fetchTeamProfile]);
 
-  const handleFormChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handlePasswordChange = (e) => {
-    setPasswordData({
-      ...passwordData,
-      [e.target.name]: e.target.value
-    });
-  };
+  const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handlePasswordChange = (e) => setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
 
   const handleUpdateProfile = async () => {
-    const result = await updateTeamProfile(formData);
-    if (result.success) {
-      setSnackbar({ open: true, message: result.message, severity: 'success' });
-      setIsEditing(false);
-    } else {
-      setSnackbar({ open: true, message: result.error, severity: 'error' });
-    }
+    const r = await updateTeamProfile(formData);
+    setSnackbar({ open: true, message: r.success ? r.message : r.error, severity: r.success ? 'success' : 'error' });
+    if (r.success) setIsEditing(false);
   };
 
   const handleChangePassword = async () => {
-    const result = await changePassword(
-      passwordData.currentPassword,
-      passwordData.newPassword,
-      passwordData.confirmPassword
-    );
-    
-    if (result.success) {
-      setSnackbar({ open: true, message: result.message, severity: 'success' });
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-    } else {
-      setSnackbar({ open: true, message: result.error, severity: 'error' });
-    }
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
+    const r = await changePassword(passwordData.currentPassword, passwordData.newPassword, passwordData.confirmPassword);
+    setSnackbar({ open: true, message: r.success ? r.message : r.error, severity: r.success ? 'success' : 'error' });
+    if (r.success) setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setFormData({
-      firstName: profile?.firstName || '',
-      lastName: profile?.lastName || '',
-      phone: profile?.phone || '',
-      location: profile?.location || '',
-      bio: profile?.bio || '',
-      department: profile?.department || ''
+      firstName:  profile?.firstName  || '',
+      lastName:   profile?.lastName   || '',
+      phone:      profile?.phone      || '',
+      location:   profile?.location   || '',
+      bio:        profile?.bio        || '',
+      department: profile?.department || '',
     });
   };
 
   if (loading && !profile) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <CircularProgress sx={{ color: '#0f4c61' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
+        <CircularProgress sx={{ color: TOKEN.navy }} size={32} />
       </Box>
     );
   }
 
-  const statsData = [
-    {
-      label: 'Inspections',
-      value: profile?.stats?.totalInspections || 0,
-      trend: '+0%',
-      trendUp: true,
-    },
-    {
-      label: 'On-Time Rate',
-      value: `${profile?.stats?.onTimeRate || 0}%`,
-      trend: '+0%',
-      trendUp: true,
-    },
-    {
-      label: 'Quality Score',
-      value: (profile?.stats?.qualityScore || 0).toFixed(1),
-      rating: profile?.stats?.qualityScore || 0,
-    },
+  const isActive       = profile?.status === 'active';
+  const completionRate = profile?.stats?.completionRate || 0;
+  const assignedCount  = profile?.stats?.assignedCount  || 0;
+
+  const pwdFields = [
+    { key: 'current', name: 'currentPassword', label: 'Current Password',     placeholder: 'Enter current password' },
+    { key: 'next',    name: 'newPassword',      label: 'New Password',         placeholder: 'Min. 6 characters' },
+    { key: 'confirm', name: 'confirmPassword',  label: 'Confirm New Password', placeholder: 'Re-enter new password' },
   ];
 
   return (
     <PageContainer>
       <Container maxWidth="lg" sx={{ px: { xs: 1, sm: 1.5, md: 2 } }}>
-        <Grid container spacing={2}>
-          {/* Left Column */}
+        <Grid container spacing={2.5}>
+
+          {/* ── Left Column ─────────────────────────────────────────────────── */}
           <Grid item xs={12} md={4}>
-            <Stack spacing={2}>
-              {/* Profile Card */}
-              <ProfileCard>
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center',
-                  pb: 2,
-                  borderBottom: '1px solid',
-                  borderColor: alpha(theme.palette.divider, 0.08),
-                }}>
-                  <Badge
-                    overlap="circular"
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    badgeContent={
-                      <Box sx={{
-                        width: 14,
-                        height: 14,
-                        bgcolor: profile?.status === 'active' ? '#10b981' : '#ef4444',
-                        border: '2px solid #ffffff',
-                        borderRadius: '50%',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      }} />
-                    }
-                  >
-                    <Avatar
-                      sx={{
-                        width: { xs: 70, sm: 80 },
-                        height: { xs: 70, sm: 80 },
-                        bgcolor: '#0f4c61',
-                        fontSize: { xs: '1.5rem', sm: '1.8rem' },
-                        fontWeight: 700,
-                        mb: 1,
-                        border: '3px solid #ffffff',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                      }}
+            <Stack spacing={2.5}>
+
+              {/* Identity Card */}
+              <Card>
+                {/* Tinted header strip */}
+                <Box sx={{
+                  height: 72,
+                  background: `linear-gradient(135deg, ${TOKEN.navy} 0%, ${alpha(TOKEN.navy, 0.75)} 100%)`,
+                  position: 'relative',
+                }} />
+
+                <Box sx={{ px: 2.5, pb: 2.5 }}>
+                  {/* Avatar overlap */}
+                  <Box sx={{ mt: '-38px', mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <Badge
+                      overlap="circular"
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                      badgeContent={
+                        <Box sx={{
+                          width: 13, height: 13,
+                          bgcolor: isActive ? TOKEN.green : TOKEN.red,
+                          border: '2.5px solid #fff',
+                          borderRadius: '50%',
+                          animation: isActive ? `${pulse} 2.5s infinite` : 'none',
+                        }} />
+                      }
                     >
-                      {getInitials()}
-                    </Avatar>
-                  </Badge>
-                  
-                  <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '0.9rem', sm: '0.95rem' }, color: '#1e293b', mt: 1 }}>
+                      <Avatar sx={{
+                        width: 72, height: 72,
+                        bgcolor: TOKEN.navy,
+                        fontSize: '1.5rem',
+                        fontWeight: 700,
+                        border: '3px solid #fff',
+                        boxShadow: '0 4px 14px rgba(15,76,97,0.25)',
+                        letterSpacing: '-0.5px',
+                      }}>
+                        {getInitials()}
+                      </Avatar>
+                    </Badge>
+                    <Chip
+                      label={isActive ? 'Active' : 'Inactive'}
+                      size="small"
+                      sx={{
+                        height: 22,
+                        fontSize: '0.58rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.3px',
+                        bgcolor: isActive ? TOKEN.greenBg : TOKEN.redBg,
+                        color:   isActive ? TOKEN.green   : TOKEN.red,
+                        border:  `1px solid ${isActive ? alpha(TOKEN.green, 0.25) : alpha(TOKEN.red, 0.25)}`,
+                      }}
+                    />
+                  </Box>
+
+                  <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: TOKEN.ink, lineHeight: 1.2 }}>
                     {getFullName()}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.65rem', mb: 0.5 }}>
+                  <Typography sx={{ color: TOKEN.muted, fontSize: '0.68rem', mt: 0.25, mb: 1.5 }}>
                     {profile?.roleDisplay || profile?.teamRole || 'Team Member'}
                   </Typography>
-                  <StatusChip 
-                    label={profile?.status === 'active' ? 'Active' : 'Inactive'} 
-                    size="small" 
-                    sx={{ 
-                      bgcolor: profile?.status === 'active' ? alpha('#10b981', 0.1) : alpha('#ef4444', 0.1),
-                      color: profile?.status === 'active' ? '#059669' : '#dc2626'
-                    }}
-                  />
-                </Box>
 
-                <Stack spacing={1.2} sx={{ mt: 1.5 }}>
-                  <InfoItem>
-                    <MailOutlineIcon />
-                    <Typography className="info-text">{profile?.email || 'N/A'}</Typography>
-                  </InfoItem>
-                  <InfoItem>
-                    <PhoneIcon />
-                    <Typography className="info-text">{profile?.phone || 'Not provided'}</Typography>
-                  </InfoItem>
-                  <InfoItem>
-                    <LocationOnIcon />
-                    <Typography className="info-text">{profile?.location || 'Not specified'}</Typography>
-                  </InfoItem>
-                  <InfoItem>
-                    <BusinessCenterIcon />
-                    <Typography className="info-text">{profile?.organization || 'N/A'}</Typography>
-                  </InfoItem>
-                  <InfoItem>
-                    <CalendarTodayIcon />
-                    <Typography className="info-text">Joined {formatJoinDate(profile?.joinDate)}</Typography>
-                  </InfoItem>
-                </Stack>
-              </ProfileCard>
+                  <Divider sx={{ borderColor: TOKEN.border, mb: 1.5 }} />
+
+                  <Stack spacing={0.8}>
+                    {[
+                      { icon: <MailOutlineIcon />,   text: profile?.email        || 'N/A' },
+                      { icon: <PhoneIcon />,          text: profile?.phone        || 'Not provided' },
+                      { icon: <LocationOnIcon />,     text: profile?.location     || 'Not specified' },
+                      { icon: <BusinessCenterIcon />, text: profile?.organization || 'N/A' },
+                      { icon: <CalendarTodayIcon />,  text: `Joined ${formatJoinDate(profile?.joinDate)}` },
+                    ].map(({ icon, text }, i) => (
+                      <InfoRow key={i}>
+                        {icon}
+                        <Typography sx={{ fontSize: '0.72rem', color: '#475569', fontWeight: 500 }}>{text}</Typography>
+                      </InfoRow>
+                    ))}
+                  </Stack>
+                </Box>
+              </Card>
 
               {/* Change Password Card */}
-              <ProfileCard>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <Box sx={{ 
-                    p: 0.5, 
-                    bgcolor: alpha('#0f4c61', 0.1), 
-                    borderRadius: 1,
-                    display: 'flex',
-                  }}>
-                    <LockIcon sx={{ fontSize: '0.9rem', color: '#0f4c61' }} />
+              <Card>
+                <SectionHeader>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconBox><LockIcon /></IconBox>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: TOKEN.ink }}>Change Password</Typography>
                   </Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#1e293b' }}>
-                    Change Password
-                  </Typography>
-                </Box>
+                </SectionHeader>
 
-                <Stack spacing={1.5}>
-                  <Box>
-                    <LabelText>Current Password</LabelText>
-                    <PasswordField
+                <Box sx={{ p: 2.5 }}>
+                  <Stack spacing={1.6}>
+                    {pwdFields.map(({ key, name, label, placeholder }) => (
+                      <Box key={key}>
+                        <Label>{label}</Label>
+                        <StyledField
+                          fullWidth
+                          size="small"
+                          name={name}
+                          type={showPwd[key] ? 'text' : 'password'}
+                          placeholder={placeholder}
+                          value={passwordData[name]}
+                          onChange={handlePasswordChange}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={() => setShowPwd(p => ({ ...p, [key]: !p[key] }))}
+                                  edge="end" size="small"
+                                  sx={{ p: 0.4, color: TOKEN.ghost, '&:hover': { color: TOKEN.navy } }}
+                                >
+                                  {showPwd[key]
+                                    ? <VisibilityOffIcon sx={{ fontSize: '0.85rem' }} />
+                                    : <VisibilityIcon   sx={{ fontSize: '0.85rem' }} />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Box>
+                    ))}
+
+                    <PrimaryBtn
                       fullWidth
-                      name="currentPassword"
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      placeholder="Enter current password"
-                      size="small"
-                      value={passwordData.currentPassword}
-                      onChange={handlePasswordChange}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                              edge="end"
-                              size="small"
-                              sx={{ p: 0.3 }}
-                            >
-                              {showCurrentPassword ? 
-                                <VisibilityOffIcon sx={{ fontSize: '0.8rem' }} /> : 
-                                <VisibilityIcon sx={{ fontSize: '0.8rem' }} />
-                              }
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <LabelText>New Password</LabelText>
-                    <PasswordField
-                      fullWidth
-                      name="newPassword"
-                      type={showNewPassword ? 'text' : 'password'}
-                      placeholder="Enter new password (min. 6 characters)"
-                      size="small"
-                      value={passwordData.newPassword}
-                      onChange={handlePasswordChange}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowNewPassword(!showNewPassword)}
-                              edge="end"
-                              size="small"
-                              sx={{ p: 0.3 }}
-                            >
-                              {showNewPassword ? 
-                                <VisibilityOffIcon sx={{ fontSize: '0.8rem' }} /> : 
-                                <VisibilityIcon sx={{ fontSize: '0.8rem' }} />
-                              }
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <LabelText>Confirm New Password</LabelText>
-                    <PasswordField
-                      fullWidth
-                      name="confirmPassword"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder="Confirm new password"
-                      size="small"
-                      value={passwordData.confirmPassword}
-                      onChange={handlePasswordChange}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              edge="end"
-                              size="small"
-                              sx={{ p: 0.3 }}
-                            >
-                              {showConfirmPassword ? 
-                                <VisibilityOffIcon sx={{ fontSize: '0.8rem' }} /> : 
-                                <VisibilityIcon sx={{ fontSize: '0.8rem' }} />
-                              }
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Box>
-                  <PrimaryButton 
-                    fullWidth 
-                    startIcon={<LockIcon />}
-                    onClick={handleChangePassword}
-                    disabled={loading}
-                  >
-                    {loading ? <CircularProgress size={16} /> : 'Update Password'}
-                  </PrimaryButton>
-                </Stack>
-              </ProfileCard>
+                      startIcon={<LockIcon sx={{ fontSize: '0.85rem !important' }} />}
+                      onClick={handleChangePassword}
+                      disabled={loading}
+                      sx={{ mt: 0.5 }}
+                    >
+                      {loading ? <CircularProgress size={14} color="inherit" /> : 'Update Password'}
+                    </PrimaryBtn>
+                  </Stack>
+                </Box>
+              </Card>
             </Stack>
           </Grid>
 
-          {/* Right Column */}
+          {/* ── Right Column ────────────────────────────────────────────────── */}
           <Grid item xs={12} md={8}>
-            <Stack spacing={2}>
-              {/* Stats Cards */}
-              <Grid container spacing={1.5}>
-                {statsData.map((stat, index) => (
-                  <Grid item xs={4} key={index}>
-                    <StatCard>
-                      <Typography variant="caption" sx={{ 
-                        color: '#64748b', 
-                        fontSize: '0.55rem', 
-                        fontWeight: 600, 
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.3px',
-                        mb: 0.5,
-                      }}>
-                        {stat.label}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Typography variant="h5" sx={{ 
-                          fontWeight: 700, 
-                          fontSize: { xs: '1rem', sm: '1.2rem' }, 
-                          lineHeight: 1,
-                          color: '#1e293b',
-                        }}>
-                          {stat.value}
-                        </Typography>
-                        {stat.trend && (
-                          <TrendIndicator up={stat.trendUp}>
-                            <ArrowUpwardIcon />
-                            <span>{stat.trend}</span>
-                          </TrendIndicator>
-                        )}
-                        {stat.rating !== undefined && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2, ml: 0.5 }}>
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <StarIcon
-                                key={star}
-                                sx={{
-                                  fontSize: '0.7rem',
-                                  color: star <= Math.floor(stat.rating) ? '#fbbf24' : 
-                                         star === Math.ceil(stat.rating) && stat.rating % 1 !== 0 ? '#fbbf24' : '#e2e8f0',
-                                }}
-                              />
-                            ))}
-                            {stat.rating % 1 !== 0 && (
-                              <StarHalfIcon sx={{ fontSize: '0.7rem', color: '#fbbf24', ml: -0.5 }} />
-                            )}
-                          </Box>
-                        )}
-                      </Box>
-                    </StatCard>
-                  </Grid>
-                ))}
-              </Grid>
+            <Stack spacing={2.5}>
 
               {/* Personal Information Card */}
-              <SectionCard>
+              <Card sx={{width:"800px"}}>
                 <SectionHeader>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ 
-                      p: 0.5, 
-                      bgcolor: alpha('#0f4c61', 0.1), 
-                      borderRadius: 1,
-                      display: 'flex',
-                    }}>
-                      <BadgeIcon sx={{ fontSize: '0.9rem', color: '#0f4c61' }} />
-                    </Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#1e293b' }}>
-                      Personal Information
-                    </Typography>
+                    <IconBox><BadgeIcon /></IconBox>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: TOKEN.ink }}>Personal Information</Typography>
                   </Box>
-                  <Tooltip title={isEditing ? "Cancel editing" : "Edit profile information"} arrow placement="top">
-                    <IconButton 
-                      size="small" 
+                  <Tooltip title={isEditing ? 'Cancel editing' : 'Edit profile'} arrow placement="top">
+                    <IconButton
+                      size="small"
                       onClick={() => isEditing ? handleCancelEdit() : setIsEditing(true)}
-                      sx={{ 
-                        color: isEditing ? '#ef4444' : '#0f4c61',
-                        bgcolor: isEditing ? alpha('#ef4444', 0.1) : alpha('#0f4c61', 0.1),
+                      sx={{
+                        color:   isEditing ? TOKEN.red   : TOKEN.navy,
+                        bgcolor: isEditing ? TOKEN.redBg : TOKEN.navyDim,
+                        width: 30, height: 30,
+                        transition: 'all 0.18s ease',
+                        '&:hover': {
+                          bgcolor: isEditing ? alpha(TOKEN.red, 0.16) : TOKEN.navyMid,
+                        },
                       }}
                     >
-                      {isEditing ? <CancelIcon sx={{ fontSize: '0.9rem' }} /> : <EditIcon sx={{ fontSize: '0.9rem' }} />}
+                      {isEditing
+                        ? <CancelIcon sx={{ fontSize: '0.9rem' }} />
+                        : <EditIcon   sx={{ fontSize: '0.9rem' }} />}
                     </IconButton>
                   </Tooltip>
                 </SectionHeader>
 
-                <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
-                      <LabelText>First Name</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        size="small"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleFormChange}
-                        disabled={!isEditing}
+                <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+                  <Grid container spacing={1.8}>
+                    {/* First Name */}
+                    <Grid item xs={12} sm={6} sx={{width:"228px"}}>
+                      <Label>First Name</Label>
+                      <StyledField fullWidth size="small" name="firstName" value={formData.firstName} onChange={handleFormChange} disabled={!isEditing} />
+                    </Grid>
+
+                    {/* Last Name */}
+                    <Grid item xs={12} sm={6} sx={{width:"228px"}}>
+                      <Label>Last Name</Label>
+                      <StyledField fullWidth size="small" name="lastName" value={formData.lastName} onChange={handleFormChange} disabled={!isEditing} />
+                    </Grid>
+
+                    {/* Email (read-only) */}
+                    <Grid item xs={12} sm={6} sx={{width:"228px"}}>
+                      <Label>Email Address</Label>
+                      <StyledField
+                        fullWidth size="small" type="email"
+                        value={profile?.email || ''} disabled
+                        InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon sx={{ fontSize: '0.8rem', color: TOKEN.ghost }} /></InputAdornment> }}
                       />
                     </Grid>
+
+                    {/* Department */}
                     <Grid item xs={12} sm={6}>
-                      <LabelText>Last Name</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        size="small"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleFormChange}
-                        disabled={!isEditing}
+                      <Label>Department</Label>
+                      <StyledField
+                        fullWidth size="small" name="department"
+                        value={formData.department} onChange={handleFormChange} disabled={!isEditing}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><WorkIcon sx={{ fontSize: '0.8rem', color: TOKEN.ghost }} /></InputAdornment> }}
                       />
                     </Grid>
+
+                    {/* Phone */}
                     <Grid item xs={12} sm={6}>
-                      <LabelText>Email Address</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        size="small"
-                        type="email"
-                        value={profile?.email || ''}
-                        disabled
-                        sx={{ '& .MuiInputBase-input.Mui-disabled': { bgcolor: '#f8fafc' } }}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <EmailIcon sx={{ fontSize: '0.8rem', color: '#94a3b8' }} />
-                            </InputAdornment>
-                          ),
-                        }}
+                      <Label>Phone Number</Label>
+                      <StyledField
+                        fullWidth size="small" name="phone"
+                        value={formData.phone} onChange={handleFormChange} disabled={!isEditing}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><PhoneInTalkIcon sx={{ fontSize: '0.8rem', color: TOKEN.ghost }} /></InputAdornment> }}
                       />
                     </Grid>
+
+                    {/* Location */}
                     <Grid item xs={12} sm={6}>
-                      <LabelText>Department</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        size="small"
-                        name="department"
-                        value={formData.department}
-                        onChange={handleFormChange}
-                        disabled={!isEditing}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <WorkIcon sx={{ fontSize: '0.8rem', color: '#94a3b8' }} />
-                            </InputAdornment>
-                          ),
-                        }}
+                      <Label>Location</Label>
+                      <StyledField
+                        fullWidth size="small" name="location"
+                        value={formData.location} onChange={handleFormChange} disabled={!isEditing}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><HomeIcon sx={{ fontSize: '0.8rem', color: TOKEN.ghost }} /></InputAdornment> }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <LabelText>Phone Number</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        size="small"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleFormChange}
+
+                    {/* Bio */}
+                    <Grid item xs={12} sx={{width:"230px"}}>
+                      <Label>Bio</Label>
+                      <StyledField
+                        fullWidth multiline rows={1} name="bio"
+                        value={formData.bio} onChange={handleFormChange}
                         disabled={!isEditing}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <PhoneInTalkIcon sx={{ fontSize: '0.8rem', color: '#94a3b8' }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <LabelText>Location</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        size="small"
-                        name="location"
-                        value={formData.location}
-                        onChange={handleFormChange}
-                        disabled={!isEditing}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <HomeIcon sx={{ fontSize: '0.8rem', color: '#94a3b8' }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <LabelText>Bio</LabelText>
-                      <StyledTextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        name="bio"
-                        value={formData.bio}
-                        onChange={handleFormChange}
-                        disabled={!isEditing}
-                        placeholder="Tell us about yourself..."
-                        sx={{
-                          '& .MuiInputBase-inputMultiline': {
-                            fontSize: '0.7rem',
-                            lineHeight: 1.5,
-                            padding: '8px 12px',
-                          },
-                        }}
+                        placeholder="Tell us about yourself…"
                       />
                     </Grid>
                   </Grid>
 
-                  {isEditing && (
-                    <Fade in={isEditing}>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'flex-end', 
-                        gap: 1.5, 
-                        mt: 3,
-                        flexDirection: { xs: 'column', sm: 'row' },
-                      }}>
-                        <SecondaryButton 
-                          startIcon={<CancelIcon />}
-                          onClick={handleCancelEdit}
-                        >
-                          Cancel
-                        </SecondaryButton>
-                        <PrimaryButton 
-                          startIcon={<SaveIcon />}
-                          onClick={handleUpdateProfile}
-                          disabled={loading}
-                        >
-                          {loading ? <CircularProgress size={16} /> : 'Save Changes'}
-                        </PrimaryButton>
-                      </Box>
-                    </Fade>
-                  )}
+                  {/* Save / Cancel */}
+                  <Fade in={isEditing}>
+                    <Box sx={{
+                      display: isEditing ? 'flex' : 'none',
+                      justifyContent: 'flex-end',
+                      gap: 1.5, mt: 2.5,
+                      pt: 2,
+                      borderTop: `1px solid ${TOKEN.border}`,
+                      flexDirection: { xs: 'column', sm: 'row' },
+                    }}>
+                      <SecondaryBtn startIcon={<CancelIcon sx={{ fontSize: '0.85rem !important' }} />} onClick={handleCancelEdit}>
+                        Discard
+                      </SecondaryBtn>
+                      <PrimaryBtn startIcon={<SaveIcon sx={{ fontSize: '0.85rem !important' }} />} onClick={handleUpdateProfile} disabled={loading}>
+                        {loading ? <CircularProgress size={14} color="inherit" /> : 'Save Changes'}
+                      </PrimaryBtn>
+                    </Box>
+                  </Fade>
                 </Box>
-              </SectionCard>
+              </Card>
 
-              {/* Recent Activity Card */}
-              <SectionCard>
+              {/* Performance Overview Card */}
+              <Card>
                 <SectionHeader>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ 
-                      p: 0.5, 
-                      bgcolor: alpha('#0f4c61', 0.1), 
-                      borderRadius: 1,
-                      display: 'flex',
-                    }}>
-                      <AssignmentIcon sx={{ fontSize: '0.9rem', color: '#0f4c61' }} />
-                    </Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#1e293b' }}>
-                      Performance Overview
-                    </Typography>
+                    <IconBox><AssignmentIcon /></IconBox>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: TOKEN.ink }}>Performance Overview</Typography>
                   </Box>
+                  <StatBadge color={TOKEN.green}>
+                    <TrendingUpIcon sx={{ fontSize: '0.65rem' }} /> Active
+                  </StatBadge>
                 </SectionHeader>
-                <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+
+                <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
                   <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Box sx={{ textAlign: 'center', p: 1 }}>
-                        <Typography sx={{ fontSize: '0.6rem', color: '#64748b', mb: 0.5 }}>
-                          Assigned Tasks
-                        </Typography>
-                        <Typography sx={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f4c61' }}>
-                          {profile?.stats?.assignedCount || 0}
-                        </Typography>
+
+                    {/* Assigned Tasks */}
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        background: TOKEN.surface,
+                        border: `1px solid ${TOKEN.border}`,
+                        display: 'flex',
+                        width:"250px",
+                        alignItems: 'center',
+                        gap: 1.5,
+                      }}>
+                        <Box sx={{
+                          width: 40, height: 40,
+                          borderRadius: 3,
+                          background: TOKEN.navyDim,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <TaskAltIcon sx={{ fontSize: '1.1rem', color: TOKEN.navy }} />
+                        </Box>
+                        <Box>
+                          <Typography sx={{ fontSize: '0.6rem', color: TOKEN.ghost, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                            Assigned Tasks
+                          </Typography>
+                          <Typography sx={{ fontSize: '1.45rem', fontWeight: 800, color: TOKEN.ink, lineHeight: 1.1 }}>
+                            {assignedCount}
+                          </Typography>
+                        </Box>
                       </Box>
                     </Grid>
-                    <Grid item xs={6}>
-                      <Box sx={{ textAlign: 'center', p: 1 }}>
-                        <Typography sx={{ fontSize: '0.6rem', color: '#64748b', mb: 0.5 }}>
-                          Completion Rate
-                        </Typography>
-                        <Typography sx={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f4c61' }}>
-                          {profile?.stats?.completionRate || 0}%
-                        </Typography>
+
+                    {/* Completion Rate */}
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        background: TOKEN.surface,
+                        border: `1px solid ${TOKEN.border}`,
+                        display: 'flex',
+                        width:"250px",
+                        alignItems: 'center',
+                        gap: 1.5,
+                      }}>
+                        <Box sx={{
+                          width: 40, height: 40,
+                          borderRadius: 10,
+                          background: TOKEN.greenBg,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <SpeedIcon sx={{ fontSize: '1.1rem', color: TOKEN.green }} />
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontSize: '0.6rem', color: TOKEN.ghost, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                            Completion Rate
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                            <Typography sx={{ fontSize: '1.45rem', fontWeight: 800, color: TOKEN.ink, lineHeight: 1.1 }}>
+                              {completionRate}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: TOKEN.muted }}>%</Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Grid>
+
+                    {/* Progress bar */}
+                    <Grid item xs={12}>
+                      <Box sx={{ px: 0.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.8 }}>
+                          <Typography sx={{ fontSize: '0.65rem', color: TOKEN.muted, fontWeight: 600 }}>Task Progress</Typography>
+                          <Typography sx={{ fontSize: '0.65rem', color: TOKEN.navy, fontWeight: 700 }}>{completionRate}%</Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={completionRate}
+                          sx={{
+                            height: 6, borderRadius: 99,
+                            bgcolor: TOKEN.navyDim,
+                            '& .MuiLinearProgress-bar': {
+                              borderRadius: 99,
+                              background: `linear-gradient(90deg, ${TOKEN.navy}, ${alpha(TOKEN.green, 0.85)})`,
+                            },
+                          }}
+                        />
                       </Box>
                     </Grid>
                   </Grid>
-                  
-                  <Divider sx={{ my: 1.5 }} />
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
-                    <Typography sx={{ fontSize: '0.65rem', color: '#64748b' }}>
-                      Last Login: {formatDate(profile?.lastLoginDate)}
+
+                  <Divider sx={{ my: 2, borderColor: TOKEN.border }} />
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: TOKEN.ghost }}>
+                      Last login: <Box component="span" sx={{ color: TOKEN.muted, fontWeight: 600 }}>{formatDate(profile?.lastLoginDate)}</Box>
                     </Typography>
-                    <TrendIndicator up={true}>
-                      <TrendingUpIcon sx={{ fontSize: '0.7rem' }} />
-                      <span>Active</span>
-                    </TrendIndicator>
+                    <StatBadge color={TOKEN.navy}>
+                      <CheckCircleIcon sx={{ fontSize: '0.65rem' }} /> In Good Standing
+                    </StatBadge>
                   </Box>
                 </Box>
-              </SectionCard>
+              </Card>
+
             </Stack>
           </Grid>
         </Grid>
 
         {/* Footer */}
-        <Box sx={{ 
-          borderTop: '1px solid',
-          borderColor: alpha(theme.palette.divider, 0.08),
-          mt: 3,
-          pt: 2,
-          textAlign: 'center',
-        }}>
-          <Typography sx={{ fontSize: '0.6rem', color: '#94a3b8' }}>
-            © 2026 Profile Management System. All rights reserved.
+        <Box sx={{ borderTop: `1px solid ${TOKEN.border}`, mt: 4, pt: 2.5, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '0.6rem', color: TOKEN.ghost }}>
+            © 2026 Profile Management System · All rights reserved
           </Typography>
         </Box>
       </Container>
 
-      {/* Snackbar for notifications */}
+      {/* Toast */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
+        <Alert
+          onClose={() => setSnackbar(s => ({ ...s, open: false }))}
           severity={snackbar.severity}
           icon={snackbar.severity === 'success' ? <CheckCircleIcon /> : undefined}
-          sx={{ width: '100%' }}
+          sx={{
+            borderRadius: TOKEN.radiusSm,
+            fontSize: '0.75rem',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          }}
         >
           {snackbar.message}
         </Alert>
@@ -967,13 +717,11 @@ const ProfileContent = () => {
   );
 };
 
-// Main Profile Component - wraps ProfileContent with TeamProvider
-const Profile = () => {
-  return (
-    <TeamProvider>
-      <ProfileContent />
-    </TeamProvider>
-  );
-};
+// ─── Root export ───────────────────────────────────────────────────────────────
+const Profile = () => (
+  <TeamProvider>
+    <ProfileContent />
+  </TeamProvider>
+);
 
 export default Profile;

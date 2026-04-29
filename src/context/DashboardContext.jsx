@@ -1,5 +1,5 @@
-// context/DashboardContext.js
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+// context/DashboardContext.js - Optimized with Error Handling
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContexts';
 import axios from 'axios';
 
@@ -13,17 +13,34 @@ export const useDashboard = () => {
   return context;
 };
 
-const API_BASE_URL = "https://asset-management-3-r0wr.onrender.com/api/v1";
+const API_BASE_URL = "http://localhost:9001/api/v1";
 
-const getApiClient = (token) => {
-  return axios.create({
+// Create API client with interceptors
+const createApiClient = (token) => {
+  const client = axios.create({
     baseURL: API_BASE_URL,
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
     withCredentials: true,
+    timeout: 15000, // 15 second timeout
   });
+
+  // Response interceptor for error handling
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return client;
 };
 
 export const DashboardProvider = ({ children }) => {
@@ -34,167 +51,182 @@ export const DashboardProvider = ({ children }) => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [exportData, setExportData] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const abortControllerRef = useRef(null);
   const isMounted = useRef(true);
+  const retryTimeoutRef = useRef(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      cancelPreviousRequest();
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Cancel previous requests
-  const cancelPreviousRequest = () => {
+  const cancelPreviousRequest = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
-  };
+  }, []);
 
-  // Helper to check if component is mounted
+  // Safe state setter
   const safeSetState = useCallback((setter, value) => {
     if (isMounted.current) {
       setter(value);
     }
   }, []);
 
+  // Generic fetch function with retry logic
+  const fetchWithRetry = useCallback(async (fetchFn, maxRetries = 2) => {
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await fetchFn();
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxRetries && error.response?.status >= 500) {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        } else {
+          break;
+        }
+      }
+    }
+    throw lastError;
+  }, []);
+
   // Fetch Super Admin Dashboard
   const fetchSuperAdminDashboard = useCallback(async (filters = {}) => {
-    if (!isAuthenticated || !token) {
-      console.log('Not authenticated, skipping super admin dashboard fetch');
-      return null;
-    }
-    
-    const userRole = user?.role;
-    if (userRole !== 'super_admin' && userRole !== 'superadmin') {
-      console.log('User is not super admin, skipping');
+    if (!isAuthenticated || !token || !user?.role?.includes('super_admin')) {
       return null;
     }
 
     cancelPreviousRequest();
-    safeSetState(setLoading, true);
     safeSetState(setError, null);
 
     try {
-      const api = getApiClient(token);
+      const api = createApiClient(token);
       const params = new URLSearchParams();
       if (filters.dateRange) params.append('dateRange', filters.dateRange);
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      console.log('Fetching super admin dashboard with params:', params.toString());
-      const response = await api.get(`/dashboard/super-admin?${params.toString()}`, {
-        signal: abortControllerRef.current.signal
-      });
+      const response = await fetchWithRetry(() =>
+        api.get(`/dashboard/super-admin?${params.toString()}`, {
+          signal: abortControllerRef.current?.signal
+        })
+      );
 
-      if (response.data && response.data.success) {
-        safeSetState(setDashboardData, response.data);
-        return response.data;
+      if (response.data?.success) {
+        const data = response.data;
+        safeSetState(setDashboardData, data);
+        return data;
       }
-      throw new Error(response.data?.message || 'Failed to fetch dashboard');
+      throw new Error(response.data?.message || 'Failed to fetch super admin dashboard');
     } catch (err) {
       if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-        console.error('Fetch super admin dashboard error:', err);
-        safeSetState(setError, err.response?.data?.message || err.message);
+        const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred';
+        console.error('Super admin dashboard error:', errorMessage);
+        safeSetState(setError, errorMessage);
       }
       return null;
-    } finally {
-      safeSetState(setLoading, false);
     }
-  }, [isAuthenticated, token, user, safeSetState]);
+  }, [isAuthenticated, token, user, fetchWithRetry, cancelPreviousRequest, safeSetState]);
 
   // Fetch Admin Dashboard
   const fetchAdminDashboard = useCallback(async (filters = {}) => {
-    if (!isAuthenticated || !token) {
-      console.log('Not authenticated, skipping admin dashboard fetch');
-      return null;
-    }
-    
-    if (user?.role !== 'admin') {
-      console.log('User is not admin, skipping');
+    if (!isAuthenticated || !token || user?.role !== 'admin') {
       return null;
     }
 
     cancelPreviousRequest();
-    safeSetState(setLoading, true);
     safeSetState(setError, null);
 
     try {
-      const api = getApiClient(token);
+      const api = createApiClient(token);
       const params = new URLSearchParams();
       if (filters.dateRange) params.append('dateRange', filters.dateRange);
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      console.log('Fetching admin dashboard with params:', params.toString());
-      const response = await api.get(`/dashboard/admin?${params.toString()}`, {
-        signal: abortControllerRef.current.signal
-      });
+      const response = await fetchWithRetry(() =>
+        api.get(`/dashboard/admin?${params.toString()}`, {
+          signal: abortControllerRef.current?.signal
+        })
+      );
 
-      if (response.data && response.data.success) {
-        safeSetState(setDashboardData, response.data);
-        return response.data;
+      if (response.data?.success) {
+        const data = response.data;
+        safeSetState(setDashboardData, data);
+        return data;
       }
-      throw new Error(response.data?.message || 'Failed to fetch dashboard');
+      throw new Error(response.data?.message || 'Failed to fetch admin dashboard');
     } catch (err) {
       if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-        console.error('Fetch admin dashboard error:', err);
-        safeSetState(setError, err.response?.data?.message || err.message);
+        const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred';
+        console.error('Admin dashboard error:', errorMessage);
+        safeSetState(setError, errorMessage);
       }
       return null;
-    } finally {
-      safeSetState(setLoading, false);
     }
-  }, [isAuthenticated, token, user, safeSetState]);
+  }, [isAuthenticated, token, user, fetchWithRetry, cancelPreviousRequest, safeSetState]);
 
   // Fetch Team Dashboard
   const fetchTeamDashboard = useCallback(async () => {
-    if (!isAuthenticated || !token) {
-      console.log('Not authenticated, skipping team dashboard fetch');
-      return null;
-    }
-    
-    if (user?.role !== 'team') {
-      console.log('User is not team member, skipping');
+    if (!isAuthenticated || !token || user?.role !== 'team') {
       return null;
     }
 
     cancelPreviousRequest();
-    safeSetState(setLoading, true);
     safeSetState(setError, null);
 
     try {
-      const api = getApiClient(token);
-      const response = await api.get('/dashboard/team', {
-        signal: abortControllerRef.current.signal
-      });
+      const api = createApiClient(token);
+      const response = await fetchWithRetry(() =>
+        api.get('/dashboard/team', {
+          signal: abortControllerRef.current?.signal
+        })
+      );
 
-      if (response.data && response.data.success) {
-        safeSetState(setDashboardData, response.data);
-        safeSetState(setStatsData, response.data);
-        return response.data;
+      if (response.data?.success) {
+        const data = response.data;
+        safeSetState(setDashboardData, data);
+        safeSetState(setStatsData, data);
+        return data;
       }
       throw new Error(response.data?.message || 'Failed to fetch team dashboard');
     } catch (err) {
       if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-        console.error('Fetch team dashboard error:', err);
-        safeSetState(setError, err.response?.data?.message || err.message);
+        const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred';
+        console.error('Team dashboard error:', errorMessage);
+        safeSetState(setError, errorMessage);
       }
       return null;
-    } finally {
-      safeSetState(setLoading, false);
     }
-  }, [isAuthenticated, token, user, safeSetState]);
+  }, [isAuthenticated, token, user, fetchWithRetry, cancelPreviousRequest, safeSetState]);
 
   // Fetch Dashboard Stats
   const fetchDashboardStats = useCallback(async () => {
     if (!isAuthenticated || !token) return null;
 
-    cancelPreviousRequest();
-
     try {
-      const api = getApiClient(token);
-      const response = await api.get('/dashboard/stats', {
-        signal: abortControllerRef.current.signal
-      });
+      const api = createApiClient(token);
+      const response = await fetchWithRetry(() =>
+        api.get('/dashboard/stats', {
+          signal: abortControllerRef.current?.signal
+        })
+      );
 
-      if (response.data && response.data.success) {
+      if (response.data?.success) {
         safeSetState(setStatsData, response.data);
         return response.data;
       }
@@ -205,23 +237,22 @@ export const DashboardProvider = ({ children }) => {
       }
       return null;
     }
-  }, [isAuthenticated, token, safeSetState]);
+  }, [isAuthenticated, token, fetchWithRetry, safeSetState]);
 
   // Fetch Chart Data
   const fetchChartData = useCallback(async (chartType = null) => {
-    if (!isAuthenticated || !token) return null;
-    if (user?.role === 'team') return null;
-
-    cancelPreviousRequest();
+    if (!isAuthenticated || !token || user?.role === 'team') return null;
 
     try {
-      const api = getApiClient(token);
+      const api = createApiClient(token);
       const url = chartType ? `/dashboard/charts?chartType=${chartType}` : '/dashboard/charts';
-      const response = await api.get(url, {
-        signal: abortControllerRef.current.signal
-      });
+      const response = await fetchWithRetry(() =>
+        api.get(url, {
+          signal: abortControllerRef.current?.signal
+        })
+      );
 
-      if (response.data && response.data.success) {
+      if (response.data?.success) {
         safeSetState(setChartData, response.data);
         return response.data;
       }
@@ -232,104 +263,136 @@ export const DashboardProvider = ({ children }) => {
       }
       return null;
     }
-  }, [isAuthenticated, token, user, safeSetState]);
+  }, [isAuthenticated, token, user, fetchWithRetry, safeSetState]);
 
   // Fetch Recent Activities
   const fetchRecentActivities = useCallback(async (limit = 10) => {
     if (!isAuthenticated || !token) return [];
 
-    cancelPreviousRequest();
-
     try {
-      const api = getApiClient(token);
-      const response = await api.get(`/dashboard/activities?limit=${limit}`, {
-        signal: abortControllerRef.current.signal
-      });
+      const api = createApiClient(token);
+      const response = await fetchWithRetry(() =>
+        api.get(`/dashboard/activities?limit=${limit}`, {
+          signal: abortControllerRef.current?.signal
+        })
+      );
 
-      if (response.data && response.data.success) {
-        // Extract activities from response (they are returned as object with numeric keys)
+      if (response.data?.success) {
         const activitiesList = Object.keys(response.data)
-          .filter(key => !isNaN(parseInt(key)) && key !== 'success' && key !== 'message')
+          .filter(key => !isNaN(parseInt(key)))
           .map(key => response.data[key]);
         safeSetState(setActivities, activitiesList);
         return activitiesList;
       }
-      throw new Error(response.data?.message || 'Failed to fetch activities');
+      // Return empty array for empty response instead of throwing
+      safeSetState(setActivities, []);
+      return [];
     } catch (err) {
       if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
         console.error('Fetch activities error:', err);
+        safeSetState(setActivities, []);
       }
       return [];
     }
-  }, [isAuthenticated, token, safeSetState]);
+  }, [isAuthenticated, token, fetchWithRetry, safeSetState]);
 
   // Export Dashboard Report
   const exportDashboardReport = useCallback(async () => {
-    if (!isAuthenticated || !token) return null;
+    if (!isAuthenticated || !token) {
+      throw new Error('Not authenticated');
+    }
 
     try {
-      const api = getApiClient(token);
+      const api = createApiClient(token);
       const response = await api.get('/dashboard/export', {
-        responseType: 'blob'
+        responseType: 'blob',
+        signal: abortControllerRef.current?.signal
       });
+
+      if (!response.data) {
+        throw new Error('No data received from export');
+      }
 
       return response.data;
     } catch (err) {
-      console.error('Export dashboard error:', err);
-      safeSetState(setError, err.response?.data?.message || 'Failed to export dashboard');
-      return null;
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to export dashboard';
+      console.error('Export dashboard error:', errorMessage);
+      safeSetState(setError, errorMessage);
+      throw new Error(errorMessage);
     }
   }, [isAuthenticated, token, safeSetState]);
 
   // Load dashboard based on user role
   const loadDashboard = useCallback(async (filters = {}) => {
     if (!isAuthenticated || !token) {
-      console.log('Not authenticated, skipping dashboard load');
       return;
     }
 
-    console.log('Loading dashboard for role:', user?.role);
     safeSetState(setLoading, true);
+    safeSetState(setError, null);
     
     try {
       const userRole = user?.role;
       
-      if (userRole === 'super_admin' || userRole === 'superadmin') {
-        await fetchSuperAdminDashboard(filters);
-      } else if (userRole === 'admin') {
-        await fetchAdminDashboard(filters);
-      } else if (userRole === 'team') {
-        await fetchTeamDashboard();
+      // Fetch data in parallel
+      const dashboardPromise = (() => {
+        if (userRole?.includes('super_admin')) return fetchSuperAdminDashboard(filters);
+        if (userRole === 'admin') return fetchAdminDashboard(filters);
+        if (userRole === 'team') return fetchTeamDashboard();
+        return Promise.resolve(null);
+      })();
+
+      const [dashboardResult, statsResult, activitiesResult] = await Promise.allSettled([
+        dashboardPromise,
+        fetchDashboardStats(),
+        fetchRecentActivities(),
+      ]);
+
+      // Handle dashboard result
+      if (dashboardResult.status === 'rejected') {
+        console.error('Dashboard fetch failed:', dashboardResult.reason);
+        safeSetState(setError, 'Failed to load dashboard data');
       }
-      
-      await fetchDashboardStats();
-      await fetchRecentActivities();
-      
+
+      // Handle stats result
+      if (statsResult.status === 'rejected') {
+        console.error('Stats fetch failed:', statsResult.reason);
+      }
+
+      // Handle activities result
+      if (activitiesResult.status === 'rejected') {
+        console.error('Activities fetch failed:', activitiesResult.reason);
+      }
+
+      // Fetch chart data for admin/super admin
       if (userRole !== 'team') {
         await fetchChartData();
       }
+
+      safeSetState(setDataLoaded, true);
     } catch (err) {
       console.error('Load dashboard error:', err);
+      safeSetState(setError, 'An unexpected error occurred while loading the dashboard');
     } finally {
       safeSetState(setLoading, false);
     }
-  }, [isAuthenticated, token, user, fetchSuperAdminDashboard, fetchAdminDashboard, fetchTeamDashboard, fetchDashboardStats, fetchRecentActivities, fetchChartData, safeSetState]);
+  }, [
+    isAuthenticated,
+    token,
+    user,
+    fetchSuperAdminDashboard,
+    fetchAdminDashboard,
+    fetchTeamDashboard,
+    fetchDashboardStats,
+    fetchRecentActivities,
+    fetchChartData,
+    safeSetState,
+  ]);
 
-  // Clear error
+  // Clear error with auto-retry option
   const clearError = useCallback(() => {
     safeSetState(setError, null);
   }, [safeSetState]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
 
   const value = {
     dashboardData,
@@ -338,6 +401,7 @@ export const DashboardProvider = ({ children }) => {
     activities,
     loading,
     error,
+    dataLoaded,
     fetchSuperAdminDashboard,
     fetchAdminDashboard,
     fetchTeamDashboard,

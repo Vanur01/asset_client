@@ -1,4 +1,4 @@
-// Sidebar.jsx - Updated with role-based navigation
+// components/Sidebar.jsx - Fully Responsive with Role-Based Navigation & Modern Icons
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -20,27 +20,32 @@ import {
   BottomNavigationAction,
   Paper,
   CircularProgress,
+  alpha,
 } from "@mui/material";
-import { styled, alpha } from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
 
-// Icons
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
-import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
-import FactCheckIcon from "@mui/icons-material/FactCheck";
-import AssessmentIcon from "@mui/icons-material/Assessment";
-import SettingsSuggestIcon from "@mui/icons-material/SettingsSuggest";
-import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import HistoryIcon from "@mui/icons-material/History";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import GroupsIcon from "@mui/icons-material/Groups";
-import TaskIcon from "@mui/icons-material/Task";
-import MenuIcon from "@mui/icons-material/Menu";
-import CloseIcon from "@mui/icons-material/Close";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
-import AssignmentIcon from "@mui/icons-material/Assignment";
+// ─────────────────────────────────────────────
+// MODERN ICONS (Material UI v6+ compatible)
+// ─────────────────────────────────────────────
+import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
+import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
+import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
+import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
+import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
+import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
+import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
+import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
+import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import { useAuth } from "../context/AuthContexts";
 
 // ─────────────────────────────────────────────
@@ -52,31 +57,34 @@ const MobileHeader = styled(Box)(({ theme }) => ({
   top: 0,
   left: 0,
   right: 0,
-  height: 64,
+  height: { xs: 56, sm: 64 },
   backgroundColor: "#ffffff",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "0 16px",
-  boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
+  padding: { xs: "0 12px", sm: "0 20px" },
+  boxShadow: `0 2px 12px ${alpha(theme.palette.common.black, 0.04)}`,
   zIndex: 1100,
-  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+  backdropFilter: "blur(0px)",
 }));
 
 const MobileNavItem = styled(ListItem, {
   shouldForwardProp: (prop) => prop !== "active",
 })(({ theme, active }) => ({
   borderRadius: 12,
-  marginBottom: 8,
-  padding: "12px 16px",
+  marginBottom: 6,
+  padding: "10px 16px",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1)",
   backgroundColor: active
     ? alpha(theme.palette.primary.main, 0.08)
     : "transparent",
   color: active ? theme.palette.primary.main : theme.palette.text.secondary,
+  "&:hover": {
+    backgroundColor: alpha(theme.palette.primary.main, 0.05),
+  },
   "&:active": {
-    backgroundColor: alpha(theme.palette.primary.main, 0.12),
     transform: "scale(0.98)",
   },
   "& .MuiListItemIcon-root": {
@@ -90,68 +98,79 @@ const BottomNavBar = styled(Paper)(({ theme }) => ({
   bottom: 0,
   left: 0,
   right: 0,
-  height: 64,
-  backgroundColor: "#ffffff",
-  boxShadow: `0 -2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
+  height: { xs: 60, sm: 68 },
+  backgroundColor: "rgba(255, 255, 255, 0.96)",
+  backdropFilter: "blur(10px)",
+  boxShadow: `0 -4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
   zIndex: 1100,
   borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
 }));
 
+// ─────────────────────────────────────────────
+// Navigation Configuration with Modern Icons
+// ─────────────────────────────────────────────
 
 const navItemsConfig = {
   admin: [
     {
       id: "dashboard",
-      icon: DashboardIcon,
+      icon: SpaceDashboardOutlinedIcon,
       label: "Dashboard",
       path: "/admin",
       roles: ["super_admin", "admin"],
     },
     {
       id: "clients",
-      icon: GroupsIcon,
-      label: "Client Management",
+      icon: GroupOutlinedIcon,
+      label: "Clients Management",
       path: "/admin/clients",
-      roles: ["super_admin"], // Only super_admin can see this
+      roles: ["super_admin"],
     },
     {
       id: "checklists",
-      icon: FactCheckIcon,
-      label: "Checklists",
+      icon: ChecklistOutlinedIcon,
+      label: "Checklists Builder",
       path: "/admin/checklists",
       roles: ["super_admin", "admin"],
     },
     {
+      id: "request-checklist",
+      icon: RequestQuoteOutlinedIcon,
+      label: "Request Checklist",
+      path: "/admin/request-checklist",
+      roles: ["super_admin", "admin"],
+    },
+    {
+      id: "assigned",
+      icon: AssignmentOutlinedIcon,
+      label: "Assigned Checklist",
+      path: "/admin/assigned-checklists",
+      roles: ["super_admin", "admin"],
+    },
+    {
       id: "assets",
-      icon: Inventory2Icon,
+      icon: Inventory2OutlinedIcon,
       label: "Assets Management",
       path: "/admin/assets",
-      roles: ["admin"],
+      roles: ["admin", "team"],
     },
     {
       id: "team",
-      icon: PeopleAltIcon,
+      icon: PeopleAltOutlinedIcon,
       label: "Team Management",
       path: "/admin/team",
       roles: ["admin"],
     },
     {
-      id: "assigned",
-      icon: AssignmentIcon,
-      label: "Assigned Checklists",
-      path: "/admin/assigned-checklists",
-      roles: ["super_admin", "admin"],
-    },
-    {
       id: "reports",
-      icon: AssessmentIcon,
-      label: "Reports & Analytics",
+      icon: BarChartOutlinedIcon,
+      label: "Reports and Analysis",
       path: "/admin/reports",
       roles: ["super_admin", "admin"],
     },
     {
       id: "settings",
-      icon: SettingsSuggestIcon,
+      icon: SettingsOutlinedIcon,
       label: "Settings",
       path: "/admin/settings",
       roles: ["super_admin", "admin"],
@@ -160,35 +179,28 @@ const navItemsConfig = {
   team: [
     {
       id: "tasks",
-      icon: TaskIcon,
+      icon: TaskAltOutlinedIcon,
       label: "My Tasks",
       path: "/team",
       roles: ["team"],
     },
     {
       id: "assets",
-      icon: Inventory2Icon,
+      icon: Inventory2OutlinedIcon,
       label: "Assets Management",
       path: "/team/assets",
       roles: ["team"],
     },
     {
-      id: "checklists",
-      icon: FactCheckIcon,
-      label: "My Checklists",
-      path: "/team/checklists",
-      roles: ["team"],
-    },
-    {
       id: "history",
-      icon: HistoryIcon,
+      icon: HistoryOutlinedIcon,
       label: "History",
       path: "/team/history",
       roles: ["team"],
     },
     {
       id: "profile",
-      icon: PersonOutlineIcon,
+      icon: PersonOutlineOutlinedIcon,
       label: "Profile",
       path: "/team/profile",
       roles: ["team"],
@@ -199,16 +211,14 @@ const navItemsConfig = {
 // Helper function to filter nav items based on user role
 export const getNavItems = (userRole) => {
   if (userRole === "super_admin") {
-    // Super admin sees all admin items
+    // UPDATED: super_admin gets only items with super_admin role
+    // Assets Management is explicitly excluded because it only has ["admin", "team"]
     return navItemsConfig.admin.filter((item) =>
-      item.roles.includes("super_admin")
+      item.roles.includes("super_admin"),
     );
   }
   if (userRole === "admin") {
-    // Admin sees only items with 'admin' role
-    return navItemsConfig.admin.filter((item) =>
-      item.roles.includes("admin")
-    );
+    return navItemsConfig.admin.filter((item) => item.roles.includes("admin"));
   }
   if (userRole === "team") {
     return navItemsConfig.team;
@@ -237,7 +247,7 @@ const getUserInitials = (user) => {
 };
 
 // ─────────────────────────────────────────────
-// Component
+// Main Component
 // ─────────────────────────────────────────────
 
 export default function Sidebar({ mobileOpen, onDrawerToggle }) {
@@ -247,16 +257,16 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bottomNavValue, setBottomNavValue] = useState(0);
 
-  // Get filtered nav items based on user role
   const navItems = getNavItems(user?.role);
 
-  // Check if user is authenticated, redirect to login if not
+  // Auth redirect
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       navigate("/login");
@@ -295,19 +305,9 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         e.preventDefault();
         e.stopPropagation();
       }
-
-      console.log("Navigating to:", path, "Item ID:", id);
-
       setActiveItem(id);
-
-      if (mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
-
-      if (onDrawerToggle && mobileOpen) {
-        onDrawerToggle();
-      }
-
+      if (mobileMenuOpen) setMobileMenuOpen(false);
+      if (onDrawerToggle && mobileOpen) onDrawerToggle();
       navigate(path);
     },
     [navigate, onDrawerToggle, mobileOpen, mobileMenuOpen],
@@ -326,7 +326,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   const handleOpenMobileMenu = () => setMobileMenuOpen(true);
   const handleCloseMobileMenu = () => setMobileMenuOpen(false);
 
-  // Show loading state while auth is initializing
   if (authLoading) {
     return (
       <Box
@@ -343,15 +342,11 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
     );
   }
 
-  // If no user is authenticated, don't render sidebar
-  if (!user || navItems.length === 0) {
-    return null;
-  }
+  if (!user || navItems.length === 0) return null;
 
   // ─────────────────────────────────────────────
-  // Desktop Sidebar Content
+  // Desktop Sidebar
   // ─────────────────────────────────────────────
-
   const desktopSidebarContent = (
     <Box
       sx={{
@@ -359,19 +354,20 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         display: "flex",
         flexDirection: "column",
         backgroundColor: "#ffffff",
-        borderRight: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        borderRight: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
         position: "relative",
       }}
     >
-      {/* Logo Section */}
+      {/* Logo */}
       <Box
         sx={{
-          p: isCollapsed ? 2 : 3,
+          p: isCollapsed ? 2 : 2.5,
           display: "flex",
           alignItems: "center",
           gap: 1.5,
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
           justifyContent: isCollapsed ? "center" : "flex-start",
+          position: "relative",
         }}
       >
         <Box
@@ -383,42 +379,54 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            flexShrink: 0,
-            boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.3)}`,
+            boxShadow: `0 6px 12px ${alpha(theme.palette.primary.main, 0.25)}`,
           }}
         >
-          <Inventory2Icon sx={{ color: "#ffffff", fontSize: 22 }} />
+          <Inventory2OutlinedIcon sx={{ color: "#fff", fontSize: 22 }} />
         </Box>
-
         {!isCollapsed && (
-          <Box sx={{ overflow: "hidden" }}>
-            <Typography
-              sx={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: theme.palette.text.primary,
-                lineHeight: 1.2,
-              }}
-            >
+          <Box>
+            <Typography fontWeight={700} fontSize={16}>
               AssetInspect
             </Typography>
             <Typography
-              sx={{
-                fontSize: 11,
-                color: theme.palette.text.secondary,
-                fontWeight: 500,
-                textTransform: "capitalize",
-              }}
+              fontSize={11}
+              color="text.secondary"
+              textTransform="capitalize"
             >
-              {user?.role === "super_admin" ? "Super Admin" : user?.role || "Admin"}
+              {user?.role === "super_admin" ? "Super Admin" : user?.role}
             </Typography>
           </Box>
         )}
+        {!isMobile && (
+          <IconButton
+            onClick={handleCollapseToggle}
+            size="small"
+            sx={{
+              position: "absolute",
+              right: -12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              bgcolor: "#fff",
+              boxShadow: 1,
+              border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+              width: 24,
+              height: 24,
+              "&:hover": { bgcolor: "#f5f5f5" },
+            }}
+          >
+            {isCollapsed ? (
+              <ChevronRightOutlinedIcon fontSize="small" />
+            ) : (
+              <ChevronLeftOutlinedIcon fontSize="small" />
+            )}
+          </IconButton>
+        )}
       </Box>
 
-      {/* Navigation Links */}
-      <List sx={{ flex: 1, px: isCollapsed ? 1 : 2, py: 2 }}>
-        {navItems.map(({ id, icon: Icon, label, path, badge }) => {
+      {/* Nav Links */}
+      <List sx={{ flex: 1, px: isCollapsed ? 1 : 2, py: 2, overflowY: "auto" }}>
+        {navItems.map(({ id, icon: Icon, label, path }) => {
           const isActive = activeItem === id || location.pathname === path;
           return (
             <Tooltip
@@ -431,9 +439,9 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
                 onClick={(e) => handleNavigation(path, id, e)}
                 sx={{
                   borderRadius: 2,
-                  mb: 0.5,
-                  py: 1.5,
-                  px: 2,
+                  mb: 0.75,
+                  py: 1.2,
+                  px: 1.5,
                   cursor: "pointer",
                   backgroundColor: isActive
                     ? alpha(theme.palette.primary.main, 0.08)
@@ -442,7 +450,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
                     ? theme.palette.primary.main
                     : theme.palette.text.secondary,
                   "&:hover": {
-                    backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                    backgroundColor: alpha(theme.palette.primary.main, 0.05),
                   },
                   "& .MuiListItemIcon-root": {
                     color: "inherit",
@@ -451,21 +459,8 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
                 }}
               >
                 <ListItemIcon>
-                  <Badge
-                    badgeContent={badge}
-                    color="error"
-                    sx={{
-                      "& .MuiBadge-badge": {
-                        fontSize: 10,
-                        height: 18,
-                        minWidth: 18,
-                      },
-                    }}
-                  >
-                    <Icon sx={{ fontSize: 22 }} />
-                  </Badge>
+                  <Icon sx={{ fontSize: 22 }} />
                 </ListItemIcon>
-
                 {!isCollapsed && (
                   <ListItemText
                     primary={label}
@@ -481,27 +476,57 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         })}
       </List>
 
+      {/* User Profile (Desktop) */}
+      {!isCollapsed && (
+        <Box
+          sx={{
+            p: 2,
+            borderTop: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 36,
+              height: 36,
+              bgcolor: theme.palette.primary.main,
+              fontSize: 14,
+            }}
+          >
+            {getUserInitials(user)}
+          </Avatar>
+          <Box sx={{ flex: 1, overflow: "hidden" }}>
+            <Typography variant="body2" fontWeight={600} noWrap>
+              {getUserDisplayName(user)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {user?.email || ""}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* Logout */}
       <Box
         sx={{
-          p: isCollapsed ? 2 : 3,
-          borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          p: isCollapsed ? 2 : 2,
+          borderTop: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
         }}
       >
         <Tooltip title={isCollapsed ? "Logout" : ""} placement="right" arrow>
           <Button
             onClick={handleLogout}
-            startIcon={!isCollapsed ? <LogoutRoundedIcon /> : null}
+            startIcon={!isCollapsed ? <LogoutOutlinedIcon /> : null}
             fullWidth
             variant="text"
             sx={{
               justifyContent: isCollapsed ? "center" : "flex-start",
               color: theme.palette.text.secondary,
               fontWeight: 500,
-              fontSize: 14,
               textTransform: "none",
-              py: 1.2,
-              px: isCollapsed ? 1 : 2,
+              py: 1,
               borderRadius: 2,
               "&:hover": {
                 color: theme.palette.error.main,
@@ -509,7 +534,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
               },
             }}
           >
-            {!isCollapsed ? "Logout" : <LogoutRoundedIcon />}
+            {!isCollapsed ? "Logout" : <LogoutOutlinedIcon />}
           </Button>
         </Tooltip>
       </Box>
@@ -517,26 +542,24 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   );
 
   // ─────────────────────────────────────────────
-  // Mobile Drawer Content
+  // Mobile Drawer
   // ─────────────────────────────────────────────
-
   const mobileMenuContent = (
     <Box
       sx={{
         height: "100%",
-        backgroundColor: "#ffffff",
+        bgcolor: "#fff",
         display: "flex",
         flexDirection: "column",
       }}
     >
-      {/* Header */}
       <Box
         sx={{
           p: 2,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -551,25 +574,15 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
               justifyContent: "center",
             }}
           >
-            <Inventory2Icon sx={{ color: "#ffffff", fontSize: 20 }} />
+            <Inventory2OutlinedIcon sx={{ color: "#fff", fontSize: 20 }} />
           </Box>
-          <Box>
-            <Typography sx={{ fontSize: 16, fontWeight: 600 }}>
-              AssetInspect
-            </Typography>
-            <Typography
-              sx={{ fontSize: 11, color: theme.palette.text.secondary }}
-            >
-              {user?.role === "super_admin" ? "Super Admin" : user?.role || "Admin"}
-            </Typography>
-          </Box>
+          <Typography fontWeight={600}>AssetInspect</Typography>
         </Box>
-        <IconButton onClick={handleCloseMobileMenu} edge="end">
-          <CloseIcon />
+        <IconButton onClick={handleCloseMobileMenu}>
+          <CloseOutlinedIcon />
         </IconButton>
       </Box>
 
-      {/* User Profile */}
       <Box sx={{ p: 2 }}>
         <Box
           sx={{
@@ -578,7 +591,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
             gap: 1.5,
             p: 1.5,
             borderRadius: 2,
-            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+            bgcolor: alpha(theme.palette.primary.main, 0.04),
           }}
         >
           <Avatar
@@ -586,24 +599,19 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
           >
             {getUserInitials(user)}
           </Avatar>
-          <Box sx={{ overflow: "hidden" }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }} noWrap>
+          <Box sx={{ flex: 1, overflow: "hidden" }}>
+            <Typography fontWeight={600} noWrap>
               {getUserDisplayName(user)}
             </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: theme.palette.text.secondary }}
-              noWrap
-            >
+            <Typography variant="caption" color="text.secondary" noWrap>
               {user?.email || ""}
             </Typography>
           </Box>
         </Box>
       </Box>
 
-      {/* Nav Links */}
       <List sx={{ px: 2, flex: 1, overflowY: "auto" }}>
-        {navItems.map(({ id, icon: Icon, label, path, badge }) => {
+        {navItems.map(({ id, icon: Icon, label, path }) => {
           const isActive = activeItem === id || location.pathname === path;
           return (
             <MobileNavItem
@@ -612,19 +620,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
               onClick={(e) => handleNavigation(path, id, e)}
             >
               <ListItemIcon>
-                <Badge
-                  badgeContent={badge}
-                  color="error"
-                  sx={{
-                    "& .MuiBadge-badge": {
-                      fontSize: 10,
-                      height: 18,
-                      minWidth: 18,
-                    },
-                  }}
-                >
-                  <Icon sx={{ fontSize: 24 }} />
-                </Badge>
+                <Icon sx={{ fontSize: 24 }} />
               </ListItemIcon>
               <ListItemText
                 primary={label}
@@ -638,15 +634,14 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         })}
       </List>
 
-      {/* Logout */}
       <Box sx={{ p: 2, mt: "auto" }}>
         <Button
           onClick={handleLogout}
-          startIcon={<LogoutRoundedIcon />}
+          startIcon={<LogoutOutlinedIcon />}
           fullWidth
           variant="outlined"
           color="error"
-          sx={{ py: 1.5, borderRadius: 2, textTransform: "none", fontSize: 15 }}
+          sx={{ py: 1.2, borderRadius: 2, textTransform: "none" }}
         >
           Logout
         </Button>
@@ -657,20 +652,13 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   // ─────────────────────────────────────────────
   // Mobile Layout
   // ─────────────────────────────────────────────
-
   if (isMobile) {
     return (
       <>
-        {/* Fixed Top Header */}
         <MobileHeader>
-          <IconButton
-            onClick={handleOpenMobileMenu}
-            edge="start"
-            sx={{ color: theme.palette.text.primary }}
-          >
-            <MenuIcon />
+          <IconButton onClick={handleOpenMobileMenu}>
+            <MenuOutlinedIcon />
           </IconButton>
-
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Box
               sx={{
@@ -683,106 +671,84 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
                 justifyContent: "center",
               }}
             >
-              <Inventory2Icon sx={{ color: "#ffffff", fontSize: 18 }} />
+              <Inventory2OutlinedIcon sx={{ color: "#fff", fontSize: 18 }} />
             </Box>
-            <Typography sx={{ fontSize: 16, fontWeight: 600 }}>
+            <Typography fontWeight={600} fontSize={14}>
               AssetInspect
             </Typography>
           </Box>
-
-          <IconButton
-            onClick={handleLogout}
-            size="small"
-            sx={{ color: theme.palette.text.secondary }}
-          >
-            <LogoutRoundedIcon />
+          <IconButton onClick={handleLogout} size="small">
+            <LogoutOutlinedIcon fontSize="small" />
           </IconButton>
         </MobileHeader>
 
-        {/* Spacer below fixed header */}
-        <Box sx={{ height: 64 }} />
+        <Box sx={{ height: { xs: 56, sm: 64 } }} />
 
-        {/* Slide-in Drawer */}
         <Drawer
           anchor="left"
           open={mobileMenuOpen}
           onClose={handleCloseMobileMenu}
           keepMounted={false}
-          sx={{
-            "& .MuiDrawer-paper": {
-              width: isSmallMobile ? "85%" : 320,
-              maxWidth: 400,
-              backgroundColor: "#ffffff",
-              boxShadow: theme.shadows[8],
-            },
-          }}
         >
-          {mobileMenuContent}
+          <Box sx={{ width: isSmallMobile ? "85vw" : 320 }}>
+            {mobileMenuContent}
+          </Box>
         </Drawer>
 
-        {/* Bottom Navigation - Only show first 5 items */}
         {navItems.length > 0 && (
-          <BottomNavBar elevation={3}>
-            <BottomNavigation
-              value={bottomNavValue}
-              onChange={handleBottomNavChange}
-              showLabels={!isSmallMobile}
-              sx={{
-                width: "100%",
-                backgroundColor: "transparent",
-                "& .MuiBottomNavigationAction-root": {
-                  minWidth: 0,
-                  py: 1,
-                  color: theme.palette.text.secondary,
-                  "&.Mui-selected": { color: theme.palette.primary.main },
-                },
-                "& .MuiBottomNavigationAction-label": {
-                  fontSize: 11,
-                  mt: 0.5,
-                },
-              }}
-            >
-              {navItems.slice(0, 5).map((item) => {
-                const Icon = item.icon;
-                return (
+          <>
+            <BottomNavBar elevation={0}>
+              <BottomNavigation
+                value={bottomNavValue}
+                onChange={handleBottomNavChange}
+                showLabels={!isSmallMobile}
+                sx={{
+                  height: { xs: 60, sm: 68 },
+                  backgroundColor: "transparent",
+                }}
+              >
+                {navItems.slice(0, 5).map((item, idx) => (
                   <BottomNavigationAction
                     key={item.id}
-                    label={item.label}
-                    icon={<Icon sx={{ fontSize: isSmallMobile ? 20 : 22 }} />}
+                    label={isSmallMobile ? "" : item.label}
+                    icon={<item.icon sx={{ fontSize: { xs: 22, sm: 24 } }} />}
+                    sx={{
+                      color:
+                        bottomNavValue === idx
+                          ? theme.palette.primary.main
+                          : theme.palette.text.secondary,
+                    }}
                   />
-                );
-              })}
-            </BottomNavigation>
-          </BottomNavBar>
+                ))}
+              </BottomNavigation>
+            </BottomNavBar>
+            <Box sx={{ height: { xs: 60, sm: 68 } }} />
+          </>
         )}
-
-        {/* Spacer above fixed bottom nav */}
-        <Box sx={{ height: 64 }} />
       </>
     );
   }
 
   // ─────────────────────────────────────────────
-  // Desktop Layout
+  // Desktop Return
   // ─────────────────────────────────────────────
-
   return (
     <Box
       component="aside"
       sx={{
-        width: isCollapsed ? 88 : 280,
+        width: isCollapsed ? { md: 72, lg: 88 } : { md: 260, lg: 280 },
         backgroundColor: "#ffffff",
         display: { xs: "none", md: "block" },
         flexShrink: 0,
         height: "100vh",
         position: "sticky",
         top: 0,
-        transition: theme.transitions.create(["width"], {
+        transition: theme.transitions.create("width", {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.enteringScreen,
         }),
         overflow: "hidden",
-        boxShadow: `2px 0 8px ${alpha(theme.palette.common.black, 0.02)}`,
+        boxShadow: `2px 0 12px ${alpha(theme.palette.common.black, 0.02)}`,
       }}
     >
       {desktopSidebarContent}

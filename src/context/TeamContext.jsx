@@ -21,7 +21,7 @@ export const useTeam = () => {
 };
 
 // API Configuration
-const API_BASE_URL = "https://asset-management-3-r0wr.onrender.com/api/v1";
+const API_BASE_URL = "http://localhost:9001/api/v1";
 
 // Helper to get API client with token
 const getApiClient = (token) => {
@@ -229,6 +229,62 @@ export const TeamProvider = ({ children }) => {
     },
     [isAuthenticated, token],
   );
+
+  // Format join date (new method)
+  const formatJoinDate = useCallback((dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 30) {
+      return `${diffDays} days ago`;
+    } else if (diffDays < 365) {
+      const months = Math.floor(diffDays / 30);
+      return `${months} month${months > 1 ? 's' : ''} ago`;
+    } else {
+      const years = Math.floor(diffDays / 365);
+      return `${years} year${years > 1 ? 's' : ''} ago`;
+    }
+  }, []);
+
+  // Get profile initials (new method)
+  const getProfileInitials = useCallback(() => {
+    if (profile?.firstName && profile?.lastName) {
+      return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase();
+    }
+    return profile?.email?.charAt(0).toUpperCase() || "?";
+  }, [profile]);
+
+  // Get full name (new method)
+  const getFullName = useCallback(() => {
+    if (profile?.firstName && profile?.lastName) {
+      return `${profile.firstName} ${profile.lastName}`;
+    }
+    return profile?.email?.split("@")[0] || "Team Member";
+  }, [profile]);
+
+  // Format date (new method)
+  const formatDate = useCallback((dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }, []);
+
+  const formatDateTime = useCallback((dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
 
   // ==================== ADMIN FUNCTIONS ====================
 
@@ -604,41 +660,6 @@ export const TeamProvider = ({ children }) => {
     cacheRef.current = { members: null, stats: null };
   }, []);
 
-  // Format date
-  const formatDate = useCallback((dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }, []);
-
-  const formatDateTime = useCallback((dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }, []);
-
-  const getFullName = useCallback(() => {
-    if (profile?.firstName && profile?.lastName) {
-      return `${profile.firstName} ${profile.lastName}`;
-    }
-    return profile?.email?.split("@")[0] || "Team Member";
-  }, [profile]);
-
-  const getProfileInitials = useCallback(() => {
-    if (profile?.firstName && profile?.lastName) {
-      return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase();
-    }
-    return profile?.email?.charAt(0).toUpperCase() || "?";
-  }, [profile]);
-
   // Initial load
   useEffect(() => {
     const canAccessTeam = isAuthenticated && token;
@@ -647,8 +668,9 @@ export const TeamProvider = ({ children }) => {
       isMounted.current = true;
       fetchTeamMembers({ page: 1 }, true);
       fetchTeamStats(true);
+      fetchTeamProfile(); // Also fetch profile on initial load
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, fetchTeamMembers, fetchTeamStats, fetchTeamProfile]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -676,6 +698,11 @@ export const TeamProvider = ({ children }) => {
     fetchTeamProfile,
     updateTeamProfile,
     changePassword,
+    // Profile utility methods
+    formatDate,
+    formatJoinDate,
+    getFullName,
+    getInitials: getProfileInitials,
     // Team management functions
     fetchTeamMembers,
     fetchTeamStats,
@@ -689,10 +716,7 @@ export const TeamProvider = ({ children }) => {
     updateFilters,
     changePage,
     // Utility functions
-    formatDate,
     formatDateTime,
-    getFullName,
-    getInitials: getProfileInitials,
     setSelectedMember,
     clearError,
     clearCache,

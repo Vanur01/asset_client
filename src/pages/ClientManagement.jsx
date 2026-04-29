@@ -1,5 +1,5 @@
-// pages/ClientManagement.js - Complete working version with filters and search
-import React, { useState, useEffect, useCallback, useRef } from "react";
+// pages/ClientManagement.jsx - Fully Responsive for All Devices
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Box,
   Grid,
@@ -32,6 +32,8 @@ import {
   Skeleton,
   Zoom,
   InputAdornment,
+  TablePagination,
+  alpha,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -50,6 +52,8 @@ import {
   Visibility as VisibilityIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
+  ErrorOutline as ErrorOutlineIcon,
+  Inbox as InboxIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useClient } from "../context/ClientContext";
@@ -85,87 +89,122 @@ const getMembershipStyle = (plan = "") => {
     free: { bg: "#f0f3f5", color: "#5f6b7a", label: "Free" },
     enterprise: { bg: "#ede7f6", color: "#5e35b1", label: "Enterprise" },
   };
-  return (
-    map[plan.toLowerCase()] || {
-      bg: C.border,
-      color: C.text.secondary,
-      label: plan,
-    }
-  );
+  return map[plan.toLowerCase()] || { bg: C.border, color: C.text.secondary, label: plan };
 };
 
-// ─── Stat Card ───────────────────────────────────────────────────────────────
-const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2.5,
-      borderRadius: 3,
-      bgcolor: C.card,
-      border: "1px solid",
-      borderColor: C.border,
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      gap: 1,
-      transition: "all 0.2s",
-      "&:hover": {
-        boxShadow: "0 4px 16px rgba(13,74,92,0.08)",
-        transform: "translateY(-2px)",
-      },
-    }}
-  >
-    <Box
-      sx={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <Typography
-        variant="caption"
-        sx={{ color: C.text.secondary, fontWeight: 500, fontSize: "0.72rem" }}
-      >
-        {title}
-      </Typography>
-      <Box
-        sx={{
-          p: 0.75,
-          borderRadius: 1.5,
-          bgcolor: color ? `${color}18` : C.primaryLight,
-        }}
-      >
-        <Icon sx={{ fontSize: "1.1rem", color: color || C.primary }} />
+// ─── Loading Skeleton ────────────────────────────────────────────────────────
+const ClientCardSkeleton = () => (
+  <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, border: `1px solid ${C.border}` }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+      <Skeleton variant="rounded" width={44} height={44} sx={{ borderRadius: 2 }} />
+      <Box sx={{ flex: 1 }}>
+        <Skeleton variant="text" width="70%" height={20} />
+        <Skeleton variant="text" width="50%" height={16} />
+      </Box>
+      <Skeleton variant="circular" width={32} height={32} />
+    </Box>
+    <Skeleton variant="text" width="40%" height={16} sx={{ mb: 1 }} />
+    <Skeleton variant="rounded" height={5} sx={{ borderRadius: 3, mb: 1.5 }} />
+    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+      <Skeleton variant="rounded" width={70} height={32} />
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Skeleton variant="circular" width={32} height={32} />
+        <Skeleton variant="circular" width={32} height={32} />
       </Box>
     </Box>
-    {loading ? (
-      <Skeleton variant="text" width="50%" height={36} />
-    ) : (
-      <Typography
-        variant="h5"
-        sx={{
-          fontWeight: 700,
-          color: C.text.primary,
-          fontSize: "1.6rem",
-          lineHeight: 1,
-        }}
-      >
-        {value ?? 0}
-      </Typography>
-    )}
-    {subtitle && (
-      <Typography
-        variant="caption"
-        sx={{ color: C.text.disabled, fontSize: "0.62rem" }}
-      >
-        {subtitle}
-      </Typography>
-    )}
   </Paper>
 );
 
+// ─── Empty State ─────────────────────────────────────────────────────────────
+const EmptyState = ({ title, description, action }) => (
+  <Box sx={{ textAlign: "center", py: { xs: 6, sm: 8, md: 10 }, px: 2 }}>
+    <InboxIcon sx={{ fontSize: { xs: 48, sm: 64 }, color: C.text.disabled, mb: 2 }} />
+    <Typography variant="h6" sx={{ fontWeight: 600, color: C.text.primary, mb: 1, fontSize: { xs: "0.9rem", sm: "1rem" } }}>
+      {title}
+    </Typography>
+    <Typography variant="body2" sx={{ color: C.text.secondary, mb: 3, maxWidth: 400, mx: "auto", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+      {description}
+    </Typography>
+    {action && action}
+  </Box>
+);
+
+// ─── Error State ─────────────────────────────────────────────────────────────
+const ErrorState = ({ message, onRetry }) => (
+  <Box sx={{ textAlign: "center", py: { xs: 6, sm: 8 }, px: 2 }}>
+    <ErrorOutlineIcon sx={{ fontSize: { xs: 48, sm: 64 }, color: C.error, mb: 2 }} />
+    <Typography variant="h6" sx={{ fontWeight: 600, color: C.error, mb: 1, fontSize: { xs: "0.9rem", sm: "1rem" } }}>
+      Failed to Load Clients
+    </Typography>
+    <Typography variant="body2" sx={{ color: C.text.secondary, mb: 3, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+      {message || "An error occurred while fetching clients."}
+    </Typography>
+    <Button variant="contained" onClick={onRetry} startIcon={<RefreshIcon />} sx={{ bgcolor: C.primary }}>
+      Retry
+    </Button>
+  </Box>
+);
+
+// ─── Stat Card ───────────────────────────────────────────────────────────────
+const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  if (loading) {
+    return (
+      <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, bgcolor: C.card, border: `1px solid ${C.border}` }}>
+        <Skeleton variant="circular" width={32} height={32} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width="60%" height={20} />
+        <Skeleton variant="text" width="40%" height={28} sx={{ mt: 1 }} />
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 2, sm: 2.5 },
+        borderRadius: { xs: 2, sm: 3 },
+        bgcolor: C.card,
+        border: "1px solid",
+        borderColor: C.border,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        width:"270px",
+        gap: 1,
+        transition: "all 0.2s",
+        "&:hover": {
+          boxShadow: "0 4px 16px rgba(13,74,92,0.08)",
+          transform: "translateY(-2px)",
+        },
+      }}
+    >
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography variant="caption" sx={{ color: C.text.secondary, fontWeight: 500, fontSize: { xs: "0.65rem", sm: "0.7rem" } }}>
+          {title}
+        </Typography>
+        <Box sx={{ p: { xs: 0.5, sm: 0.75 }, borderRadius: 1.5, bgcolor: color ? `${color}18` : C.primaryLight }}>
+          <Icon sx={{ fontSize: { xs: "1rem", sm: "1.1rem" }, color: color || C.primary }} />
+        </Box>
+      </Box>
+      <Typography variant="h5" sx={{ fontWeight: 700, color: C.text.primary, fontSize: { xs: "1.2rem", sm: "1.4rem", md: "1.6rem" }, lineHeight: 1 }}>
+        {value ?? 0}
+      </Typography>
+      {subtitle && (
+        <Typography variant="caption" sx={{ color: C.text.disabled, fontSize: { xs: "0.6rem", sm: "0.65rem" } }}>
+          {subtitle}
+        </Typography>
+      )}
+    </Paper>
+  );
+};
+
 // ─── Client Card ─────────────────────────────────────────────────────────────
 const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const plan = client.membershipPlan || "free";
   const daysLeft = client.daysRemaining ?? 0;
   const isActive = client.status === "active";
@@ -174,11 +213,7 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
 
   const usersUsed = client.usersUsed || 0;
   const licenseLimit = client.licenseLimit || 0;
-  const usagePercentage =
-    licenseLimit > 0
-      ? Math.min(100, Math.round((usersUsed / licenseLimit) * 100))
-      : 0;
-
+  const usagePercentage = licenseLimit > 0 ? Math.min(100, Math.round((usersUsed / licenseLimit) * 100)) : 0;
   const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
 
   return (
@@ -186,11 +221,12 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
       <Paper
         elevation={0}
         sx={{
-          p: 2.5,
-          borderRadius: 3,
+          p: { xs: 2, sm: 2.5 },
+          borderRadius: { xs: 2, sm: 3 },
           border: "1px solid",
           borderColor: C.border,
           bgcolor: C.card,
+          width:"350px",
           position: "relative",
           opacity: isActive ? 1 : 0.75,
           transition: "all 0.2s",
@@ -210,7 +246,7 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
               top: 10,
               right: 10,
               height: 20,
-              fontSize: "0.58rem",
+              fontSize: { xs: "0.55rem", sm: "0.6rem" },
               fontWeight: 700,
               bgcolor: C.errorLight,
               color: C.error,
@@ -218,13 +254,13 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
           />
         )}
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 1.5 }, mb: 2 }}>
           <Avatar
             sx={{
-              width: 44,
-              height: 44,
+              width: { xs: 40, sm: 44 },
+              height: { xs: 40, sm: 44 },
               bgcolor: isActive ? C.primary : C.text.disabled,
-              fontSize: "0.9rem",
+              fontSize: { xs: "0.8rem", sm: "0.9rem" },
               fontWeight: 700,
               borderRadius: 2,
             }}
@@ -232,15 +268,13 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
             {getInitials(client.customerName)}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box
-              sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}
-            >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}>
               <Typography
                 variant="body2"
                 sx={{
                   fontWeight: 700,
                   color: C.text.primary,
-                  fontSize: "0.88rem",
+                  fontSize: { xs: "0.8rem", sm: "0.88rem" },
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -248,19 +282,13 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
               >
                 {client.customerName}
               </Typography>
-              <CircleIcon
-                sx={{
-                  color: isActive ? C.success : C.text.disabled,
-                  fontSize: "0.45rem",
-                  flexShrink: 0,
-                }}
-              />
+              <CircleIcon sx={{ color: isActive ? C.success : C.text.disabled, fontSize: "0.45rem", flexShrink: 0 }} />
             </Box>
             <Typography
               variant="caption"
               sx={{
                 color: C.text.secondary,
-                fontSize: "0.67rem",
+                fontSize: { xs: "0.62rem", sm: "0.67rem" },
                 display: "block",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -270,26 +298,14 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
               {client.email}
             </Typography>
           </Box>
-          <IconButton
-            size="small"
-            sx={{ color: C.text.disabled, p: 0.5 }}
-            onClick={(e) => setMenuAnchor(e.currentTarget)}
-          >
-            <MoreVertIcon sx={{ fontSize: "1rem" }} />
+          <IconButton size="small" sx={{ color: C.text.disabled, p: 0.5 }} onClick={(e) => setMenuAnchor(e.currentTarget)}>
+            <MoreVertIcon sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }} />
           </IconButton>
         </Box>
 
-        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <Box sx={{ display: "flex", gap: { xs: 1, sm: 2 }, mb: 2 }}>
           <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: C.text.disabled,
-                fontSize: "0.6rem",
-                display: "block",
-                mb: 0.5,
-              }}
-            >
+            <Typography variant="caption" sx={{ color: C.text.disabled, fontSize: { xs: "0.55rem", sm: "0.6rem" }, display: "block", mb: 0.5 }}>
               Membership
             </Typography>
             <Chip
@@ -298,55 +314,34 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
               sx={{
                 bgcolor: mStyle.bg,
                 color: mStyle.color,
-                fontSize: "0.62rem",
+                fontSize: { xs: "0.58rem", sm: "0.62rem" },
                 fontWeight: 700,
-                height: 22,
+                height: { xs: 20, sm: 22 },
                 borderRadius: 1,
               }}
             />
           </Box>
           <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: C.text.disabled,
-                fontSize: "0.6rem",
-                display: "block",
-                mb: 0.5,
-              }}
-            >
+            <Typography variant="caption" sx={{ color: C.text.disabled, fontSize: { xs: "0.55rem", sm: "0.6rem" }, display: "block", mb: 0.5 }}>
               Duration
             </Typography>
             <Typography
               variant="caption"
-              sx={{
-                fontWeight: 600,
-                fontSize: "0.75rem",
-                color: isExpiringSoon ? C.error : C.text.primary,
-              }}
+              sx={{ fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.75rem" }, color: isExpiringSoon ? C.error : C.text.primary }}
             >
-              {daysLeft} days left {isExpiringSoon && "⚠️"}
+              {daysLeft} days left {isExpiringSoon && "⚠"}
             </Typography>
           </Box>
         </Box>
 
         <Box sx={{ mb: 2 }}>
-          <Box
-            sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}
-          >
-            <Typography
-              variant="caption"
-              sx={{ color: C.text.disabled, fontSize: "0.6rem" }}
-            >
+          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: C.text.disabled, fontSize: { xs: "0.55rem", sm: "0.6rem" } }}>
               License Usage
             </Typography>
             <Typography
               variant="caption"
-              sx={{
-                fontWeight: 600,
-                fontSize: "0.67rem",
-                color: usagePercentage > 85 ? C.error : C.text.primary,
-              }}
+              sx={{ fontWeight: 600, fontSize: { xs: "0.62rem", sm: "0.67rem" }, color: usagePercentage > 85 ? C.error : C.text.primary }}
             >
               {usersUsed} / {licenseLimit} ({usagePercentage}%)
             </Typography>
@@ -355,7 +350,7 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
             variant="determinate"
             value={usagePercentage}
             sx={{
-              height: 5,
+              height: { xs: 4, sm: 5 },
               borderRadius: 3,
               bgcolor: C.border,
               "& .MuiLinearProgress-bar": {
@@ -366,36 +361,24 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
           />
         </Box>
 
-        <Divider sx={{ borderColor: C.border, mb: 1.5 }} />
+        <Divider sx={{ borderColor: C.border, mb: { xs: 1, sm: 1.5 } }} />
 
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Button
             size="small"
             variant="outlined"
-            startIcon={
-              <VisibilityIcon sx={{ fontSize: "0.85rem !important" }} />
-            }
+            startIcon={<VisibilityIcon sx={{ fontSize: { xs: "0.8rem", sm: "0.85rem" } }} />}
             onClick={() => onViewDetails(client._id)}
             sx={{
-              fontSize: "0.7rem",
+              fontSize: { xs: "0.65rem", sm: "0.7rem" },
               fontWeight: 600,
               textTransform: "none",
               borderColor: C.border,
               color: C.text.secondary,
               py: 0.5,
-              px: 1.5,
+              px: { xs: 1, sm: 1.5 },
               borderRadius: 1.5,
-              "&:hover": {
-                borderColor: C.primary,
-                color: C.primary,
-                bgcolor: C.primaryLight,
-              },
+              "&:hover": { borderColor: C.primary, color: C.primary, bgcolor: C.primaryLight },
             }}
           >
             View
@@ -404,24 +387,16 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
             <IconButton
               size="small"
               onClick={() => onEdit(client)}
-              sx={{
-                color: C.text.secondary,
-                p: 0.75,
-                "&:hover": { color: C.primary, bgcolor: C.primaryLight },
-              }}
+              sx={{ color: C.text.secondary, p: { xs: 0.5, sm: 0.75 }, "&:hover": { color: C.primary, bgcolor: C.primaryLight } }}
             >
-              <EditIcon sx={{ fontSize: "0.95rem" }} />
+              <EditIcon sx={{ fontSize: { xs: "0.85rem", sm: "0.95rem" } }} />
             </IconButton>
             <IconButton
               size="small"
               onClick={() => onDelete(client)}
-              sx={{
-                color: C.text.secondary,
-                p: 0.75,
-                "&:hover": { color: C.error, bgcolor: C.errorLight },
-              }}
+              sx={{ color: C.text.secondary, p: { xs: 0.5, sm: 0.75 }, "&:hover": { color: C.error, bgcolor: C.errorLight } }}
             >
-              <DeleteIcon sx={{ fontSize: "0.95rem" }} />
+              <DeleteIcon sx={{ fontSize: { xs: "0.85rem", sm: "0.95rem" } }} />
             </IconButton>
           </Box>
         </Box>
@@ -430,57 +405,20 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
           anchorEl={menuAnchor}
           open={Boolean(menuAnchor)}
           onClose={() => setMenuAnchor(null)}
-          PaperProps={{
-            sx: {
-              mt: 0.5,
-              borderRadius: 2,
-              minWidth: 150,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-            },
-          }}
+          PaperProps={{ sx: { mt: 0.5, borderRadius: 2, minWidth: 150, boxShadow: "0 4px 16px rgba(0,0,0,0.1)" } }}
         >
-          <MenuItem
-            onClick={() => {
-              onEdit(client);
-              setMenuAnchor(null);
-            }}
-            sx={{ fontSize: "0.75rem", py: 0.75 }}
-          >
-            <ListItemIcon>
-              <EditIcon sx={{ fontSize: "1rem", color: C.text.secondary }} />
-            </ListItemIcon>
+          <MenuItem onClick={() => { onEdit(client); setMenuAnchor(null); }} sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, py: 0.75 }}>
+            <ListItemIcon><EditIcon sx={{ fontSize: "1rem", color: C.text.secondary }} /></ListItemIcon>
             <ListItemText primary="Edit" />
           </MenuItem>
-          <MenuItem
-            onClick={() => {
-              onDelete(client);
-              setMenuAnchor(null);
-            }}
-            sx={{ fontSize: "0.75rem", py: 0.75, color: C.error }}
-          >
-            <ListItemIcon>
-              <DeleteIcon sx={{ fontSize: "1rem", color: C.error }} />
-            </ListItemIcon>
+          <MenuItem onClick={() => { onDelete(client); setMenuAnchor(null); }} sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, py: 0.75, color: C.error }}>
+            <ListItemIcon><DeleteIcon sx={{ fontSize: "1rem", color: C.error }} /></ListItemIcon>
             <ListItemText primary={isActive ? "Deactivate" : "Activate"} />
           </MenuItem>
         </Menu>
       </Paper>
     </Zoom>
   );
-};
-
-const modalStyle = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: { xs: "92%", sm: 560 },
-  bgcolor: "background.paper",
-  borderRadius: 3,
-  boxShadow: "0 24px 48px rgba(0,0,0,0.12)",
-  p: { xs: 3, sm: 4 },
-  maxHeight: "90vh",
-  overflowY: "auto",
 };
 
 const EMPTY_FORM = {
@@ -498,6 +436,7 @@ const EMPTY_FORM = {
 export default function ClientManagement() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const navigate = useNavigate();
 
   const {
@@ -506,6 +445,8 @@ export default function ClientManagement() {
     pagination,
     filters,
     loading,
+    initialLoading,
+    error,
     actionLoading,
     fetchClients,
     addClient,
@@ -516,7 +457,6 @@ export default function ClientManagement() {
     resetFilters,
   } = useClient();
 
-  // ── Local state ──────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState(filters.search || "");
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
@@ -525,41 +465,27 @@ export default function ClientManagement() {
   const [formErrors, setFormErrors] = useState({});
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [membershipAnchorEl, setMembershipAnchorEl] = useState(null);
-  const [toast, setToast] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
+  const [toast, setToast] = useState({ open: false, message: "", severity: "success" });
 
   const searchTimeoutRef = useRef(null);
 
-  const showToast = (msg, sev = "success") =>
-    setToast({ open: true, message: msg, severity: sev });
-  const closeToast = () => setToast((p) => ({ ...p, open: false }));
+  const showToast = useCallback((msg, sev = "success") => setToast({ open: true, message: msg, severity: sev }), []);
+  const closeToast = useCallback(() => setToast((p) => ({ ...p, open: false })), []);
 
-  // ─── Initial fetch on mount ───────────────────────────────────────────────
   useEffect(() => {
     fetchClients();
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, []);
 
-  // ─── Debounced search ─────────────────────────────────────────────────────
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
     searchTimeoutRef.current = setTimeout(() => {
       updateFilters({ search: searchTerm });
       fetchClients({ search: searchTerm, page: 1 });
     }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [searchTerm]);
 
-  // ─── Filter handlers ──────────────────────────────────────────────────────
   const handleStatusFilterChange = (status) => {
     updateFilters({ status });
     setFilterAnchorEl(null);
@@ -577,13 +503,11 @@ export default function ClientManagement() {
     setSearchTerm("");
   };
 
-  // ─── Pagination handler ───────────────────────────────────────────────────
   const handlePageChange = (newPage) => {
     changePage(newPage);
     fetchClients({ page: newPage });
   };
 
-  // ─── Form handlers ────────────────────────────────────────────────────────
   const handleInput = (e) => {
     const { name, value } = e.target;
     setFormData((p) => ({ ...p, [name]: value }));
@@ -592,17 +516,11 @@ export default function ClientManagement() {
 
   const validateForm = () => {
     const errs = {};
-    if (!formData.customerName.trim())
-      errs.customerName = "Customer name is required";
+    if (!formData.customerName.trim()) errs.customerName = "Customer name is required";
     if (!formData.email.trim()) errs.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(formData.email)) errs.email = "Invalid email";
-    if (
-      modalMode === "add" &&
-      (!formData.duration || parseInt(formData.duration) < 1)
-    )
-      errs.duration = "Duration must be ≥ 1";
-    if (!formData.licenseLimit || parseInt(formData.licenseLimit) < 1)
-      errs.licenseLimit = "License limit must be ≥ 1";
+    if (modalMode === "add" && (!formData.duration || parseInt(formData.duration) < 1)) errs.duration = "Duration must be ≥ 1";
+    if (!formData.licenseLimit || parseInt(formData.licenseLimit) < 1) errs.licenseLimit = "License limit must be ≥ 1";
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -623,8 +541,6 @@ export default function ClientManagement() {
           notes: formData.notes,
         });
         showToast("Client created successfully!");
-        setOpenModal(false);
-        setFormData(EMPTY_FORM);
       } else {
         await editClient(selectedClient._id, {
           customerName: formData.customerName.trim(),
@@ -636,8 +552,9 @@ export default function ClientManagement() {
           notes: formData.notes,
         });
         showToast("Client updated successfully");
-        setOpenModal(false);
       }
+      setOpenModal(false);
+      setFormData(EMPTY_FORM);
     } catch (error) {
       showToast(error.message || "An error occurred", "error");
     }
@@ -647,9 +564,7 @@ export default function ClientManagement() {
     const newStatus = client.status === "active" ? "inactive" : "active";
     try {
       await changeClientStatus(client._id, newStatus);
-      showToast(
-        `Client ${newStatus === "active" ? "activated" : "deactivated"} successfully`,
-      );
+      showToast(`Client ${newStatus === "active" ? "activated" : "deactivated"} successfully`);
     } catch (error) {
       showToast(error.message || "Failed to change status", "error");
     }
@@ -680,183 +595,111 @@ export default function ClientManagement() {
     setOpenModal(true);
   };
 
-  const statCards = [
-    {
-      icon: GroupIcon,
-      title: "Total Customers",
-      value: stats?.total || 0,
-      subtitle: "All registered clients",
-      color: C.primary,
-    },
-    {
-      icon: PersonIcon,
-      title: "Active Customers",
-      value: stats?.active || 0,
-      subtitle: "Currently active",
-      color: C.success,
-    },
-    {
-      icon: BusinessIcon,
-      title: "Enterprise",
-      value: stats?.byPlan?.enterprise || 0,
-      subtitle: "Business plans",
-      color: "#5e35b1",
-    },
-    {
-      icon: WarningIcon,
-      title: "Expiring Soon",
-      value: stats?.expiringSoon || 0,
-      subtitle: "Within 7 days",
-      color: C.warning,
-    },
-  ];
+  const statCards = useMemo(() => [
+    { icon: GroupIcon, title: "Total Clients", value: stats?.total || 0, subtitle: "All registered", color: C.primary },
+    { icon: PersonIcon, title: "Active", value: stats?.active || 0, subtitle: "Currently active", color: C.success },
+    { icon: BusinessIcon, title: "Enterprise", value: stats?.byPlan?.enterprise || 0, subtitle: "Business plans", color: "#5e35b1" },
+    { icon: WarningIcon, title: "Expiring", value: stats?.expiringSoon || 0, subtitle: "Within 7 days", color: C.warning },
+  ], [stats]);
 
-  const getStatusDisplayText = () => {
-    if (filters.status === "all") return "All Status";
-    return filters.status === "active" ? "Active" : "Inactive";
-  };
+  const getStatusDisplayText = () => filters.status === "all" ? "All Status" : filters.status === "active" ? "Active" : "Inactive";
+  const getMembershipDisplayText = () => filters.membershipPlan === "all" ? "All Plans" : filters.membershipPlan.charAt(0).toUpperCase() + filters.membershipPlan.slice(1);
+  const hasActiveFilters = filters.status !== "all" || filters.membershipPlan !== "all" || searchTerm;
 
-  const getMembershipDisplayText = () => {
-    if (filters.membershipPlan === "all") return "All Plans";
-    return (
-      filters.membershipPlan.charAt(0).toUpperCase() +
-      filters.membershipPlan.slice(1)
-    );
-  };
-
-  const hasActiveFilters =
-    filters.status !== "all" || filters.membershipPlan !== "all" || searchTerm;
+  // Show error state
+  if (error && !initialLoading) {
+    return <ErrorState message={error} onRetry={() => fetchClients()} />;
+  }
 
   return (
-    <Box
-      sx={{
-        bgcolor: C.surface,
-        minHeight: "100vh",
-        p: { xs: 2, sm: 2.5, md: 3 },
-      }}
-    >
-      {/* ── Header ── */}
-      <Box
-        sx={{
-          mb: 3,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 2,
-        }}
-      >
+    <Box sx={{ bgcolor: C.surface, minHeight: "100%", p: { xs: 1.5, sm: 2, md: 3, lg: 3.5 } }}>
+      {/* Header */}
+      <Box sx={{ mb: { xs: 2, sm: 3 }, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
         <Box>
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 700,
-              color: C.text.primary,
-              fontSize: { xs: "1.2rem", sm: "1.4rem" },
-              mb: 0.25,
-            }}
-          >
+          <Typography variant="h5" sx={{ fontWeight: 700, color: C.text.primary, fontSize: { xs: "1.1rem", sm: "1.3rem", md: "1.5rem" }, mb: 0.25 }}>
             Client Management
           </Typography>
-          <Typography
-            variant="caption"
-            sx={{ color: C.text.secondary, fontSize: "0.72rem" }}
-          >
+          <Typography variant="caption" sx={{ color: C.text.secondary, fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" } }}>
             Manage customer accounts and memberships
           </Typography>
         </Box>
         <Button
           variant="contained"
-          startIcon={<AddIcon sx={{ fontSize: "1rem" }} />}
+          startIcon={<AddIcon sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }} />}
           onClick={openAddModal}
           sx={{
             bgcolor: C.primary,
-            color: "white",
-            fontSize: "0.78rem",
+            fontSize: { xs: "0.7rem", sm: "0.78rem" },
             fontWeight: 600,
             textTransform: "none",
-            py: 1,
-            px: 2.5,
+            py: { xs: 0.75, sm: 1 },
+            px: { xs: 2, sm: 2.5 },
             borderRadius: 2,
             boxShadow: "none",
             "&:hover": { bgcolor: "#0b3f4f", boxShadow: "none" },
           }}
         >
-          Add Customer
+          Add Client
         </Button>
       </Box>
 
-      {/* ── Search and Filter row ── */}
-      <Box sx={{ mb: 3 }}>
+      {/* Loading Indicator */}
+      {loading && !initialLoading && (
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress sx={{ borderRadius: 1, height: 3 }} />
+        </Box>
+      )}
+
+      {/* Search and Filters */}
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
         <Grid container spacing={1.5} alignItems="center">
-          <Grid item xs={12} sm={7}>
+          <Grid item xs={12} sm={12} md={7}>
             <Paper
               elevation={0}
               sx={{
-                px: 2,
+                px: { xs: 1.5, sm: 2 },
                 py: 0.5,
                 borderRadius: 2,
                 bgcolor: C.card,
-                border: "1px solid",
-                borderColor: C.border,
+                border: `1px solid ${C.border}`,
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
               }}
             >
-              <SearchIcon
-                sx={{
-                  color: C.text.disabled,
-                  fontSize: "1.1rem",
-                  flexShrink: 0,
-                }}
-              />
+              <SearchIcon sx={{ color: C.text.disabled, fontSize: { xs: "1rem", sm: "1.1rem" }, flexShrink: 0 }} />
               <TextField
-                placeholder="Search customers by name or email..."
+                placeholder="Search by name or email..."
                 variant="standard"
                 fullWidth
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
                   disableUnderline: true,
-                  sx: { fontSize: "0.82rem", py: 0.75, color: C.text.primary },
+                  sx: { fontSize: { xs: "0.75rem", sm: "0.82rem" }, py: { xs: 0.5, sm: 0.75 }, color: C.text.primary },
                 }}
               />
               {searchTerm && (
-                <IconButton
-                  size="small"
-                  onClick={() => setSearchTerm("")}
-                  sx={{ p: 0.25 }}
-                >
-                  <CloseIcon
-                    sx={{ fontSize: "0.9rem", color: C.text.disabled }}
-                  />
+                <IconButton size="small" onClick={() => setSearchTerm("")} sx={{ p: 0.25 }}>
+                  <CloseIcon sx={{ fontSize: "0.9rem", color: C.text.disabled }} />
                 </IconButton>
               )}
             </Paper>
           </Grid>
 
-          <Grid item xs={12} sm={5}>
-            <Box
-              sx={{
-                display: "flex",
-                gap: 1,
-                justifyContent: { xs: "flex-start", sm: "flex-end" },
-                flexWrap: "wrap",
-              }}
-            >
+          <Grid item xs={12} md={5}>
+            <Box sx={{ display: "flex", gap: 1, justifyContent: { xs: "flex-start", md: "flex-end" }, flexWrap: "wrap" }}>
               <Button
                 variant="outlined"
                 size="small"
                 endIcon={<FilterIcon sx={{ fontSize: "0.9rem" }} />}
                 onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                 sx={{
-                  fontSize: "0.72rem",
+                  fontSize: { xs: "0.65rem", sm: "0.72rem" },
                   textTransform: "none",
                   fontWeight: 500,
                   borderColor: C.border,
-                  color:
-                    filters.status !== "all" ? C.primary : C.text.secondary,
+                  color: filters.status !== "all" ? C.primary : C.text.secondary,
                   borderRadius: 1.5,
                   px: 1.5,
                   bgcolor: filters.status !== "all" ? C.primaryLight : C.card,
@@ -871,53 +714,28 @@ export default function ClientManagement() {
                 endIcon={<FilterIcon sx={{ fontSize: "0.9rem" }} />}
                 onClick={(e) => setMembershipAnchorEl(e.currentTarget)}
                 sx={{
-                  fontSize: "0.72rem",
+                  fontSize: { xs: "0.65rem", sm: "0.72rem" },
                   textTransform: "none",
                   fontWeight: 500,
                   borderColor: C.border,
-                  color:
-                    filters.membershipPlan !== "all"
-                      ? C.primary
-                      : C.text.secondary,
+                  color: filters.membershipPlan !== "all" ? C.primary : C.text.secondary,
                   borderRadius: 1.5,
                   px: 1.5,
-                  bgcolor:
-                    filters.membershipPlan !== "all" ? C.primaryLight : C.card,
+                  bgcolor: filters.membershipPlan !== "all" ? C.primaryLight : C.card,
                 }}
               >
                 {getMembershipDisplayText()}
               </Button>
 
               {hasActiveFilters && (
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={handleClearFilters}
-                  sx={{
-                    fontSize: "0.7rem",
-                    textTransform: "none",
-                    color: C.error,
-                    minWidth: "auto",
-                  }}
-                >
+                <Button variant="text" size="small" onClick={handleClearFilters} sx={{ fontSize: "0.7rem", textTransform: "none", color: C.error, minWidth: "auto" }}>
                   Clear
                 </Button>
               )}
 
               <Tooltip title="Refresh">
-                <IconButton
-                  onClick={() => fetchClients()}
-                  sx={{
-                    bgcolor: C.card,
-                    border: "1px solid",
-                    borderColor: C.border,
-                    borderRadius: 1.5,
-                    p: 0.75,
-                  }}
-                >
-                  <RefreshIcon
-                    sx={{ color: C.text.secondary, fontSize: "1.05rem" }}
-                  />
+                <IconButton onClick={() => fetchClients()} sx={{ bgcolor: C.card, border: `1px solid ${C.border}`, borderRadius: 1.5, p: 0.75 }}>
+                  <RefreshIcon sx={{ color: C.text.secondary, fontSize: "1.05rem" }} />
                 </IconButton>
               </Tooltip>
             </Box>
@@ -925,403 +743,202 @@ export default function ClientManagement() {
         </Grid>
       </Box>
 
-      {/* ── Stat Cards ── */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* Stat Cards */}
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
         {statCards.map((s, i) => (
-          <Grid item xs={6} sm={3} key={i}>
-            <StatCard {...s} loading={loading} />
+          <Grid item xs={6} sm={6} md={3} key={i}>
+            <StatCard {...s} loading={initialLoading} />
           </Grid>
         ))}
       </Grid>
 
-      {/* ── Results count ── */}
-      <Box
-        sx={{
-          mb: 2,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{ color: C.text.secondary, fontSize: "0.7rem" }}
-        >
-          {loading
-            ? "Loading..."
-            : `Showing ${clients.length} of ${pagination.total || 0} customers`}
-        </Typography>
-      </Box>
+      {/* Results Count */}
+      {!initialLoading && (
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography variant="caption" sx={{ color: C.text.secondary, fontSize: { xs: "0.65rem", sm: "0.7rem" } }}>
+            Showing {clients.length} of {pagination.total || 0} clients
+          </Typography>
+        </Box>
+      )}
 
-      {/* ── Client Grid ── */}
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-          <CircularProgress sx={{ color: C.primary }} />
-        </Box>
+      {/* Client Grid */}
+      {initialLoading ? (
+        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
+              <ClientCardSkeleton />
+            </Grid>
+          ))}
+        </Grid>
       ) : clients.length === 0 ? (
-        <Box sx={{ textAlign: "center", py: 10 }}>
-          <Typography variant="h6" sx={{ color: C.text.secondary, mb: 1 }}>
-            No customers found
-          </Typography>
-          <Typography variant="caption" sx={{ color: C.text.disabled }}>
-            Try adjusting your search or filters
-          </Typography>
-        </Box>
+        <EmptyState
+          title="No clients found"
+          description={searchTerm ? `No results for "${searchTerm}". Try adjusting your search.` : "No clients have been added yet."}
+          action={
+            !searchTerm && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} sx={{ bgcolor: C.primary, textTransform: "none" }}>
+                Add Your First Client
+              </Button>
+            )
+          }
+        />
       ) : (
-        <Grid container spacing={2}>
+        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
           {clients.map((client) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={client._id}>
+            <Grid item xs={12} sm={6} md={6} lg={4} xl={3} key={client._id}>
               <ClientCard
                 client={client}
                 onEdit={openEditModal}
                 onDelete={handleToggleStatus}
-                onViewDetails={(id) =>
-                  navigate(`/admin/clients-details/${id}`, {
-                    state: { clientId: id },
-                  })
-                }
+                onViewDetails={(id) => navigate(`/admin/clients-details/${id}`, { state: { clientId: id } })}
               />
             </Grid>
           ))}
         </Grid>
       )}
 
-      {/* ── Pagination ── */}
+      {/* Pagination */}
       {pagination.pages > 1 && (
-        <Box sx={{ display: "flex", justifyContent: "center", gap: 1, mt: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 2, mt: { xs: 2, sm: 3 }, flexWrap: "wrap" }}>
           <Button
             size="small"
             disabled={pagination.page <= 1 || loading}
             onClick={() => handlePageChange(pagination.page - 1)}
+            sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
           >
-            ← Prev
+            Previous
           </Button>
-          <Typography
-            variant="caption"
-            sx={{ alignSelf: "center", color: C.text.secondary }}
-          >
+          <Typography variant="caption" sx={{ color: C.text.secondary, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
             Page {pagination.page} of {pagination.pages}
           </Typography>
           <Button
             size="small"
             disabled={pagination.page >= pagination.pages || loading}
             onClick={() => handlePageChange(pagination.page + 1)}
+            sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
           >
-            Next →
+            Next
           </Button>
         </Box>
       )}
 
-      {/* ── Filter Menus ── */}
-      <Menu
-        anchorEl={filterAnchorEl}
-        open={Boolean(filterAnchorEl)}
-        onClose={() => setFilterAnchorEl(null)}
-      >
-        <MenuItem
-          selected={filters.status === "all"}
-          onClick={() => handleStatusFilterChange("all")}
-        >
-          All Status
-        </MenuItem>
-        <MenuItem
-          selected={filters.status === "active"}
-          onClick={() => handleStatusFilterChange("active")}
-        >
-          Active
-        </MenuItem>
-        <MenuItem
-          selected={filters.status === "inactive"}
-          onClick={() => handleStatusFilterChange("inactive")}
-        >
-          Inactive
-        </MenuItem>
+      {/* Filter Menus */}
+      <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={() => setFilterAnchorEl(null)}>
+        {["all", "active", "inactive"].map((status) => (
+          <MenuItem key={status} selected={filters.status === status} onClick={() => handleStatusFilterChange(status)} sx={{ fontSize: "0.75rem" }}>
+            {status === "all" ? "All Status" : status.charAt(0).toUpperCase() + status.slice(1)}
+          </MenuItem>
+        ))}
       </Menu>
 
-      <Menu
-        anchorEl={membershipAnchorEl}
-        open={Boolean(membershipAnchorEl)}
-        onClose={() => setMembershipAnchorEl(null)}
-      >
-        <MenuItem
-          selected={filters.membershipPlan === "all"}
-          onClick={() => handleMembershipFilterChange("all")}
-        >
-          All Plans
-        </MenuItem>
-        <MenuItem
-          selected={filters.membershipPlan === "free"}
-          onClick={() => handleMembershipFilterChange("free")}
-        >
-          Free
-        </MenuItem>
-        <MenuItem
-          selected={filters.membershipPlan === "standard"}
-          onClick={() => handleMembershipFilterChange("standard")}
-        >
-          Standard
-        </MenuItem>
-        <MenuItem
-          selected={filters.membershipPlan === "premium"}
-          onClick={() => handleMembershipFilterChange("premium")}
-        >
-          Premium
-        </MenuItem>
-        <MenuItem
-          selected={filters.membershipPlan === "enterprise"}
-          onClick={() => handleMembershipFilterChange("enterprise")}
-        >
-          Enterprise
-        </MenuItem>
+      <Menu anchorEl={membershipAnchorEl} open={Boolean(membershipAnchorEl)} onClose={() => setMembershipAnchorEl(null)}>
+        {["all", "free", "standard", "premium", "enterprise"].map((plan) => (
+          <MenuItem key={plan} selected={filters.membershipPlan === plan} onClick={() => handleMembershipFilterChange(plan)} sx={{ fontSize: "0.75rem" }}>
+            {plan === "all" ? "All Plans" : plan.charAt(0).toUpperCase() + plan.slice(1)}
+          </MenuItem>
+        ))}
       </Menu>
 
-      {/* ── Add/Edit Modal ── */}
+      {/* Add/Edit Modal */}
       <Modal
         open={openModal}
         onClose={() => setOpenModal(false)}
         closeAfterTransition
         BackdropComponent={Backdrop}
+        sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}
       >
         <Fade in={openModal}>
           <Box
             sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: { xs: "94%", sm: 560 },
+              width: { xs: "95%", sm: 520, md: 560 },
               maxWidth: "96vw",
               bgcolor: "background.paper",
               borderRadius: 3,
               boxShadow: 24,
-              p: { xs: 3, sm: 4 },
-              maxHeight: "92vh",
+              p: { xs: 2.5, sm: 3, md: 4 },
+              maxHeight: "90vh",
               overflowY: "auto",
               outline: "none",
+              mx: "auto",
             }}
           >
-            {/* Header */}
             <Box sx={{ mb: 3, position: "relative", pr: 5 }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  fontSize: { xs: "1.1rem", sm: "1.2rem" },
-                  mb: 0.5,
-                }}
-              >
-                {modalMode === "add"
-                  ? "Add New Customer"
-                  : `Edit — ${selectedClient?.customerName}`}
+              <Typography variant="h6" sx={{ fontWeight: 700, color: C.text.primary, fontSize: { xs: "1rem", sm: "1.1rem" }, mb: 0.5 }}>
+                {modalMode === "add" ? "Add New Client" : `Edit — ${selectedClient?.customerName}`}
               </Typography>
-
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "#64748b",
-                  fontSize: "0.75rem",
-                  display: "block",
-                }}
-              >
-                {modalMode === "add"
-                  ? "Create a new customer account with initial settings"
-                  : "Update customer information and subscription details"}
+              <Typography variant="caption" sx={{ color: C.text.secondary, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+                {modalMode === "add" ? "Create a new customer account" : "Update customer information and subscription details"}
               </Typography>
-
-              {/* Close Button */}
               <IconButton
                 onClick={() => setOpenModal(false)}
                 size="small"
-                sx={{
-                  position: "absolute",
-                  right: 0,
-                  top: 0,
-                  color: "#94a3b8",
-                  "&:hover": { color: "#475569", bgcolor: "#f1f5f9" },
-                }}
+                sx={{ position: "absolute", right: 0, top: 0, color: C.text.disabled }}
               >
                 <CloseIcon sx={{ fontSize: "1.25rem" }} />
               </IconButton>
             </Box>
 
-            <Stack spacing={3}>
-              {/* Basic Info */}
+            <Stack spacing={{ xs: 2, sm: 2.5 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Customer Name *"
-                    name="customerName"
-                    value={formData.customerName}
-                    onChange={handleInput}
-                    size="small"
-                    fullWidth
-                    error={!!formErrors.customerName}
-                    helperText={formErrors.customerName}
-                  />
+                  <TextField label="Customer Name *" name="customerName" value={formData.customerName} onChange={handleInput} size="small" fullWidth error={!!formErrors.customerName} helperText={formErrors.customerName} />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Email *"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInput}
-                    size="small"
-                    fullWidth
-                    disabled={modalMode === "edit"}
-                    error={!!formErrors.email}
-                    helperText={formErrors.email}
-                  />
+                  <TextField label="Email *" name="email" type="email" value={formData.email} onChange={handleInput} size="small" fullWidth disabled={modalMode === "edit"} error={!!formErrors.email} helperText={formErrors.email} />
                 </Grid>
               </Grid>
 
-              {/* Password (only for Add) */}
               {modalMode === "add" && (
-                <TextField
-                  label="Temporary Password *"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleInput}
-                  size="small"
-                  fullWidth
-                  error={!!formErrors.password}
-                  helperText={formErrors.password}
-                />
+                <TextField label="Temporary Password *" name="password" type="password" value={formData.password} onChange={handleInput} size="small" fullWidth error={!!formErrors.password} helperText={formErrors.password} />
               )}
 
-              {/* Plan & Duration */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Membership Plan *</InputLabel>
-                    <Select
-                      name="membershipPlan"
-                      value={formData.membershipPlan}
-                      onChange={handleInput}
-                      label="Membership Plan *"
-                    >
-                      <MenuItem value="free">Free — $0/mo</MenuItem>
-                      <MenuItem value="standard">Standard — $49/mo</MenuItem>
-                      <MenuItem value="premium">Premium — $99/mo</MenuItem>
-                      <MenuItem value="enterprise">
-                        Enterprise — $299/mo
-                      </MenuItem>
+                    <InputLabel>Plan *</InputLabel>
+                    <Select name="membershipPlan" value={formData.membershipPlan} onChange={handleInput} label="Plan *">
+                      {["free", "standard", "premium", "enterprise"].map((p) => (
+                        <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>
-
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label={
-                      modalMode === "add" ? "Duration (days) *" : "Extend Days"
-                    }
+                    label={modalMode === "add" ? "Duration (days) *" : "Extend Days"}
                     name={modalMode === "add" ? "duration" : "extendDays"}
                     type="number"
-                    value={
-                      formData[modalMode === "add" ? "duration" : "extendDays"]
-                    }
+                    value={formData[modalMode === "add" ? "duration" : "extendDays"]}
                     onChange={handleInput}
                     size="small"
                     fullWidth
-                    error={!!formErrors.duration || !!formErrors.extendDays}
-                    helperText={formErrors.duration || formErrors.extendDays}
                     InputProps={{ inputProps: { min: 1, max: 365 } }}
                   />
                 </Grid>
               </Grid>
 
-              {/* License Limit */}
-              <TextField
-                label="License Limit (Users) *"
-                name="licenseLimit"
-                type="number"
-                value={formData.licenseLimit}
-                onChange={handleInput}
-                size="small"
-                fullWidth
-                error={!!formErrors.licenseLimit}
-                helperText={formErrors.licenseLimit}
-                InputProps={{ inputProps: { min: 1, max: 1000 } }}
-              />
+              <TextField label="License Limit *" name="licenseLimit" type="number" value={formData.licenseLimit} onChange={handleInput} size="small" fullWidth error={!!formErrors.licenseLimit} helperText={formErrors.licenseLimit} InputProps={{ inputProps: { min: 1 } }} />
 
-              {/* Contact Info */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInput}
-                    size="small"
-                    fullWidth
-                  />
+                  <TextField label="Phone" name="phone" value={formData.phone} onChange={handleInput} size="small" fullWidth />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Website"
-                    name="website"
-                    value={formData.website}
-                    onChange={handleInput}
-                    size="small"
-                    fullWidth
-                    placeholder="https://example.com"
-                  />
+                  <TextField label="Website" name="website" value={formData.website} onChange={handleInput} size="small" fullWidth placeholder="https://" />
                 </Grid>
               </Grid>
 
-              {/* Notes */}
-              <TextField
-                label="Notes"
-                name="notes"
-                multiline
-                rows={3}
-                value={formData.notes}
-                onChange={handleInput}
-                size="small"
-                fullWidth
-                placeholder="Additional notes or special instructions..."
-              />
+              <TextField label="Notes" name="notes" multiline rows={3} value={formData.notes} onChange={handleInput} size="small" fullWidth />
 
-              {/* Action Buttons */}
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 2,
-                  pt: 2,
-                  borderTop: "1px solid #e2e8f0",
-                  mt: 1,
-                }}
-              >
-                <Button
-                  variant="text"
-                  onClick={() => setOpenModal(false)}
-                  disabled={actionLoading}
-                  sx={{ textTransform: "none", px: 3 }}
-                >
-                  Cancel
-                </Button>
+              <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, pt: 2, borderTop: `1px solid ${C.border}` }}>
+                <Button variant="text" onClick={() => setOpenModal(false)} disabled={actionLoading} sx={{ textTransform: "none" }}>Cancel</Button>
                 <Button
                   variant="contained"
                   disabled={actionLoading}
                   onClick={handleSubmit}
-                  sx={{
-                    bgcolor: "#0d4a5c",
-                    "&:hover": { bgcolor: "#0b3f4f" },
-                    textTransform: "none",
-                    px: 4,
-                    fontWeight: 500,
-                  }}
+                  sx={{ bgcolor: C.primary, "&:hover": { bgcolor: "#0b3f4f" }, textTransform: "none", fontWeight: 500 }}
                 >
-                  {actionLoading ? (
-                    <CircularProgress size={18} sx={{ color: "white" }} />
-                  ) : modalMode === "add" ? (
-                    "Create Customer"
-                  ) : (
-                    "Save Changes"
-                  )}
+                  {actionLoading ? <CircularProgress size={18} sx={{ color: "white" }} /> : modalMode === "add" ? "Create Client" : "Save Changes"}
                 </Button>
               </Box>
             </Stack>
@@ -1329,22 +946,18 @@ export default function ClientManagement() {
         </Fade>
       </Modal>
 
-      {/* ── Toast ── */}
+      {/* Toast */}
       <Snackbar
         open={toast.open}
         autoHideDuration={5000}
         onClose={closeToast}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        sx={{ bottom: { xs: 72, sm: 80, md: 24 } }}
       >
-        <Alert
-          onClose={closeToast}
-          severity={toast.severity}
-          variant="filled"
-          sx={{ fontSize: "0.78rem", borderRadius: 2 }}
-        >
+        <Alert onClose={closeToast} severity={toast.severity} variant="filled" sx={{ fontSize: { xs: "0.7rem", sm: "0.78rem" }, borderRadius: 2 }}>
           {toast.message}
         </Alert>
       </Snackbar>
     </Box>
   );
-}
+};

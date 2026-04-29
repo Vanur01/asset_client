@@ -12,8 +12,8 @@ export const useAuth = () => {
   return context;
 };
 
-// API base URL - Make sure this is correct
-const API_BASE_URL = "https://asset-management-3-r0wr.onrender.com/api/v1/user";
+// API base URL
+const API_BASE_URL = "http://localhost:9001/api/v1";
 
 // Create axios instance with interceptors
 const createApiInstance = (token) => {
@@ -53,6 +53,8 @@ const createApiInstance = (token) => {
     },
     (error) => {
       console.error("Response error:", error.response?.status, error.response?.data);
+      
+      // Don't redirect on 404 for base URL checks
       if (error.response?.status === 401) {
         console.log("Token expired or invalid, clearing auth data");
         localStorage.removeItem("accessToken");
@@ -60,6 +62,7 @@ const createApiInstance = (token) => {
         localStorage.removeItem("userType");
         window.location.href = "/login";
       }
+      
       return Promise.reject(error);
     }
   );
@@ -127,7 +130,7 @@ export const AuthProvider = ({ children }) => {
         withCredentials: true,
       });
       
-      const response = await tempApi.post("/auth/login", {
+      const response = await tempApi.post("/user/auth/login", {
         email,
         password,
       });
@@ -270,7 +273,7 @@ export const AuthProvider = ({ children }) => {
           },
           withCredentials: true,
         });
-        await tempApi.post("/auth/logout", {});
+        await tempApi.post("/user/auth/logout", {});
       }
     } catch (error) {
       console.error("Logout error:", error);
@@ -289,30 +292,41 @@ export const AuthProvider = ({ children }) => {
   const getUserType = () => userType;
   const hasRole = (role) => user?.role === role;
   const hasAnyRole = (roles) => roles.includes(user?.role);
-  const isSuperAdmin = () => user?.role === "superadmin";
+  const isSuperAdmin = () => user?.role === "super_admin";
   const isAdmin = () => user?.role === "admin";
   const isTeam = () => user?.role === "team";
 
   // Make authenticated API requests
-  const authRequest = useCallback(async (method, url, data = null) => {
+  const authRequest = useCallback(async (method, url, data = null, customConfig = {}) => {
     const currentToken = token || localStorage.getItem("accessToken");
     
     if (!currentToken) {
       throw new Error("No authentication token available");
     }
 
+    // Ensure URL doesn't have double slashes and starts correctly
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    const fullUrl = `${API_BASE_URL}${cleanUrl}`;
+    
+    console.log(`Making ${method} request to: ${fullUrl}`);
+
     try {
       const config = {
         method,
-        url: `${API_BASE_URL}${url}`,
+        url: fullUrl,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${currentToken}`,
         },
         withCredentials: true,
+        ...customConfig,
       };
       
-      if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
+      // Handle FormData differently
+      if (data instanceof FormData) {
+        delete config.headers["Content-Type"];
+        config.data = data;
+      } else if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
         config.data = data;
       }
       
@@ -326,6 +340,18 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
   }, [token, logout]);
+
+  // Check if backend is reachable (optional, remove if causing issues)
+  const checkBackendHealth = useCallback(async () => {
+    try {
+      // Try to hit a known endpoint instead of the base URL
+      const response = await axios.get(`${API_BASE_URL}/user/auth/health`, { timeout: 5000 });
+      return response.data;
+    } catch (error) {
+      console.warn("Backend health check failed:", error.message);
+      return null;
+    }
+  }, []);
 
   const value = useMemo(() => ({
     user,
@@ -343,8 +369,9 @@ export const AuthProvider = ({ children }) => {
     isSuperAdmin,
     isAdmin,
     isTeam,
-    authRequest, // Add this helper function
-  }), [user, token, api, loading, userType, authRequest]);
+    authRequest,
+    checkBackendHealth,
+  }), [user, token, api, loading, userType, authRequest, checkBackendHealth]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,4 +1,3 @@
-// App.js
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -10,25 +9,19 @@ import { AuthProvider, useAuth } from "./context/AuthContexts";
 import { AssetProvider } from "./context/AssetContext";
 import { ClientProvider } from "./context/ClientContext";
 import { TeamProvider } from "./context/TeamContext";
-import { ChecklistProvider } from "./context/ChecklistContext";
 import { DashboardProvider } from "./context/DashboardContext";
 import { ReportProvider } from "./context/ReportContext";
+import { ChecklistBuilderProvider } from "./context/ChecklistBuilderContext";
+import { RequestChecklistProvider } from "./context/RequestChecklistContext";
+import { AssignmentProvider } from "./context/AssignmentContext";
+import { AssetRequestProvider } from "./context/AssetRequestContext";
+import TeamAssignmentProvider from "./context/TeamAssignmentcontext"; 
 
 // Auth Pages
 import Login from "./components/Login";
 
 // Team Pages
-import MyTask from "./pages/team/MyTask";
-import MyTaskDetails from "./pages/team/MyTaskDetails";
-import TeamAssetManagement from "./pages/team/TeamAssetManagement";
-import TeamAssetDetails from "./pages/team/AssetDetails";
-import TeamCloneAsset from "./pages/team/TeamCloneAsssets";
-import TeamAddAsset from "./pages/team/TeamAddAsset";
-import TeamAssetRequest from "./pages/team/TeamAssetRequest";
-import History from "./pages/team/History";
 import TeamProfile from "./pages/TeamProfile";
-import MyRequestAssetDetails from "./pages/team/MyRequestAssetDetails";
-import CloneAssetDetails from "./pages/team/CloneAssetDetails";
 import Dashboard from "./pages/Dashboard";
 import ClientManagement from "./pages/ClientManagement";
 import ClientDetails from "./pages/ClientDetails";
@@ -36,65 +29,108 @@ import DashboardLayout from "./layout/Layout";
 import TeamManagement from "./pages/TeamManagement";
 import TeamDetails from "./pages/TeamDetails";
 import ReportsPage from "./pages/Reports";
-
-// Checklist Pages
-import Checklist from "./pages/CheckList";
-import CustomChecklistBuilder from "./pages/CustomChecklist";
-import GlobalChecklistBuilder from "./pages/GlobalChecklist";
+import ChecklistBuilder from "./pages/ChecklistBuilder";
+import CustomChecklist from "./pages/CustomChecklist";
+import GlobalChecklist from "./pages/GlobalChecklist";
+import ImportChecklist from "./pages/ImportChecklist";
 import CloneChecklist from "./pages/CloneChecklist";
-import ImportChecklistFields from "./pages/ImportChecklist";
-import ChecklistRequests from "./pages/RequestModal";
+import RequestChecklist from "./pages/RequestChecklist";
+import AssignedChecklist from "./pages/AssignedChecklist";
+import Checklistanalytics from "./pages/Checklistanalytics";
+import AssignedChecklistDetails from "./pages/AssignedCheckListDetails";
+import SubmissionDetails from "./pages/Submissiondetails";
+
+// Asset Pages
+import AssetManagement from "./pages/AssetManagement";
+import AddNewAsset from "./pages/AddAssetForm";
+import AssetView from "./pages/AssetView";
+import EditAsset from "./pages/EditAsset";
+import CloneAssets from "./pages/CloneAssetList";
+import MyTasks from "./pages/MyTask";
+import InspectionHistory from "./pages/Inspectionhistory";
+import MyRequests from "./pages/Myrequests";
+import AssetRequests from "./pages/AssetRequest";
+import CreateAssetRequest from "./pages/CreateAssetRequest";
+import TaskDetail from "./pages/TaskDetail";
 
 // Landing Pages
 import Main from "./pages/landing/Main";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 
-// Wrapper components
-const AssetRouteWrapper = ({ children }) => <AssetProvider>{children}</AssetProvider>;
-const ClientRouteWrapper = ({ children }) => <ClientProvider>{children}</ClientProvider>;
-const TeamRouteWrapper = ({ children }) => <TeamProvider>{children}</TeamProvider>;
-const ChecklistRouteWrapper = ({ children }) => <ChecklistProvider>{children}</ChecklistProvider>;
+// ==================== PROVIDER WRAPPERS ====================
 
-// Base Combined Wrapper (for most routes)
-const CombinedRouteWrapper = ({ children }) => (
+// Combined Provider for Admin routes
+const CombinedProviderWrapper = ({ children }) => (
   <ClientProvider>
     <TeamProvider>
       <AssetProvider>
-        <ChecklistProvider>
-          <ReportProvider>
-            {children}
-          </ReportProvider>
-        </ChecklistProvider>
+        <ReportProvider>
+          <AssignmentProvider>{children}</AssignmentProvider>
+        </ReportProvider>
       </AssetProvider>
     </TeamProvider>
   </ClientProvider>
 );
 
-// Dashboard specific wrapper with DashboardProvider
-const DashboardRouteWrapper = ({ children }) => (
-  <ClientProvider>
-    <TeamProvider>
-      <AssetProvider>
-        <ChecklistProvider>
-          <DashboardProvider>
-            <ReportProvider>
-              {children}
-            </ReportProvider>
-          </DashboardProvider>
-        </ChecklistProvider>
-      </AssetProvider>
-    </TeamProvider>
-  </ClientProvider>
+// Asset Provider Wrapper
+const AssetProviderWrapper = ({ children }) => (
+  <AssetProvider>{children}</AssetProvider>
 );
 
-// Protected Route component
+// Asset Request Provider Wrapper
+const AssetRequestProviderWrapper = ({ children }) => (
+  <AssetRequestProvider>
+    <AssetProvider>{children}</AssetProvider>
+  </AssetRequestProvider>
+);
+
+// Team Provider Wrapper (for Team Profile and Team routes)
+const TeamProviderWrapper = ({ children }) => (
+  <TeamProvider>{children}</TeamProvider>
+);
+
+// Team Assignment Provider Wrapper (for Task routes that need assignment context)
+const TeamAssignmentProviderWrapper = ({ children }) => (
+  <TeamAssignmentProvider>{children}</TeamAssignmentProvider>
+);
+
+// Dashboard wrapper (includes DashboardProvider)
+const DashboardProviderWrapper = ({ children }) => (
+  <CombinedProviderWrapper>
+    <DashboardProvider>{children}</DashboardProvider>
+  </CombinedProviderWrapper>
+);
+
+// Checklist Builder Provider Wrapper
+const ChecklistBuilderWrapper = ({ children }) => (
+  <ChecklistBuilderProvider>
+    <CombinedProviderWrapper>{children}</CombinedProviderWrapper>
+  </ChecklistBuilderProvider>
+);
+
+// Request Checklist Provider Wrapper
+const RequestChecklistWrapper = ({ children }) => (
+  <RequestChecklistProvider>
+    <CombinedProviderWrapper>{children}</CombinedProviderWrapper>
+  </RequestChecklistProvider>
+);
+
+// ==================== PROTECTED ROUTE ====================
+
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
         Loading...
       </div>
     );
@@ -105,11 +141,19 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (!allowedRoles.includes(user.role)) {
+    if (user.role === "super_admin" || user.role === "admin") {
+      return <Navigate to="/admin" replace />;
+    }
+    if (user.role === "team") {
+      return <Navigate to="/team" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 
   return children;
 };
+
+// ==================== MAIN APP ====================
 
 export default function App() {
   return (
@@ -128,9 +172,140 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
                 <DashboardLayout>
-                  <DashboardRouteWrapper>
+                  <DashboardProviderWrapper>
                     <Dashboard />
-                  </DashboardRouteWrapper>
+                  </DashboardProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Checklists Routes */}
+          <Route
+            path="/admin/checklists"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <ChecklistBuilderWrapper>
+                    <ChecklistBuilder />
+                  </ChecklistBuilderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/checklists/clone"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <ChecklistBuilderWrapper>
+                    <CloneChecklist />
+                  </ChecklistBuilderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/request-checklist"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <RequestChecklistWrapper>
+                    <RequestChecklist />
+                  </RequestChecklistWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/create-checklist/global"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <ChecklistBuilderWrapper>
+                    <GlobalChecklist />
+                  </ChecklistBuilderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/create-checklist/custom"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <ChecklistBuilderWrapper>
+                    <CustomChecklist />
+                  </ChecklistBuilderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/import-checklist/excel"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <ChecklistBuilderWrapper>
+                    <ImportChecklist />
+                  </ChecklistBuilderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/assigned-checklists"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <CombinedProviderWrapper>
+                    <AssignedChecklist />
+                  </CombinedProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/checklist-analytics/:id"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <CombinedProviderWrapper>
+                    <Checklistanalytics />
+                  </CombinedProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/assignment-details/:id"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <CombinedProviderWrapper>
+                    <AssignedChecklistDetails />
+                  </CombinedProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/assignment-submit-details/:id"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <CombinedProviderWrapper>
+                    <SubmissionDetails />
+                  </CombinedProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -142,9 +317,9 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={["super_admin"]}>
                 <DashboardLayout>
-                  <ClientRouteWrapper>
+                  <ClientProvider>
                     <ClientManagement />
-                  </ClientRouteWrapper>
+                  </ClientProvider>
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -155,9 +330,9 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={["super_admin"]}>
                 <DashboardLayout>
-                  <ClientRouteWrapper>
+                  <ClientProvider>
                     <ClientDetails />
-                  </ClientRouteWrapper>
+                  </ClientProvider>
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -169,9 +344,9 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
                 <DashboardLayout>
-                  <TeamRouteWrapper>
+                  <TeamProvider>
                     <TeamManagement />
-                  </TeamRouteWrapper>
+                  </TeamProvider>
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -182,88 +357,9 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
                 <DashboardLayout>
-                  <TeamRouteWrapper>
+                  <TeamProvider>
                     <TeamDetails />
-                  </TeamRouteWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Checklist Routes */}
-          <Route
-            path="/admin/checklists"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
-                <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <Checklist />
-                  </ChecklistRouteWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/checklists/custom-builder"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
-                <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <CustomChecklistBuilder />
-                  </ChecklistRouteWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/checklists/global-builder"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
-                <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <GlobalChecklistBuilder />
-                  </ChecklistRouteWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/checklists/import-fields"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
-                <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <ImportChecklistFields />
-                  </ChecklistRouteWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/clone-checklist"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
-                <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <CloneChecklist />
-                  </ChecklistRouteWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/checklist-requests"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
-                <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <ChecklistRequests />
-                  </ChecklistRouteWrapper>
+                  </TeamProvider>
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -273,117 +369,216 @@ export default function App() {
           <Route
             path="/admin/assets"
             element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
                 <DashboardLayout>
-                  <AssetRouteWrapper>
-                    <TeamAssetManagement />
-                  </AssetRouteWrapper>
+                  <AssetProviderWrapper>
+                    <AssetManagement />
+                  </AssetProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* Assigned Checklists Route */}
           <Route
-            path="/admin/assigned-checklists"
+            path="/admin/assets/add"
             element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
                 <DashboardLayout>
-                  <CombinedRouteWrapper>
-                    <div>Assigned Checklists Page</div>
-                  </CombinedRouteWrapper>
+                  <AssetProviderWrapper>
+                    <AddNewAsset />
+                  </AssetProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* Reports Route */}
+          <Route
+            path="/admin/assets/view/:id"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
+                <DashboardLayout>
+                  <AssetProviderWrapper>
+                    <AssetView />
+                  </AssetProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/assets/clone"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
+                <DashboardLayout>
+                  <AssetProviderWrapper>
+                    <CloneAssets />
+                  </AssetProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/assets/edit/:id"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
+                <DashboardLayout>
+                  <AssetProviderWrapper>
+                    <EditAsset />
+                  </AssetProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/admin/reports"
             element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
                 <DashboardLayout>
-                  <CombinedRouteWrapper>
+                  <CombinedProviderWrapper>
                     <ReportsPage />
-                  </CombinedRouteWrapper>
+                  </CombinedProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* Settings Route */}
+          {/* Asset Request Routes */}
           <Route
-            path="/admin/settings"
+            path="/admin/asset-requests"
             element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
                 <DashboardLayout>
-                  <CombinedRouteWrapper>
-                    <div>Settings Page</div>
-                  </CombinedRouteWrapper>
+                  <AssetRequestProviderWrapper>
+                    <AssetRequests />
+                  </AssetRequestProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* Team Member Routes */}
+          <Route
+            path="/admin/asset-requests/create"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
+                <DashboardLayout>
+                  <AssetRequestProviderWrapper>
+                    <CreateAssetRequest />
+                  </AssetRequestProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/my-requests"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "team"]}>
+                <DashboardLayout>
+                  <AssetRequestProviderWrapper>
+                    <MyRequests />
+                  </AssetRequestProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ==================== TEAM ROUTES ==================== */}
+
+          {/* Team My Tasks Route - Team only with AssignmentProvider */}
           <Route
             path="/team"
             element={
               <ProtectedRoute allowedRoles={["team"]}>
                 <DashboardLayout>
-                  <CombinedRouteWrapper>
-                    <MyTask />
-                  </CombinedRouteWrapper>
+                  <TeamAssignmentProviderWrapper>
+                    <MyTasks />
+                  </TeamAssignmentProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
+          {/* Task Details Route - Team only */}
           <Route
-            path="/team/assets"
+            path="/task-details/:id"
             element={
               <ProtectedRoute allowedRoles={["team"]}>
                 <DashboardLayout>
-                  <AssetRouteWrapper>
-                    <TeamAssetManagement />
-                  </AssetRouteWrapper>
+                  <TeamAssignmentProviderWrapper>
+                    <TaskDetail />
+                  </TeamAssignmentProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
+          {/* Team My Asset Requests Route */}
           <Route
-            path="/team/checklists"
+            path="/team/asset-requests"
             element={
               <ProtectedRoute allowedRoles={["team"]}>
                 <DashboardLayout>
-                  <ChecklistRouteWrapper>
-                    <Checklist />
-                  </ChecklistRouteWrapper>
+                  <AssetRequestProviderWrapper>
+                    <MyRequests />
+                  </AssetRequestProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
+          {/* Team Create Asset Request Route */}
           <Route
-            path="/team/history"
+            path="/team/asset-requests/create"
             element={
               <ProtectedRoute allowedRoles={["team"]}>
                 <DashboardLayout>
-                  <AssetRouteWrapper>
-                    <History />
-                  </AssetRouteWrapper>
+                  <AssetRequestProviderWrapper>
+                    <CreateAssetRequest />
+                  </AssetRequestProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
+          {/* Team Profile Route */}
           <Route
             path="/team/profile"
             element={
               <ProtectedRoute allowedRoles={["team"]}>
                 <DashboardLayout>
-                  <TeamProfile />
+                  <TeamProviderWrapper>
+                    <TeamProfile />
+                  </TeamProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Team Inspection History Route */}
+          <Route
+            path="/team/history"
+            element={
+              <ProtectedRoute allowedRoles={["team"]}>
+                <DashboardLayout>
+                  <TeamProviderWrapper>
+                    <InspectionHistory />
+                  </TeamProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Team Assets Route */}
+          <Route
+            path="/team/assets"
+            element={
+              <ProtectedRoute allowedRoles={["team"]}>
+                <DashboardLayout>
+                  <AssetProviderWrapper>
+                    <AssetManagement />
+                  </AssetProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }

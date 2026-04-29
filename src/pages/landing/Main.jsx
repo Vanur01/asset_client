@@ -1,11 +1,6 @@
 // Main.jsx
 import React, { useState, useEffect } from "react";
-import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Box,
-} from "@mui/material";
+import { ThemeProvider, createTheme, CssBaseline, Box } from "@mui/material";
 import Navbar from "./Navbar";
 import Hero from "./Home";
 import Analytics from "./Analytics";
@@ -16,8 +11,6 @@ import Testimonials from "./Testimonials";
 import CTA from "./Ctabanner";
 import Contact from "./Contact";
 import Footer from "./Footer";
-
-
 
 // Create theme
 const theme = createTheme({
@@ -81,13 +74,13 @@ function Main() {
   useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY + 100;
-      
+
       for (const section of sections) {
         const element = document.getElementById(section.id);
         if (element) {
           const offsetTop = element.offsetTop;
           const offsetBottom = offsetTop + element.offsetHeight;
-          
+
           if (scrollPosition >= offsetTop && scrollPosition < offsetBottom) {
             setActiveSection(section.id);
             break;
@@ -98,7 +91,7 @@ function Main() {
 
     window.addEventListener("scroll", handleScroll);
     handleScroll();
-    
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -107,7 +100,7 @@ function Main() {
     if (element) {
       const offset = 80;
       const elementPosition = element.offsetTop - offset;
-      
+
       window.scrollTo({
         top: elementPosition,
         behavior: "smooth",
@@ -119,10 +112,10 @@ function Main() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ bgcolor: "background.default" }}>
-        <Navbar 
-          sections={sections} 
-          activeSection={activeSection} 
-          scrollToSection={scrollToSection} 
+        <Navbar
+          sections={sections}
+          activeSection={activeSection}
+          scrollToSection={scrollToSection}
         />
         <Hero scrollToSection={scrollToSection} />
         <Analytics />

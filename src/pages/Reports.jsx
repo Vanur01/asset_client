@@ -1,5 +1,5 @@
-// pages/Reports.jsx
-import { useState, useEffect, useCallback } from "react";
+// pages/Reports.jsx - Fully Responsive for All Devices
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -36,8 +36,10 @@ import {
   Tab,
   Tabs,
   Badge,
+  Skeleton,
+  useTheme as useMuiTheme,
 } from "@mui/material";
-import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
+import { alpha } from "@mui/material/styles";
 import {
   LineChart,
   Line,
@@ -55,7 +57,6 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import DownloadIcon from "@mui/icons-material/Download";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
@@ -76,117 +77,239 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import VerifiedIcon from "@mui/icons-material/Verified";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useReport } from "../context/ReportContext";
 import { useAuth } from "../context/AuthContexts";
 
-const theme = createTheme({
-  palette: {
-    primary: { main: "#1a4a6b" },
-    background: { default: "#f8fafc" },
-  },
-  typography: {
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    fontSize: 13,
-    h5: { fontSize: "1.125rem", fontWeight: 800 },
-    h6: { fontSize: "0.875rem", fontWeight: 700 },
-    body1: { fontSize: "0.75rem" },
-    body2: { fontSize: "0.6875rem" },
-    caption: { fontSize: "0.625rem" },
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          border: "1px solid #eef2f6",
-          transition: "all 0.2s ease",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 10,
-          textTransform: "none",
-          fontWeight: 600,
-          fontSize: "0.6875rem",
-          padding: "6px 12px",
-        },
-      },
-    },
-    MuiTab: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          fontWeight: 600,
-          fontSize: "0.75rem",
-          minHeight: 40,
-        },
-      },
-    },
-  },
-});
+// ─────────────────────────────────────────────
+// Custom Color Palette
+// ─────────────────────────────────────────────
+const colors = {
+  primary: "#1a4a6b",
+  primaryLight: "#2e7d9e",
+  primaryDark: "#0d2f45",
+  secondary: "#64748b",
+  success: "#22c55e",
+  warning: "#f59e0b",
+  error: "#ef4444",
+  purple: "#a855f7",
+  orange: "#f97316",
+  background: "#f8fafc",
+  surface: "#ffffff",
+  border: "#e2e8f0",
+  textPrimary: "#0f172a",
+  textSecondary: "#64748b",
+  textDisabled: "#94a3b8",
+};
 
-const CustomDot = (props) => {
-  const { cx, cy } = props;
+// ─────────────────────────────────────────────
+// Loading Skeleton Component
+// ─────────────────────────────────────────────
+const ReportSkeleton = () => {
+  const theme = useMuiTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={4}
-      fill="#1a4a6b"
-      stroke="#fff"
-      strokeWidth={2}
-    />
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3, flexDirection: isMobile ? "column" : "row", gap: 2 }}>
+        <Box>
+          <Skeleton variant="text" width={200} height={32} />
+          <Skeleton variant="text" width={150} height={20} />
+        </Box>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Skeleton variant="rounded" width={120} height={36} />
+          <Skeleton variant="circular" width={36} height={36} />
+          <Skeleton variant="circular" width={36} height={36} />
+          <Skeleton variant="rounded" width={80} height={36} />
+        </Box>
+      </Box>
+      <Box sx={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 2, mb: 3 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} variant="rounded" height={isMobile ? 100 : 120} sx={{ borderRadius: 3 }} />
+        ))}
+      </Box>
+      <Skeleton variant="rounded" height={40} sx={{ mb: 3 }} />
+      <Box sx={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "7fr 5fr", gap: 2 }}>
+        <Skeleton variant="rounded" height={300} sx={{ borderRadius: 3 }} />
+        <Skeleton variant="rounded" height={300} sx={{ borderRadius: 3 }} />
+      </Box>
+    </Box>
   );
 };
 
+// ─────────────────────────────────────────────
+// Error State Component
+// ─────────────────────────────────────────────
+const ErrorState = ({ message, onRetry }) => (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      py: { xs: 6, sm: 8 },
+      px: 2,
+    }}
+  >
+    <ErrorOutlineIcon sx={{ fontSize: { xs: 48, sm: 64 }, color: colors.error, mb: 2 }} />
+    <Typography
+      variant="h6"
+      sx={{ fontWeight: 600, color: colors.textPrimary, mb: 1, textAlign: "center" }}
+    >
+      Failed to Load Reports
+    </Typography>
+    <Typography
+      variant="body2"
+      sx={{ color: colors.textSecondary, mb: 3, textAlign: "center", maxWidth: 400 }}
+    >
+      {message || "An error occurred while loading reports. Please try again."}
+    </Typography>
+    <Button
+      variant="contained"
+      onClick={onRetry}
+      startIcon={<RefreshIcon />}
+      sx={{ bgcolor: colors.primary, "&:hover": { bgcolor: colors.primaryDark } }}
+    >
+      Retry
+    </Button>
+  </Box>
+);
+
+// ─────────────────────────────────────────────
+// Empty State Component
+// ─────────────────────────────────────────────
+const EmptyState = ({ icon: Icon, title, description }) => (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      py: { xs: 4, sm: 6 },
+      px: 2,
+      textAlign: "center",
+    }}
+  >
+    {Icon && <Icon sx={{ fontSize: { xs: 40, sm: 48 }, color: colors.textDisabled, mb: 2 }} />}
+    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: colors.textPrimary, mb: 1 }}>
+      {title}
+    </Typography>
+    <Typography variant="caption" sx={{ color: colors.textSecondary, maxWidth: 300 }}>
+      {description}
+    </Typography>
+  </Box>
+);
+
+// ─────────────────────────────────────────────
+// Custom Tooltip for Charts
+// ─────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label, valuePrefix = "", valueSuffix = "" }) => {
+  if (active && payload && payload.length) {
+    return (
+      <Box
+        sx={{
+          bgcolor: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderRadius: 2,
+          p: 1.5,
+          boxShadow: "0 4px 6px rgba(0,0,0,0.07)",
+        }}
+      >
+        <Typography variant="caption" sx={{ color: colors.textSecondary, mb: 0.5, display: "block" }}>
+          {label || payload[0]?.name}
+        </Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
+          {valuePrefix}{payload[0]?.value?.toLocaleString()}{valueSuffix}
+        </Typography>
+      </Box>
+    );
+  }
+  return null;
+};
+
+// ─────────────────────────────────────────────
 // Stat Card Component
-function StatCard({ icon, label, value, sub, bg, loading }) {
+// ─────────────────────────────────────────────
+function StatCard({ icon, label, value, sub, bg, loading, error }) {
+  const theme = useMuiTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${colors.error} 0%, #dc2626 100%)`,
+          p: { xs: 1.5, sm: 2 },
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <ErrorOutlineIcon sx={{ fontSize: 18 }} />
+        <Typography variant="caption">Failed to load</Typography>
+      </Box>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ borderRadius: 3, background: bg, p: { xs: 1.5, sm: 2 } }}>
+        <Skeleton variant="circular" width={24} height={24} sx={{ bgcolor: "rgba(255,255,255,0.2)", mb: 1 }} />
+        <Skeleton variant="text" width="60%" sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
+        <Skeleton variant="text" width="40%" height={30} sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
+      </Box>
+    );
+  }
 
   return (
     <Box
       sx={{
-        flex: 1,
-        minWidth: isMobile ? "calc(50% - 8px)" : 180,
-        borderRadius: 3,
+        borderRadius: { xs: 2, sm: 3 },
         background: bg,
-        p: isMobile ? 1.5 : 2,
+        p: { xs: 1.5, sm: 2, md: 2.5 },
         color: "#fff",
-        transition: "transform 0.2s",
-        "&:hover": { transform: "translateY(-2px)" },
+        transition: "transform 0.2s, box-shadow 0.2s",
+        cursor: "default",
+        "&:hover": { 
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
+        },
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 0.75 }, mb: { xs: 0.75, sm: 1 } }}>
         {icon}
         <Typography
           variant="caption"
-          sx={{ color: "rgba(255,255,255,0.85)", fontWeight: 500 }}
+          sx={{ 
+            color: "rgba(255,255,255,0.85)", 
+            fontWeight: 500,
+            fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" }
+          }}
         >
           {label}
         </Typography>
       </Box>
-      {loading ? (
-        <CircularProgress size={20} sx={{ color: "#fff" }} />
-      ) : (
-        <Typography
-          variant="h5"
-          fontWeight={800}
-          sx={{
-            color: "#fff",
-            lineHeight: 1.1,
-            mb: 0.5,
-            fontSize: isMobile ? "1.125rem" : "1.25rem",
-          }}
-        >
-          {value}
-        </Typography>
-      )}
+      <Typography
+        variant="h5"
+        fontWeight={800}
+        sx={{
+          color: "#fff",
+          lineHeight: 1.1,
+          mb: 0.5,
+          fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem", lg: "1.375rem" },
+        }}
+      >
+        {value ?? 0}
+      </Typography>
       <Typography
         variant="caption"
-        sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.5625rem" }}
+        sx={{ 
+          color: "rgba(255,255,255,0.75)", 
+          fontSize: { xs: "0.55rem", sm: "0.6rem", md: "0.625rem" }
+        }}
       >
         {sub}
       </Typography>
@@ -194,52 +317,31 @@ function StatCard({ icon, label, value, sub, bg, loading }) {
   );
 }
 
+// ─────────────────────────────────────────────
 // Report Type Selector
+// ─────────────────────────────────────────────
 function ReportTypeSelector({ value, onChange, isAdmin }) {
-  const reportTypes = [
-    {
-      id: "all",
-      label: "All Reports",
-      icon: <AssessmentIcon sx={{ fontSize: 16 }} />,
-    },
-    {
-      id: "clients",
-      label: "Clients",
-      icon: <BusinessIcon sx={{ fontSize: 16 }} />,
-    },
-    {
-      id: "assets",
-      label: "Assets",
-      icon: <InventoryIcon sx={{ fontSize: 16 }} />,
-      adminOnly: true,
-    },
-    {
-      id: "team",
-      label: "Team",
-      icon: <GroupsIcon sx={{ fontSize: 16 }} />,
-      adminOnly: true,
-    },
-    {
-      id: "inspections",
-      label: "Inspections",
-      icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
-    },
-    {
-      id: "financial",
-      label: "Financial",
-      icon: <AttachMoneyIcon sx={{ fontSize: 16 }} />,
-    },
-    {
-      id: "compliance",
-      label: "Compliance",
-      icon: <VerifiedIcon sx={{ fontSize: 16 }} />,
-      adminOnly: true,
-    },
-  ];
+  const theme = useMuiTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const visibleTypes = reportTypes.filter(
-    (type) => !type.adminOnly || (type.adminOnly && isAdmin),
-  );
+  const reportTypes = useMemo(() => {
+    const types = [
+      { id: "all", label: "All", icon: <AssessmentIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
+      { id: "clients", label: "Clients", icon: <BusinessIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
+      { id: "inspections", label: "Inspections", icon: <AssignmentIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
+      { id: "financial", label: "Financial", icon: <AttachMoneyIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
+    ];
+    
+    if (isAdmin) {
+      types.push(
+        { id: "assets", label: "Assets", icon: <InventoryIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />, adminOnly: true },
+        { id: "team", label: "Team", icon: <GroupsIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />, adminOnly: true },
+        { id: "compliance", label: "Compliance", icon: <VerifiedIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />, adminOnly: true },
+      );
+    }
+    
+    return types;
+  }, [isAdmin]);
 
   return (
     <ToggleButtonGroup
@@ -247,29 +349,50 @@ function ReportTypeSelector({ value, onChange, isAdmin }) {
       exclusive
       onChange={(e, val) => val && onChange(val)}
       size="small"
-      sx={{ flexWrap: "wrap", gap: 0.5 }}
+      sx={{ 
+        flexWrap: "wrap", 
+        gap: 0.5,
+        "& .MuiToggleButton-root": {
+          px: { xs: 1, sm: 1.5 },
+          py: 0.5,
+          fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+          borderRadius: "8px !important",
+          border: `1px solid ${colors.border} !important`,
+          "&.Mui-selected": {
+            bgcolor: alpha(colors.primary, 0.08),
+            color: colors.primary,
+            borderColor: `${colors.primary} !important`,
+          },
+        },
+      }}
     >
-      {visibleTypes.map((type) => (
-        <ToggleButton
-          key={type.id}
-          value={type.id}
-          sx={{ fontSize: "0.625rem", px: 1.5, py: 0.5 }}
-        >
+      {reportTypes.map((type) => (
+        <ToggleButton key={type.id} value={type.id}>
           {type.icon}
-          <Typography sx={{ ml: 0.5, display: { xs: "none", sm: "inline" } }}>
-            {type.label}
-          </Typography>
+          {!isMobile && (
+            <Typography sx={{ ml: 0.5, fontSize: "inherit" }}>
+              {type.label}
+            </Typography>
+          )}
         </ToggleButton>
       ))}
     </ToggleButtonGroup>
   );
 }
 
+// ─────────────────────────────────────────────
+// Main Reports Page Component
+// ─────────────────────────────────────────────
 export default function ReportsPage() {
+  const theme = useMuiTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  
   const { user } = useAuth();
   const {
     loading,
+    initialLoading,
     exporting,
     error,
     analyticsData,
@@ -285,9 +408,7 @@ export default function ReportsPage() {
     clearError,
   } = useReport();
 
-  const isAdmin = user?.role === "admin";
-  const isSuperAdmin =
-    user?.role === "super_admin" || user?.role === "superadmin";
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin" || user?.role === "superadmin";
 
   const [dateRange, setDateRange] = useState(30);
   const [tabValue, setTabValue] = useState(0);
@@ -301,20 +422,30 @@ export default function ReportsPage() {
     severity: "success",
   });
 
-  const showToast = (msg, sev = "success") =>
+  const showToast = useCallback((msg, sev = "success") => {
     setToast({ open: true, message: msg, severity: sev });
-  const closeToast = () => setToast((prev) => ({ ...prev, open: false }));
+  }, []);
+
+  const closeToast = useCallback(() => {
+    setToast((prev) => ({ ...prev, open: false }));
+  }, []);
 
   useEffect(() => {
     loadAnalytics();
   }, [dateRange]);
 
-  const loadAnalytics = async () => {
-    await getDashboardAnalytics(dateRange);
-  };
+  const loadAnalytics = useCallback(async () => {
+    try {
+      await getDashboardAnalytics(dateRange);
+    } catch (err) {
+      console.error("Failed to load analytics:", err);
+      showToast("Failed to load analytics data", "error");
+    }
+  }, [dateRange, getDashboardAnalytics, showToast]);
 
-  const handleExport = async (format) => {
+  const handleExport = useCallback(async (format) => {
     setExportAnchorEl(null);
+    
     const dateRangeObj = {
       startDate: new Date(Date.now() - dateRange * 24 * 60 * 60 * 1000)
         .toISOString()
@@ -325,339 +456,434 @@ export default function ReportsPage() {
     let reportTypes = [];
     if (reportType === "all") {
       reportTypes = isAdmin
-        ? [
-            "clients",
-            "assets",
-            "team",
-            "inspections",
-            "financial",
-            "compliance",
-          ]
+        ? ["clients", "assets", "team", "inspections", "financial", "compliance"]
         : ["clients", "inspections", "financial"];
     } else {
       reportTypes = [reportType];
     }
 
-    const blob = await exportBulkReports(reportTypes, dateRangeObj, format);
-    if (blob) {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reports_export_${Date.now()}.${format === "excel" ? "xlsx" : "pdf"}`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      showToast(
-        `Reports exported successfully as ${format.toUpperCase()}`,
-        "success",
-      );
-    } else {
+    try {
+      const blob = await exportBulkReports(reportTypes, dateRangeObj, format);
+      if (blob) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `reports_export_${Date.now()}.${format === "excel" ? "xlsx" : "pdf"}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        showToast(`Reports exported as ${format.toUpperCase()}`, "success");
+      } else {
+        showToast("Failed to export reports", "error");
+      }
+    } catch (err) {
+      console.error("Export error:", err);
       showToast("Failed to export reports", "error");
     }
-  };
+  }, [dateRange, reportType, isAdmin, exportBulkReports, showToast]);
 
-  const handleGenerateReport = async () => {
-    let result = null;
-    if (reportType === "clients") {
-      result = await getClientReport(reportFilters);
-    } else if (reportType === "assets" && isAdmin) {
-      result = await getAssetReport(reportFilters);
-    } else if (reportType === "team" && isAdmin) {
-      result = await getTeamReport(reportFilters);
-    } else if (reportType === "inspections") {
-      result = await getInspectionReport(reportFilters);
-    } else if (reportType === "financial") {
-      result = await getFinancialReport(reportFilters);
-    } else if (reportType === "compliance" && isAdmin) {
-      result = await getComplianceReport(reportFilters);
+  const handleGenerateReport = useCallback(async () => {
+    try {
+      let result = null;
+      if (reportType === "clients") {
+        result = await getClientReport(reportFilters);
+      } else if (reportType === "assets" && isAdmin) {
+        result = await getAssetReport(reportFilters);
+      } else if (reportType === "team" && isAdmin) {
+        result = await getTeamReport(reportFilters);
+      } else if (reportType === "inspections") {
+        result = await getInspectionReport(reportFilters);
+      } else if (reportType === "financial") {
+        result = await getFinancialReport(reportFilters);
+      } else if (reportType === "compliance" && isAdmin) {
+        result = await getComplianceReport(reportFilters);
+      }
+
+      if (result) {
+        setFilterDialogOpen(false);
+        showToast(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated`, "success");
+      }
+    } catch (err) {
+      console.error("Report generation error:", err);
+      showToast("Failed to generate report", "error");
     }
+  }, [reportType, isAdmin, reportFilters, getClientReport, getAssetReport, getTeamReport, getInspectionReport, getFinancialReport, getComplianceReport, showToast]);
 
-    if (result) {
-      setFilterDialogOpen(false);
-      showToast(
-        `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated successfully`,
-        "success",
-      );
-    }
-  };
+  // Memoized chart data
+  const revenueTrend = useMemo(() => {
+    if (!analyticsData?.revenueTrend) return [];
+    return [
+      { name: "Current", value: analyticsData.revenueTrend.current || 0, fill: colors.primary },
+      { name: "Previous", value: analyticsData.revenueTrend.previous || 0, fill: colors.secondary },
+      { name: "Projected", value: analyticsData.revenueTrend.projected || 0, fill: colors.success },
+    ];
+  }, [analyticsData]);
 
-  // Prepare chart data from API
-  const revenueTrend = analyticsData?.revenueTrend
-    ? [
-        {
-          name: "Current",
-          value: analyticsData.revenueTrend.current,
-          fill: "#1a4a6b",
-        },
-        {
-          name: "Previous",
-          value: analyticsData.revenueTrend.previous,
-          fill: "#64748b",
-        },
-        {
-          name: "Projected",
-          value: analyticsData.revenueTrend.projected,
-          fill: "#22c55e",
-        },
-      ]
-    : [];
+  const clientGrowthData = useMemo(() => {
+    if (!analyticsData?.clientGrowth) return [];
+    return [
+      { name: "Total", value: analyticsData.clientGrowth.total || 0 },
+      { name: "New", value: analyticsData.clientGrowth.new || 0 },
+      { name: "Prev Period", value: analyticsData.clientGrowth.previous || 0 },
+    ];
+  }, [analyticsData]);
 
-  const clientGrowthData = analyticsData?.clientGrowth
-    ? [
-        { name: "Total", value: analyticsData.clientGrowth.total },
-        { name: "New", value: analyticsData.clientGrowth.new },
-        { name: "Previous Period", value: analyticsData.clientGrowth.previous },
-      ]
-    : [];
+  const pieData = useMemo(() => [
+    { name: "Safety", value: 35, color: colors.primary },
+    { name: "Equipment", value: 25, color: colors.primaryLight },
+    { name: "Quality", value: 20, color: colors.warning },
+    { name: "Maintenance", value: 15, color: colors.purple },
+    { name: "Other", value: 5, color: colors.textDisabled },
+  ], []);
 
-  const pieData = [
-    { name: "Safety", value: 35, color: "#1a4a6b" },
-    { name: "Equipment", value: 25, color: "#2e7d9e" },
-    { name: "Quality", value: 20, color: "#f59e0b" },
-    { name: "Maintenance", value: 15, color: "#8b5cf6" },
-    { name: "Other", value: 5, color: "#94a3b8" },
-  ];
-
-  const statCards = [
+  const statCards = useMemo(() => [
     {
-      icon: <BusinessIcon sx={{ fontSize: 18 }} />,
+      icon: <BusinessIcon sx={{ fontSize: { xs: 16, sm: 18, md: 20 } }} />,
       label: "Total Clients",
       value: analyticsData?.clientGrowth?.total || 0,
-      sub: `${analyticsData?.clientGrowth?.new || 0} new this period`,
-      bg: "linear-gradient(135deg, #1a4a6b 0%, #1e6080 100%)",
+      sub: `${analyticsData?.clientGrowth?.new || 0} new`,
+      bg: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
     },
     {
-      icon: <AssignmentIcon sx={{ fontSize: 18 }} />,
+      icon: <AssignmentIcon sx={{ fontSize: { xs: 16, sm: 18, md: 20 } }} />,
       label: "Active Checklists",
       value: analyticsData?.checklistUsage?.active || 0,
-      sub: `${analyticsData?.checklistUsage?.activeRate || 0}% active rate`,
-      bg: "linear-gradient(135deg, #a855f7 0%, #9333ea 100%)",
+      sub: `${analyticsData?.checklistUsage?.activeRate || 0}% active`,
+      bg: `linear-gradient(135deg, ${colors.purple} 0%, #9333ea 100%)`,
     },
     {
-      icon: <PeopleOutlineIcon sx={{ fontSize: 18 }} />,
-      label: "Total Clients",
-      value: analyticsData?.clientGrowth?.total || 0,
-      sub: `${analyticsData?.clientGrowth?.new || 0} new this period`,
-      bg: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+      icon: <PeopleOutlineIcon sx={{ fontSize: { xs: 16, sm: 18, md: 20 } }} />,
+      label: "Team Members",
+      value: analyticsData?.teamPerformance?.total || 0,
+      sub: `${analyticsData?.teamPerformance?.active || 0} active`,
+      bg: `linear-gradient(135deg, ${colors.warning} 0%, ${colors.orange} 100%)`,
     },
     {
-      icon: <TrendingUpIcon sx={{ fontSize: 18 }} />,
+      icon: <TrendingUpIcon sx={{ fontSize: { xs: 16, sm: 18, md: 20 } }} />,
       label: "Revenue Growth",
       value: `${analyticsData?.revenueTrend?.growth || 0}%`,
-      sub:
-        analyticsData?.revenueTrend?.growth > 10
-          ? "Above target"
-          : "Below target",
-      bg:
-        (analyticsData?.revenueTrend?.growth || 0) > 10
-          ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
-          : "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+      sub: (analyticsData?.revenueTrend?.growth || 0) > 10 ? "Above target" : "Below target",
+      bg: (analyticsData?.revenueTrend?.growth || 0) > 10
+        ? `linear-gradient(135deg, ${colors.success} 0%, #16a34a 100%)`
+        : `linear-gradient(135deg, ${colors.error} 0%, #dc2626 100%)`,
     },
-  ];
+  ], [analyticsData]);
 
-  const insights = analyticsData?.insights || [];
+  const insights = useMemo(() => analyticsData?.insights || [], [analyticsData]);
+
+  // Show loading skeleton on initial load
+  if (initialLoading && !analyticsData) {
+    return <ReportSkeleton />;
+  }
+
+  // Show error state
+  if (error && !analyticsData) {
+    return <ErrorState message={error} onRetry={loadAnalytics} />;
+  }
 
   return (
-    <ThemeProvider theme={theme}>
+    <Box
+      sx={{ 
+        bgcolor: colors.background, 
+        minHeight: "100%", 
+        p: { xs: 1.5, sm: 2, md: 3, lg: 3.5 },
+        maxWidth: { xl: 1400 },
+        mx: "auto",
+      }}
+    >
+      {/* Header Section */}
       <Box
-        sx={{ bgcolor: "#f8fafc", minHeight: "100vh", p: isMobile ? 1.5 : 3 }}
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          alignItems: { xs: "flex-start", sm: "center" },
+          justifyContent: "space-between",
+          gap: { xs: 1.5, sm: 2 },
+          mb: { xs: 2, sm: 2.5, md: 3 },
+        }}
       >
-        {/* Header */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: isMobile ? "column" : "row",
-            alignItems: isMobile ? "flex-start" : "center",
-            justifyContent: "space-between",
-            gap: 2,
-            mb: 2.5,
-          }}
+        <Box sx={{ flex: 1 }}>
+          <Typography
+            variant="h5"
+            fontWeight={800}
+            sx={{
+              color: colors.textPrimary,
+              fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem", lg: "1.375rem" },
+            }}
+          >
+            Reports & Analytics
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ 
+              color: colors.textSecondary, 
+              mt: 0.3, 
+              display: "block",
+              fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" }
+            }}
+          >
+            View analytics and export reports for your organization
+          </Typography>
+        </Box>
+
+        {/* Controls */}
+        <Stack 
+          direction={{ xs: "column", sm: "row" }} 
+          spacing={1}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
-          <Box>
-            <Typography
-              variant="h5"
-              fontWeight={800}
-              sx={{
-                color: "#0f172a",
-                fontSize: isMobile ? "1rem" : "1.125rem",
+          {/* Date Range Toggle */}
+          <ToggleButtonGroup
+            size="small"
+            value={dateRange}
+            exclusive
+            onChange={(e, val) => val && setDateRange(val)}
+            sx={{
+              "& .MuiToggleButton-root": {
+                px: { xs: 1, sm: 1.5 },
+                py: 0.5,
+                fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                border: `1px solid ${colors.border}`,
+                "&.Mui-selected": {
+                  bgcolor: alpha(colors.primary, 0.08),
+                  color: colors.primary,
+                },
+              },
+            }}
+          >
+            <ToggleButton value={7}>7d</ToggleButton>
+            <ToggleButton value={30}>30d</ToggleButton>
+            <ToggleButton value={90}>90d</ToggleButton>
+          </ToggleButtonGroup>
+
+          {/* Action Buttons */}
+          <Box sx={{ display: "flex", gap: 0.5, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+            <IconButton
+              onClick={loadAnalytics}
+              disabled={loading}
+              size="small"
+              sx={{ 
+                bgcolor: colors.surface, 
+                border: `1px solid ${colors.border}`,
+                "&:hover": { bgcolor: alpha(colors.primary, 0.04) }
               }}
             >
-              Reports & Analytics
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "#64748b", mt: 0.3, display: "block" }}
-            >
-              View platform analytics and export reports
-            </Typography>
-          </Box>
-          <Box
-            sx={{ display: "flex", gap: 1, width: isMobile ? "100%" : "auto" }}
-          >
-            <ToggleButtonGroup
-              size="small"
-              value={dateRange}
-              exclusive
-              onChange={(e, val) => val && setDateRange(val)}
-              sx={{ mr: 1 }}
-            >
-              <ToggleButton value={7} sx={{ fontSize: "0.625rem", px: 1.5 }}>
-                7d
-              </ToggleButton>
-              <ToggleButton value={30} sx={{ fontSize: "0.625rem", px: 1.5 }}>
-                30d
-              </ToggleButton>
-              <ToggleButton value={90} sx={{ fontSize: "0.625rem", px: 1.5 }}>
-                90d
-              </ToggleButton>
-            </ToggleButtonGroup>
-            <IconButton
-              onClick={() => loadAnalytics()}
-              size="small"
-              sx={{ bgcolor: "#fff", border: "1px solid #e2e8f0" }}
-            >
-              <RefreshIcon sx={{ fontSize: "1rem", color: "#64748b" }} />
+              {loading ? (
+                <CircularProgress size={16} />
+              ) : (
+                <RefreshIcon sx={{ fontSize: { xs: 16, sm: 18 }, color: colors.textSecondary }} />
+              )}
             </IconButton>
             <IconButton
               onClick={() => setFilterDialogOpen(true)}
               size="small"
-              sx={{ bgcolor: "#fff", border: "1px solid #e2e8f0" }}
+              sx={{ 
+                bgcolor: colors.surface, 
+                border: `1px solid ${colors.border}`,
+                "&:hover": { bgcolor: alpha(colors.primary, 0.04) }
+              }}
             >
-              <FilterListIcon sx={{ fontSize: "1rem", color: "#64748b" }} />
+              <FilterListIcon sx={{ fontSize: { xs: 16, sm: 18 }, color: colors.textSecondary }} />
             </IconButton>
             <Button
               variant="contained"
-              startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
+              startIcon={exporting ? <CircularProgress size={14} color="inherit" /> : <DownloadIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />}
               onClick={(e) => setExportAnchorEl(e.currentTarget)}
               disabled={exporting}
-              sx={{ bgcolor: "#1a4a6b", "&:hover": { bgcolor: "#153d5c" } }}
+              sx={{ 
+                bgcolor: colors.primary, 
+                "&:hover": { bgcolor: colors.primaryDark },
+                fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
+                px: { xs: 1.5, sm: 2 },
+              }}
             >
-              {exporting ? <CircularProgress size={16} /> : "Export"}
+              {isMobile ? "" : "Export"}
             </Button>
           </Box>
+        </Stack>
+      </Box>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert
+          severity="error"
+          onClose={clearError}
+          sx={{ mb: 2, borderRadius: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={loadAnalytics}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Loading Indicator */}
+      {loading && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ height: 2, bgcolor: alpha(colors.primary, 0.1), borderRadius: 1, overflow: "hidden" }}>
+            <Box
+              sx={{
+                height: "100%",
+                width: "30%",
+                bgcolor: colors.primary,
+                borderRadius: 1,
+                animation: "loading 1.5s infinite ease-in-out",
+                "@keyframes loading": {
+                  "0%": { transform: "translateX(-100%)" },
+                  "100%": { transform: "translateX(400%)" },
+                },
+              }}
+            />
+          </Box>
         </Box>
+      )}
 
-        {/* Error Alert */}
-        {error && (
-          <Alert
-            severity="error"
-            onClose={clearError}
-            sx={{ mb: 2, borderRadius: 2 }}
-          >
-            {error}
-          </Alert>
-        )}
+      {/* Stat Cards */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "repeat(2, 1fr)",
+            sm: "repeat(2, 1fr)",
+            md: "repeat(4, 1fr)",
+          },
+          gap: { xs: 1, sm: 1.5, md: 2 },
+          mb: { xs: 2, sm: 2.5, md: 3 },
+        }}
+      >
+        {statCards.map((card, i) => (
+          <StatCard key={i} {...card} loading={loading} />
+        ))}
+      </Box>
 
-        {/* Stat Cards */}
-        <Box
+      {/* Report Type Selector */}
+      <Paper 
+        sx={{ 
+          mb: { xs: 2, sm: 2.5 }, 
+          p: { xs: 1, sm: 1.5 },
+          borderRadius: 2, 
+          bgcolor: colors.surface,
+          border: `1px solid ${colors.border}`,
+        }}
+      >
+        <ReportTypeSelector value={reportType} onChange={setReportType} isAdmin={isAdmin} />
+      </Paper>
+
+      {/* Tabs */}
+      <Paper 
+        sx={{ 
+          mb: { xs: 2, sm: 2.5 }, 
+          borderRadius: 2, 
+          overflow: "hidden",
+          border: `1px solid ${colors.border}`,
+        }}
+      >
+        <Tabs
+          value={tabValue}
+          onChange={(e, v) => setTabValue(v)}
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
           sx={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-            gap: 1.5,
-            mb: 2.5,
+            minHeight: { xs: 36, sm: 40, md: 44 },
+            "& .MuiTab-root": { 
+              fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
+              minHeight: { xs: 36, sm: 40, md: 44 },
+              px: { xs: 1.5, sm: 2, md: 2.5 },
+              textTransform: "none",
+              fontWeight: 600,
+            },
+            "& .MuiTabs-indicator": {
+              bgcolor: colors.primary,
+            },
           }}
         >
-          {statCards.map((card, i) => (
-            <StatCard key={i} {...card} loading={loading} />
-          ))}
-        </Box>
+          <Tab label="Overview" />
+          <Tab label="Revenue" />
+          <Tab label="Clients" />
+          <Tab label="Performance" />
+        </Tabs>
+      </Paper>
 
-        {/* Tabs */}
-        <Paper sx={{ mb: 2.5, borderRadius: 2, overflow: "hidden" }}>
-          <Tabs
-            value={tabValue}
-            onChange={(e, v) => setTabValue(v)}
-            variant={isMobile ? "fullWidth" : "standard"}
-            sx={{
-              minHeight: 40,
-              "& .MuiTab-root": { fontSize: "0.7rem", minHeight: 40 },
-            }}
-          >
-            <Tab label="Overview" />
-            <Tab label="Revenue Analytics" />
-            <Tab label="Client Analytics" />
-            <Tab label="Performance" />
-          </Tabs>
-        </Paper>
-
-        {/* Tab Content */}
+      {/* Tab Content */}
+      <Box sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
+        {/* Overview Tab */}
         {tabValue === 0 && (
-          <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-            {/* Revenue Trend Chart */}
-            <Grid item xs={12} md={7}>
-              <Card sx={{ height: "100%" }}>
-                <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+            {/* Revenue Comparison Chart */}
+            <Grid item xs={12} lg={7}>
+              <Card sx={{ height: "100%", width:"600px", border: `1px solid ${colors.border}` }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
                   <Typography
                     variant="subtitle2"
                     fontWeight={700}
-                    sx={{ color: "#0f172a", fontSize: "0.75rem", mb: 2 }}
+                    sx={{ 
+                      color: colors.textPrimary, 
+                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
+                      mb: { xs: 1.5, sm: 2 } 
+                    }}
                   >
                     Revenue Comparison ({dateRange} days)
                   </Typography>
-                  <ResponsiveContainer
-                    width="100%"
-                    height={isMobile ? 220 : 260}
-                  >
-                    <BarChart
-                      data={revenueTrend}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#f1f5f9"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#94a3b8", fontSize: isMobile ? 10 : 11 }}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#94a3b8", fontSize: isMobile ? 10 : 11 }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: 8,
-                          border: "1px solid #e2e8f0",
-                          fontSize: "0.6875rem",
-                        }}
-                        formatter={(value) => `$${value}`}
-                      />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {revenueTrend.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {revenueTrend.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={isMobile ? 220 : isTablet ? 260 : 300}>
+                      <BarChart
+                        data={revenueTrend}
+                        margin={{ top: 10, right: 10, left: isMobile ? -10 : 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke={alpha(colors.border, 0.5)} vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: colors.textDisabled, fontSize: isMobile ? 10 : 11 }}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: colors.textDisabled, fontSize: isMobile ? 10 : 11 }}
+                        />
+                        <Tooltip content={<CustomTooltip valuePrefix="$" />} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={60}>
+                          {revenueTrend.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <EmptyState icon={ShowChartIcon} title="No revenue data" description="Revenue data will appear here" />
+                  )}
                 </CardContent>
               </Card>
             </Grid>
 
             {/* Checklist Distribution Pie Chart */}
-            <Grid item xs={12} md={5}>
-              <Card sx={{ height: "100%" }}>
-                <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+            <Grid item xs={12} lg={5}>
+              <Card sx={{ height: "100%", width:"500px", border: `1px solid ${colors.border}` }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
                   <Typography
                     variant="subtitle2"
                     fontWeight={700}
-                    sx={{ color: "#0f172a", fontSize: "0.75rem", mb: 2 }}
+                    sx={{ 
+                      color: colors.textPrimary, 
+                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
+                      mb: { xs: 1.5, sm: 2 } 
+                    }}
                   >
                     Checklist Distribution
                   </Typography>
-                  <ResponsiveContainer
-                    width="100%"
-                    height={isMobile ? 200 : 240}
-                  >
+                  <ResponsiveContainer width="100%" height={isMobile ? 220 : isTablet ? 260 : 300}>
                     <PieChart>
                       <Pie
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={isMobile ? 50 : 60}
-                        outerRadius={isMobile ? 70 : 85}
+                        innerRadius={isMobile ? 45 : 55}
+                        outerRadius={isMobile ? 65 : 80}
                         dataKey="value"
                         paddingAngle={2}
                         label={({ name, percent }) =>
@@ -671,47 +897,17 @@ export default function ReportsPage() {
                           <Cell key={idx} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip
-                        formatter={(val) => `${val}%`}
-                        contentStyle={{
-                          borderRadius: 8,
-                          fontSize: "0.6875rem",
-                        }}
-                      />
+                      <Tooltip content={<CustomTooltip valueSuffix="%" />} />
                     </PieChart>
                   </ResponsiveContainer>
+                  {/* Legend for mobile */}
                   {isMobile && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 1,
-                        justifyContent: "center",
-                        mt: 1,
-                      }}
-                    >
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center", mt: 1 }}>
                       {pieData.map((item, i) => (
-                        <Box
-                          key={i}
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              bgcolor: item.color,
-                            }}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{ fontSize: "0.5625rem", color: "#64748b" }}
-                          >
-                            {item.name} {item.value}%
+                        <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.color }} />
+                          <Typography variant="caption" sx={{ fontSize: "0.6rem", color: colors.textSecondary }}>
+                            {item.name}
                           </Typography>
                         </Box>
                       ))}
@@ -723,451 +919,406 @@ export default function ReportsPage() {
           </Grid>
         )}
 
+        {/* Revenue Tab */}
         {tabValue === 1 && (
-          <Grid container spacing={1.5}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight={700}
-                    sx={{ color: "#0f172a", fontSize: "0.75rem", mb: 2 }}
-                  >
-                    Revenue Insights
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        p: 2,
-                        bgcolor: alpha("#1a4a6b", 0.04),
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="caption" sx={{ color: "#64748b" }}>
-                          Monthly Recurring Revenue
-                        </Typography>
-                        <Typography
-                          variant="h6"
-                          fontWeight={700}
-                          sx={{ color: "#1a4a6b" }}
-                        >
-                          ${analyticsData?.revenueTrend?.current || 0}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: "#64748b" }}>
-                          Growth Rate
-                        </Typography>
-                        <Typography
-                          variant="h6"
-                          fontWeight={700}
-                          sx={{
-                            color:
-                              (analyticsData?.revenueTrend?.growth || 0) > 0
-                                ? "#22c55e"
-                                : "#ef4444",
-                          }}
-                        >
-                          {analyticsData?.revenueTrend?.growth > 0 ? "+" : ""}
-                          {analyticsData?.revenueTrend?.growth || 0}%
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: "#64748b" }}>
-                          Projected Revenue
-                        </Typography>
-                        <Typography
-                          variant="h6"
-                          fontWeight={700}
-                          sx={{ color: "#22c55e" }}
-                        >
-                          ${analyticsData?.revenueTrend?.projected || 0}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {tabValue === 2 && (
-          <Grid container spacing={1.5}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight={700}
-                    sx={{ color: "#0f172a", fontSize: "0.75rem", mb: 2 }}
-                  >
-                    Client Growth
-                  </Typography>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart
-                      data={clientGrowthData}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#f1f5f9"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#94a3b8", fontSize: isMobile ? 10 : 11 }}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#94a3b8", fontSize: isMobile ? 10 : 11 }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: 8,
-                          border: "1px solid #e2e8f0",
-                          fontSize: "0.6875rem",
-                        }}
-                      />
-                      <Bar
-                        dataKey="value"
-                        fill="#1a4a6b"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {tabValue === 3 && (
-          <Grid container spacing={1.5}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight={700}
-                    sx={{ color: "#0f172a", fontSize: "0.75rem", mb: 2 }}
-                  >
-                    Key Insights
-                  </Typography>
-                  {insights.length > 0 ? (
-                    <Stack spacing={1.5}>
-                      {insights.map((insight, idx) => (
-                        <Box
-                          key={idx}
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                            p: 1.5,
-                            bgcolor: alpha("#1a4a6b", 0.04),
-                            borderRadius: 2,
-                          }}
-                        >
-                          <TrendingUpIcon
-                            sx={{ fontSize: "1.2rem", color: "#1a4a6b" }}
-                          />
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontSize: "0.75rem",
-                              color: "#475569",
-                              flex: 1,
-                            }}
-                          >
-                            {insight}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Box sx={{ textAlign: "center", py: 4 }}>
-                      <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                        No insights available
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Export Menu */}
-        <Menu
-          anchorEl={exportAnchorEl}
-          open={Boolean(exportAnchorEl)}
-          onClose={() => setExportAnchorEl(null)}
-        >
-          <MenuItem onClick={() => handleExport("excel")}>
-            <ListItemIcon>
-              <TableChartIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Export as Excel" />
-          </MenuItem>
-          <MenuItem onClick={() => handleExport("pdf")}>
-            <ListItemIcon>
-              <PictureAsPdfIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Export as PDF" />
-          </MenuItem>
-        </Menu>
-
-        {/* Filter Dialog */}
-        <Dialog
-          open={filterDialogOpen}
-          onClose={() => setFilterDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Typography variant="h6" fontWeight={700}>
-                Generate Report
-              </Typography>
-              <IconButton
-                size="small"
-                onClick={() => setFilterDialogOpen(false)}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Report Type</InputLabel>
-                <Select
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                  label="Report Type"
-                >
-                  <MenuItem value="all">All Reports</MenuItem>
-                  <MenuItem value="clients">Client Report</MenuItem>
-                  {isAdmin && <MenuItem value="assets">Asset Report</MenuItem>}
-                  {isAdmin && <MenuItem value="team">Team Report</MenuItem>}
-                  <MenuItem value="inspections">Inspection Report</MenuItem>
-                  <MenuItem value="financial">Financial Report</MenuItem>
-                  {isAdmin && (
-                    <MenuItem value="compliance">Compliance Report</MenuItem>
-                  )}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Start Date"
-                type="date"
-                size="small"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                onChange={(e) =>
-                  setReportFilters({
-                    ...reportFilters,
-                    startDate: e.target.value,
-                  })
-                }
-              />
-              <TextField
-                label="End Date"
-                type="date"
-                size="small"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                onChange={(e) =>
-                  setReportFilters({
-                    ...reportFilters,
-                    endDate: e.target.value,
-                  })
-                }
-              />
-              {reportType === "clients" && (
-                <FormControl fullWidth size="small">
-                  <InputLabel>Membership Plan</InputLabel>
-                  <Select
-                    value={reportFilters.membershipPlan || ""}
-                    onChange={(e) =>
-                      setReportFilters({
-                        ...reportFilters,
-                        membershipPlan: e.target.value,
-                      })
-                    }
-                    label="Membership Plan"
-                  >
-                    <MenuItem value="">All Plans</MenuItem>
-                    <MenuItem value="free">Free</MenuItem>
-                    <MenuItem value="standard">Standard</MenuItem>
-                    <MenuItem value="premium">Premium</MenuItem>
-                    <MenuItem value="enterprise">Enterprise</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-              {reportType === "team" && isAdmin && (
-                <FormControl fullWidth size="small">
-                  <InputLabel>Team Role</InputLabel>
-                  <Select
-                    value={reportFilters.teamRole || ""}
-                    onChange={(e) =>
-                      setReportFilters({
-                        ...reportFilters,
-                        teamRole: e.target.value,
-                      })
-                    }
-                    label="Team Role"
-                  >
-                    <MenuItem value="">All Roles</MenuItem>
-                    <MenuItem value="inspector">Inspector</MenuItem>
-                    <MenuItem value="senior_inspector">
-                      Senior Inspector
-                    </MenuItem>
-                    <MenuItem value="lead_inspector">Lead Inspector</MenuItem>
-                    <MenuItem value="supervisor">Supervisor</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-              {reportType === "assets" && isAdmin && (
-                <FormControl fullWidth size="small">
-                  <InputLabel>Asset Status</InputLabel>
-                  <Select
-                    value={reportFilters.status || ""}
-                    onChange={(e) =>
-                      setReportFilters({
-                        ...reportFilters,
-                        status: e.target.value,
-                      })
-                    }
-                    label="Asset Status"
-                  >
-                    <MenuItem value="">All Status</MenuItem>
-                    <MenuItem value="Active">Active</MenuItem>
-                    <MenuItem value="In Maintenance">In Maintenance</MenuItem>
-                    <MenuItem value="Retired">Retired</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, pt: 0 }}>
-            <Button onClick={() => setFilterDialogOpen(false)}>Cancel</Button>
-            <Button
-              variant="contained"
-              onClick={handleGenerateReport}
-              disabled={loading}
-              sx={{ bgcolor: "#1a4a6b" }}
-            >
-              {loading ? <CircularProgress size={20} /> : "Generate Report"}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Report Data Preview */}
-        {reportData && reportData.data && reportData.data.length > 0 && (
-          <Card sx={{ mt: 2.5 }}>
-            <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+          <Card sx={{ border: `1px solid ${colors.border}` }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
               <Typography
                 variant="subtitle2"
                 fontWeight={700}
-                sx={{ color: "#0f172a", fontSize: "0.75rem", mb: 1.5 }}
+                sx={{ 
+                  color: colors.textPrimary, 
+                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
+                  mb: { xs: 1.5, sm: 2 } 
+                }}
               >
-                Report Preview: {reportData.reportType}
+                Revenue Insights
               </Typography>
-              <Box sx={{ overflowX: "auto" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: "0.6875rem",
-                  }}
+              <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+                <Grid item xs={12} sm={4}>
+                  <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: alpha(colors.primary, 0.04), borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                      Monthly Recurring Revenue
+                    </Typography>
+                    <Typography variant="h6" fontWeight={700} sx={{ color: colors.primary, mt: 0.5 }}>
+                      ${(analyticsData?.revenueTrend?.current || 0).toLocaleString()}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: alpha(colors.success, 0.04), borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                      Growth Rate
+                    </Typography>
+                    <Typography 
+                      variant="h6" 
+                      fontWeight={700} 
+                      sx={{ 
+                        color: (analyticsData?.revenueTrend?.growth || 0) > 0 ? colors.success : colors.error,
+                        mt: 0.5 
+                      }}
+                    >
+                      {(analyticsData?.revenueTrend?.growth || 0) > 0 ? "+" : ""}
+                      {analyticsData?.revenueTrend?.growth || 0}%
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: alpha(colors.purple, 0.04), borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                      Projected Revenue
+                    </Typography>
+                    <Typography variant="h6" fontWeight={700} sx={{ color: colors.purple, mt: 0.5 }}>
+                      ${(analyticsData?.revenueTrend?.projected || 0).toLocaleString()}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Clients Tab */}
+        {tabValue === 2 && (
+          <Card sx={{ border: `1px solid ${colors.border}` }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                sx={{ 
+                  color: colors.textPrimary, 
+                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
+                  mb: { xs: 1.5, sm: 2 } 
+                }}
+              >
+                Client Growth
+              </Typography>
+              {clientGrowthData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+                  <BarChart
+                    data={clientGrowthData}
+                    margin={{ top: 10, right: 10, left: isMobile ? -10 : 0, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={alpha(colors.border, 0.5)} vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: colors.textDisabled, fontSize: isMobile ? 10 : 11 }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: colors.textDisabled, fontSize: isMobile ? 10 : 11 }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="value" fill={colors.primary} radius={[4, 4, 0, 0]} maxBarSize={80} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <EmptyState icon={PeopleOutlineIcon} title="No client data" description="Client growth data will appear here" />
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Performance Tab */}
+        {tabValue === 3 && (
+          <Card sx={{ border: `1px solid ${colors.border}` }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                sx={{ 
+                  color: colors.textPrimary, 
+                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
+                  mb: { xs: 1.5, sm: 2 } 
+                }}
+              >
+                Key Insights
+              </Typography>
+              {insights.length > 0 ? (
+                <Stack spacing={{ xs: 1, sm: 1.5 }}>
+                  {insights.map((insight, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: { xs: 1, sm: 1.5 },
+                        p: { xs: 1.5, sm: 2 },
+                        bgcolor: alpha(colors.primary, 0.04),
+                        borderRadius: 2,
+                        transition: "transform 0.2s",
+                        "&:hover": { transform: "translateX(4px)" },
+                      }}
+                    >
+                      <TrendingUpIcon sx={{ fontSize: { xs: 16, sm: 18 }, color: colors.primary, mt: 0.2 }} />
+                      <Typography
+                        variant="body2"
+                        sx={{ 
+                          fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" }, 
+                          color: colors.textPrimary, 
+                          flex: 1,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {insight}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <EmptyState icon={AssessmentIcon} title="No insights available" description="Performance insights will appear here" />
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </Box>
+
+      {/* Export Menu */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={() => setExportAnchorEl(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem onClick={() => handleExport("excel")} disabled={exporting}>
+          <ListItemIcon>
+            <TableChartIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Export as Excel" primaryTypographyProps={{ fontSize: "0.8rem" }} />
+        </MenuItem>
+        <MenuItem onClick={() => handleExport("pdf")} disabled={exporting}>
+          <ListItemIcon>
+            <PictureAsPdfIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Export as PDF" primaryTypographyProps={{ fontSize: "0.8rem" }} />
+        </MenuItem>
+      </Menu>
+
+      {/* Filter Dialog */}
+      <Dialog
+        open={filterDialogOpen}
+        onClose={() => setFilterDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: "1rem", sm: "1.1rem" } }}>
+              Generate Report
+            </Typography>
+            <IconButton size="small" onClick={() => setFilterDialogOpen(false)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={{ xs: 1.5, sm: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Report Type</InputLabel>
+              <Select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                label="Report Type"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
+              >
+                <MenuItem value="all">All Reports</MenuItem>
+                <MenuItem value="clients">Client Report</MenuItem>
+                {isAdmin && <MenuItem value="assets">Asset Report</MenuItem>}
+                {isAdmin && <MenuItem value="team">Team Report</MenuItem>}
+                <MenuItem value="inspections">Inspection Report</MenuItem>
+                <MenuItem value="financial">Financial Report</MenuItem>
+                {isAdmin && <MenuItem value="compliance">Compliance Report</MenuItem>}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Start Date"
+              type="date"
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              onChange={(e) => setReportFilters({ ...reportFilters, startDate: e.target.value })}
+              sx={{ "& input": { fontSize: { xs: "0.75rem", sm: "0.8rem" } } }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              onChange={(e) => setReportFilters({ ...reportFilters, endDate: e.target.value })}
+              sx={{ "& input": { fontSize: { xs: "0.75rem", sm: "0.8rem" } } }}
+            />
+            
+            {/* Conditional Filters */}
+            {reportType === "clients" && (
+              <FormControl fullWidth size="small">
+                <InputLabel>Membership Plan</InputLabel>
+                <Select
+                  value={reportFilters.membershipPlan || ""}
+                  onChange={(e) => setReportFilters({ ...reportFilters, membershipPlan: e.target.value })}
+                  label="Membership Plan"
+                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
                 >
+                  <MenuItem value="">All Plans</MenuItem>
+                  <MenuItem value="free">Free</MenuItem>
+                  <MenuItem value="standard">Standard</MenuItem>
+                  <MenuItem value="premium">Premium</MenuItem>
+                  <MenuItem value="enterprise">Enterprise</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            {reportType === "team" && isAdmin && (
+              <FormControl fullWidth size="small">
+                <InputLabel>Team Role</InputLabel>
+                <Select
+                  value={reportFilters.teamRole || ""}
+                  onChange={(e) => setReportFilters({ ...reportFilters, teamRole: e.target.value })}
+                  label="Team Role"
+                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
+                >
+                  <MenuItem value="">All Roles</MenuItem>
+                  <MenuItem value="inspector">Inspector</MenuItem>
+                  <MenuItem value="senior_inspector">Senior Inspector</MenuItem>
+                  <MenuItem value="lead_inspector">Lead Inspector</MenuItem>
+                  <MenuItem value="supervisor">Supervisor</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            {reportType === "assets" && isAdmin && (
+              <FormControl fullWidth size="small">
+                <InputLabel>Asset Status</InputLabel>
+                <Select
+                  value={reportFilters.status || ""}
+                  onChange={(e) => setReportFilters({ ...reportFilters, status: e.target.value })}
+                  label="Asset Status"
+                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
+                >
+                  <MenuItem value="">All Status</MenuItem>
+                  <MenuItem value="Active">Active</MenuItem>
+                  <MenuItem value="In Maintenance">In Maintenance</MenuItem>
+                  <MenuItem value="Retired">Retired</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
+          <Button onClick={() => setFilterDialogOpen(false)} sx={{ color: colors.textSecondary }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleGenerateReport}
+            disabled={loading}
+            sx={{ bgcolor: colors.primary, "&:hover": { bgcolor: colors.primaryDark } }}
+          >
+            {loading ? <CircularProgress size={20} /> : "Generate Report"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Report Preview */}
+      {reportData?.data?.length > 0 && (
+        <Card sx={{ mt: { xs: 2, sm: 2.5, md: 3 }, border: `1px solid ${colors.border}` }}>
+          <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+            <Typography
+              variant="subtitle2"
+              fontWeight={700}
+              sx={{ 
+                color: colors.textPrimary, 
+                fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
+                mb: { xs: 1, sm: 1.5 } 
+              }}
+            >
+              Report Preview: {reportData.reportType}
+            </Typography>
+            <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <Box sx={{ minWidth: { xs: 500, sm: 600 } }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
                   <thead>
-                    <tr style={{ backgroundColor: "#f1f5f9" }}>
-                      {Object.keys(reportData.data[0])
-                        .slice(0, 5)
-                        .map((key) => (
-                          <th
-                            key={key}
-                            style={{
-                              padding: "8px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            {key}
-                          </th>
-                        ))}
+                    <tr style={{ backgroundColor: alpha(colors.primary, 0.04) }}>
+                      {Object.keys(reportData.data[0]).slice(0, 6).map((key) => (
+                        <th
+                          key={key}
+                          style={{
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            borderBottom: `1px solid ${colors.border}`,
+                            fontSize: "0.7rem",
+                            fontWeight: 600,
+                            color: colors.textPrimary,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {reportData.data.slice(0, 5).map((row, idx) => (
                       <tr key={idx}>
-                        {Object.values(row)
-                          .slice(0, 5)
-                          .map((val, i) => (
-                            <td
-                              key={i}
-                              style={{
-                                padding: "8px",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              {typeof val === "object"
-                                ? JSON.stringify(val).substring(0, 50)
-                                : String(val).substring(0, 50)}
-                            </td>
-                          ))}
+                        {Object.values(row).slice(0, 6).map((val, i) => (
+                          <td
+                            key={i}
+                            style={{
+                              padding: "10px 12px",
+                              borderBottom: `1px solid ${colors.border}`,
+                              fontSize: "0.7rem",
+                              color: colors.textSecondary,
+                              maxWidth: 200,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {typeof val === "object" ? JSON.stringify(val).substring(0, 50) : String(val).substring(0, 50)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {reportData.data.length > 5 && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: "block",
-                      textAlign: "center",
-                      mt: 1,
-                      color: "#64748b",
-                    }}
-                  >
-                    + {reportData.data.length - 5} more records
-                  </Typography>
-                )}
               </Box>
-            </CardContent>
-          </Card>
-        )}
+              {reportData.data.length > 5 && (
+                <Typography
+                  variant="caption"
+                  sx={{ display: "block", textAlign: "center", mt: 1.5, color: colors.textSecondary }}
+                >
+                  + {reportData.data.length - 5} more records
+                </Typography>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Toast */}
-        <Snackbar
-          open={toast.open}
-          autoHideDuration={4000}
+      {/* Toast Notifications */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={closeToast}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        sx={{ bottom: { xs: 72, sm: 80, md: 24 } }}
+      >
+        <Alert
           onClose={closeToast}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          severity={toast.severity}
+          variant="filled"
+          sx={{ 
+            borderRadius: 2, 
+            fontSize: { xs: "0.7rem", sm: "0.75rem" },
+            boxShadow: 3,
+          }}
         >
-          <Alert
-            onClose={closeToast}
-            severity={toast.severity}
-            sx={{ borderRadius: 2, fontSize: "0.7rem" }}
-          >
-            {toast.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </ThemeProvider>
+          {toast.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }

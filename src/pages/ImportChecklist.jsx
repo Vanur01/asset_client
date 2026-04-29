@@ -1,804 +1,709 @@
-// pages/admin/checklists/ImportChecklistFields.jsx
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Box,
-  Container,
   Typography,
   Button,
+  Chip,
+  Divider,
   IconButton,
   Paper,
-  Stack,
-  useTheme,
-  useMediaQuery,
-  alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  LinearProgress,
+  FormControlLabel,
+  Checkbox,
+  Rating,
   Alert,
   Snackbar,
   CircularProgress,
-  Grid,
-  Divider,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import { styled } from "@mui/material/styles";
+import {
+  ArrowBack,
+  Visibility,
+  UploadFile,
+  InsertDriveFile,
+  Close,
+  CheckCircle,
+  TableChart,
+  CloudUpload,
+  Description,
+  Rule,
+} from "@mui/icons-material";
+import { useChecklistBuilder } from "../context/ChecklistBuilderContext";
 import { useNavigate } from "react-router-dom";
-import { useChecklist } from "../context/ChecklistContext";
 
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import DescriptionIcon from "@mui/icons-material/Description";
-import HomeIcon from "@mui/icons-material/Home";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-
-const primaryColor = "#002630";
-const accentColor = "#356575";
-
-const PageContainer = styled(Box)(({ theme }) => ({
-  display: "flex",
-  minHeight: "100vh",
-  bgcolor: "background.default",
-}));
-
-const StyledHeader = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(
-    2,
-    3,
-    2,
-    { xs: 2, sm: 3, md: 8 }[
-      theme.breakpoints.keys.find((k) => theme.breakpoints.up(k)) || "md"
-    ],
-  ),
-  backgroundColor: "#ffffff",
-  borderBottom: "1px solid #e2e8f0",
-  borderRadius: 0,
-  boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-  [theme.breakpoints.down("sm")]: { padding: theme.spacing(1.5, 2) },
-}));
-
-const UploadZone = styled(Box)(({ theme, isDragOver }) => ({
-  position: "relative",
-  border: "2px dashed",
-  borderColor: isDragOver ? accentColor : alpha("#000", 0.15),
-  borderRadius: 12,
-  backgroundColor: isDragOver
-    ? alpha(accentColor, 0.04)
-    : alpha(theme.palette.background.default, 0.5),
-  transition: "all 0.2s",
-  textAlign: "center",
-  padding: theme.spacing(8, 3),
-  cursor: "pointer",
-  "&:hover": {
-    backgroundColor: alpha(accentColor, 0.03),
-    borderColor: alpha(accentColor, 0.5),
-  },
-  [theme.breakpoints.down("sm")]: { padding: theme.spacing(5, 2) },
-}));
-
-const CATEGORIES = [
-  "Safety",
-  "Maintenance",
-  "Compliance",
-  "Audit",
-  "Quality",
-  "Operations",
-];
-
-const ImportChecklistFields = () => {
+export default function ImportChecklistFields() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { importChecklistFromExcel, loading } = useChecklist();
-  const fileInputRef = useRef();
+  const { importFromExcel, loading, error, success, clearMessages } =
+    useChecklistBuilder();
 
+  const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [meta, setMeta] = useState({ name: "", description: "", category: "" });
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [snack, setSnack] = useState({
-    open: false,
-    msg: "",
-    severity: "success",
-  });
-  const [importedResult, setImportedResult] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [importResponse, setImportResponse] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const fileInputRef = useRef(null);
 
-  const handleFileChange = (file) => {
-    if (!file) return;
-    const ext = file.name.split(".").pop().toLowerCase();
-    if (!["xlsx", "xls"].includes(ext)) {
-      setSnack({
-        open: true,
-        msg: "Only .xlsx and .xls files are supported.",
-        severity: "error",
-      });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setSnack({
-        open: true,
-        msg: "File size must be under 10MB.",
-        severity: "error",
-      });
-      return;
-    }
-    setSelectedFile(file);
-    setImportedResult(null);
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
   };
+
+  const handleDragLeave = () => setIsDragging(false);
 
   const handleDrop = (e) => {
     e.preventDefault();
-    setIsDragOver(false);
-    handleFileChange(e.dataTransfer.files[0]);
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file && (file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
+      setSelectedFile(file);
+      setSnackbarMessage("File selected successfully!");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    } else {
+      setSnackbarMessage("Please upload a valid Excel file (.xlsx or .xls)");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && (file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
+      setSelectedFile(file);
+      setSnackbarMessage("File selected successfully!");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    } else if (file) {
+      setSnackbarMessage("Please upload a valid Excel file (.xlsx or .xls)");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
+  // Import Excel file to backend
+  // In ImportChecklistFields.jsx, remove the validation for file selection
   const handleImport = async () => {
-    if (!selectedFile) {
-      setSnack({
-        open: true,
-        msg: "Please select an Excel file first.",
-        severity: "error",
-      });
-      return;
-    }
-    if (!meta.name.trim()) {
-      setSnack({
-        open: true,
-        msg: "Please provide a checklist name.",
-        severity: "error",
-      });
-      return;
-    }
-    // Simulate progress
-    let prog = 0;
-    const interval = setInterval(() => {
-      prog += 20;
-      setUploadProgress(Math.min(prog, 90));
-      if (prog >= 90) clearInterval(interval);
-    }, 200);
-    try {
-      const result = await importChecklistFromExcel(selectedFile, meta);
-      clearInterval(interval);
-      setUploadProgress(100);
-      setImportedResult(result._doc || result);
-      setSnack({
-        open: true,
-        msg: "Checklist imported successfully!",
-        severity: "success",
-      });
-      setTimeout(() => navigate("/admin/checklists"), 2000);
-    } catch (err) {
-      clearInterval(interval);
-      setUploadProgress(0);
-      setSnack({
-        open: true,
-        msg: err.message || "Import failed.",
-        severity: "error",
-      });
+    // Removed the validation check for selectedFile
+    setImporting(true);
+    const result = await importFromExcel(selectedFile);
+    setImporting(false);
+
+    if (result.success) {
+      setImportResponse(result.data);
+      setImportSuccess(true);
+      setSnackbarMessage("Checklist imported successfully!");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    } else {
+      setSnackbarMessage(result.error || "Failed to import checklist");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
     }
   };
 
-  const formatSize = (bytes) =>
-    bytes < 1024 * 1024
-      ? `${(bytes / 1024).toFixed(1)} KB`
-      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const handlePreview = () => {
+    if (!selectedFile) {
+      setSnackbarMessage("Please select a file first");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+    setPreviewOpen(true);
+  };
 
-  return (
-    <PageContainer>
-      <Box component="main" sx={{ flexGrow: 1, width: "100%" }}>
-        <Snackbar
-          open={snack.open}
-          autoHideDuration={4000}
-          onClose={() => setSnack({ ...snack, open: false })}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-        >
-          <Alert
-            severity={snack.severity}
-            variant="filled"
-            sx={{ borderRadius: "10px" }}
-          >
-            {snack.msg}
-          </Alert>
-        </Snackbar>
+  const handleReset = () => {
+    setSelectedFile(null);
+    setImportResponse(null);
+    setImportSuccess(false);
+    setPreviewOpen(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
-        {/* Header */}
-        <Paper
-          elevation={0}
-          square
-          sx={{
-            px: { xs: 2, sm: 3, md: 6 },
-            py: { xs: 2, sm: 2.5 },
-            bgcolor: "background.paper",
-            borderBottom: 1,
-            borderColor: "divider",
-            display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            alignItems: { xs: "flex-start", sm: "center" },
-            justifyContent: "space-between",
-            gap: 2,
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <IconButton
-              size="small"
-              onClick={() => navigate("/admin/checklists")}
-              sx={{
-                color: "#002630",
-                bgcolor: "#f1f5f9",
-                "&:hover": { bgcolor: "#e2e8f0" },
-              }}
-            >
-              <ArrowBackIcon fontSize="small" />
-            </IconButton>
-            <Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  color: "#002630",
-                  fontSize: { xs: "1.1rem", sm: "1.25rem" },
-                }}
-              >
-                Import Checklist Fields
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
-              >
-                Upload an Excel sheet to auto-generate input fields
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack
-            direction="row"
-            spacing={1.5}
-            sx={{
-              width: { xs: "100%", sm: "auto" },
-              justifyContent: { xs: "flex-end", sm: "flex-start" },
-            }}
-          >
-            <Button
-              variant="text"
-              size="small"
-              sx={{
-                color: "#002630",
-                fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                fontWeight: 500,
-                px: 2,
-              }}
-            >
-              Preview
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              disableElevation
-              onClick={() => navigate("/admin/assign-checklist")}
-              sx={{
-                bgcolor: "#002630",
-                color: "white",
-                fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                fontWeight: 500,
-                px: 2,
-                "&:hover": { bgcolor: "#003d4c" },
-              }}
-            >
-              Assign to Customers
-            </Button>
-          </Stack>
-        </Paper>
+  const handleViewChecklist = () => {
+    if (importResponse?._id || importResponse?.id) {
+      navigate(
+        `/admin/checklists/view/${importResponse._id || importResponse.id}`,
+      );
+    } else {
+      navigate("/admin/checklists");
+    }
+  };
 
-        <Container
-          maxWidth="lg"
-          sx={{ px: { xs: 2, sm: 3, md: 6 }, py: { xs: 3, sm: 4, md: 5 } }}
-        >
-          {/* Tab Indicator */}
-          <Box
-            sx={{
-              borderBottom: 1,
-              borderColor: "divider",
-              mb: { xs: 3, sm: 4 },
-            }}
-          >
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+    clearMessages();
+  };
+
+  // Display imported sections data
+  const renderImportedSections = () => {
+    if (!importResponse?.sections) return null;
+
+    return (
+      <Box sx={{ mt: 2 }}>
+        {importResponse.sections.map((section, idx) => (
+          <Box key={idx} sx={{ mb: 3 }}>
             <Typography
-              variant="subtitle2"
-              component="span"
-              sx={{
-                display: "inline-block",
-                px: 2,
-                py: 1.5,
-                fontWeight: 700,
-                color: accentColor,
-                borderBottom: 2,
-                borderColor: accentColor,
-                fontSize: { xs: "0.7rem", sm: "0.8rem" },
-              }}
+              variant="subtitle1"
+              sx={{ fontWeight: 600, color: "#1a4a5c", mb: 1 }}
             >
-              Checklist Builder
+              {section.sectionTitle}
             </Typography>
-          </Box>
-
-          <Grid container spacing={3}>
-            {/* Upload Card */}
-            <Grid item xs={12} md={7}>
-              <Paper
-                elevation={0}
-                variant="outlined"
-                sx={{ borderRadius: 2, overflow: "hidden" }}
-              >
-                <Box sx={{ p: { xs: 3, sm: 4 } }}>
-                  <UploadZone
-                    isDragOver={isDragOver}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragOver(true);
-                    }}
-                    onDragLeave={() => setIsDragOver(false)}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".xlsx,.xls"
-                      hidden
-                      onChange={(e) => handleFileChange(e.target.files[0])}
-                    />
-
-                    {selectedFile ? (
-                      <>
-                        <Box
-                          sx={{
-                            width: { xs: 48, sm: 56 },
-                            height: { xs: 48, sm: 56 },
-                            bgcolor: alpha(accentColor, 0.1),
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            mx: "auto",
-                            mb: 2,
-                          }}
-                        >
-                          <InsertDriveFileIcon
-                            sx={{
-                              color: accentColor,
-                              fontSize: { xs: 28, sm: 32 },
-                            }}
-                          />
-                        </Box>
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            fontWeight: 600,
-                            color: "#0f172a",
-                            mb: 0.5,
-                            fontSize: { xs: "0.95rem", sm: "1rem" },
-                          }}
-                        >
-                          {selectedFile.name}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ fontSize: "0.75rem", mb: 2 }}
-                        >
-                          {formatSize(selectedFile.size)} · Excel Spreadsheet
-                        </Typography>
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          justifyContent="center"
-                        >
-                          <Chip
-                            label="Ready to import"
-                            size="small"
-                            icon={
-                              <CheckCircleIcon
-                                sx={{
-                                  fontSize: "0.8rem !important",
-                                  color: "#16a34a !important",
-                                }}
-                              />
-                            }
-                            sx={{
-                              bgcolor: "#dcfce7",
-                              color: "#166534",
-                              fontWeight: 600,
-                              fontSize: "0.7rem",
-                            }}
-                          />
-                          <Chip
-                            label="Change file"
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedFile(null);
-                            }}
-                            icon={
-                              <DeleteOutlineIcon
-                                sx={{ fontSize: "0.8rem !important" }}
-                              />
-                            }
-                            sx={{
-                              bgcolor: "#f1f5f9",
-                              color: "#475569",
-                              fontSize: "0.7rem",
-                              cursor: "pointer",
-                            }}
-                          />
-                        </Stack>
-                      </>
-                    ) : (
-                      <>
-                        <Box
-                          sx={{
-                            width: { xs: 56, sm: 64 },
-                            height: { xs: 56, sm: 64 },
-                            bgcolor: alpha(accentColor, 0.08),
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            mx: "auto",
-                            mb: 3,
-                          }}
-                        >
-                          <CloudUploadIcon
-                            sx={{
-                              color: accentColor,
-                              fontSize: { xs: 32, sm: 40 },
-                            }}
-                          />
-                        </Box>
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            fontWeight: 600,
-                            color: "#0f172a",
-                            mb: 1,
-                            fontSize: { xs: "1rem", sm: "1.1rem" },
-                          }}
-                        >
-                          Drop your Excel file here or click to browse
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            maxWidth: 360,
-                            mx: "auto",
-                            mb: 3,
-                            fontSize: { xs: "0.65rem", sm: "0.75rem" },
-                          }}
-                        >
-                          Supports .xlsx and .xls formats. The system will
-                          automatically map columns to checklist fields.
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          disableElevation
-                          startIcon={<DescriptionIcon />}
-                          onClick={(e) => e.preventDefault()}
-                          sx={{
-                            bgcolor: "#002630",
-                            color: "white",
-                            px: 4,
-                            py: 1.25,
-                            fontSize: "0.75rem",
-                            fontWeight: 500,
-                            "&:hover": { bgcolor: "#003d4c" },
-                          }}
-                        >
-                          Select File
-                        </Button>
-                      </>
-                    )}
-                  </UploadZone>
-
-                  {/* Upload Progress */}
-                  {loading && (
-                    <Box sx={{ mt: 2 }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          mb: 0.5,
-                        }}
-                      >
-                        <Typography
-                          sx={{ fontSize: "0.75rem", color: "#64748b" }}
-                        >
-                          Importing checklist...
-                        </Typography>
-                        <Typography
-                          sx={{
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            color: accentColor,
-                          }}
-                        >
-                          {uploadProgress}%
-                        </Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={uploadProgress}
-                        sx={{
-                          borderRadius: 4,
-                          height: 6,
-                          bgcolor: alpha(accentColor, 0.1),
-                          "& .MuiLinearProgress-bar": { bgcolor: accentColor },
-                        }}
-                      />
-                    </Box>
-                  )}
-
-                  {/* Import Result Preview */}
-                  {importedResult && (
-                    <Box
-                      sx={{
-                        mt: 2,
-                        p: 2,
-                        bgcolor: "#f0fdf4",
-                        borderRadius: "10px",
-                        border: "1px solid #bbf7d0",
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          color: "#166534",
-                          mb: 0.5,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.5,
-                        }}
-                      >
-                        <CheckCircleIcon sx={{ fontSize: "1rem" }} /> Import
-                        Successful
-                      </Typography>
-                      <Typography
-                        sx={{ fontSize: "0.75rem", color: "#166534" }}
-                      >
-                        Created: <strong>{importedResult.name}</strong> ·{" "}
-                        {importedResult.totalFields} fields across{" "}
-                        {importedResult.sections?.length} sections
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              </Paper>
-            </Grid>
-
-            {/* Meta Info Sidebar */}
-            <Grid item xs={12} md={5}>
-              <Paper
-                elevation={0}
-                variant="outlined"
-                sx={{ borderRadius: 2, p: { xs: 3, sm: 3.5 } }}
-              >
-                <Typography
+            {section.sectionDescription && (
+              <Typography sx={{ fontSize: 12, color: "#6b7280", mb: 1 }}>
+                {section.sectionDescription}
+              </Typography>
+            )}
+            <Box sx={{ ml: 2 }}>
+              {section.fields.map((field, fIdx) => (
+                <Box
+                  key={fIdx}
                   sx={{
-                    fontWeight: 700,
-                    color: "#0f172a",
-                    fontSize: "0.95rem",
-                    mb: 2,
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
+                    mb: 0.5,
                   }}
                 >
-                  <InfoOutlinedIcon
-                    sx={{ fontSize: "1.1rem", color: accentColor }}
-                  />{" "}
-                  Checklist Details
-                </Typography>
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#475569",
-                        mb: 0.75,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.3px",
-                      }}
+                  <Rule sx={{ fontSize: 14, color: "#9ca3af" }} />
+                  <Typography sx={{ fontSize: 13 }}>
+                    {field.label}
+                    {field.isRequired && (
+                      <span style={{ color: "#e74c3c" }}>*</span>
+                    )}
+                    <span
+                      style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}
                     >
-                      Checklist Name *
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="e.g., Safety Inspection Q2"
-                      value={meta.name}
-                      onChange={(e) =>
-                        setMeta((p) => ({ ...p, name: e.target.value }))
-                      }
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "10px",
-                          fontSize: "0.8rem",
-                          "& fieldset": {
-                            borderColor: alpha(accentColor, 0.2),
-                          },
-                          "&:hover fieldset": { borderColor: accentColor },
-                        },
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#475569",
-                        mb: 0.75,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.3px",
-                      }}
-                    >
-                      Category
-                    </Typography>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={meta.category}
-                        onChange={(e) =>
-                          setMeta((p) => ({ ...p, category: e.target.value }))
-                        }
-                        displayEmpty
-                        sx={{
-                          borderRadius: "10px",
-                          fontSize: "0.8rem",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: alpha(accentColor, 0.2),
-                          },
-                        }}
-                      >
-                        <MenuItem value="" disabled>
-                          <em style={{ color: "#94a3b8" }}>Select category</em>
-                        </MenuItem>
-                        {CATEGORIES.map((c) => (
-                          <MenuItem
-                            key={c}
-                            value={c}
-                            sx={{ fontSize: "0.8rem" }}
-                          >
-                            {c}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#475569",
-                        mb: 0.75,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.3px",
-                      }}
-                    >
-                      Description
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      multiline
-                      rows={3}
-                      placeholder="Brief description of this checklist..."
-                      value={meta.description}
-                      onChange={(e) =>
-                        setMeta((p) => ({ ...p, description: e.target.value }))
-                      }
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "10px",
-                          fontSize: "0.8rem",
-                          "& fieldset": {
-                            borderColor: alpha(accentColor, 0.2),
-                          },
-                        },
-                      }}
-                    />
-                  </Box>
-
-                  <Divider />
-
-                  {/* Excel format hint */}
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      bgcolor: alpha(accentColor, 0.04),
-                      borderRadius: "10px",
-                      border: `1px dashed ${alpha(accentColor, 0.3)}`,
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: "0.7rem",
-                        fontWeight: 600,
-                        color: accentColor,
-                        mb: 0.75,
-                      }}
-                    >
-                      Expected Excel Format
-                    </Typography>
-                    {[
-                      ["A", "Label (field name)"],
-                      ["B", "Field Type (text_input, dropdown, etc.)"],
-                      ["C", "Required (true/false)"],
-                      ["D", "Placeholder text"],
-                      ["E", "Options (comma-separated)"],
-                    ].map(([col, desc]) => (
-                      <Box key={col} sx={{ display: "flex", gap: 1, mb: 0.25 }}>
-                        <Chip
-                          label={col}
-                          size="small"
-                          sx={{
-                            height: 18,
-                            width: 24,
-                            fontSize: "0.6rem",
-                            bgcolor: accentColor,
-                            color: "#fff",
-                            borderRadius: "4px",
-                          }}
-                        />
-                        <Typography
-                          sx={{ fontSize: "0.65rem", color: "#475569" }}
-                        >
-                          {desc}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    disableElevation
-                    startIcon={
-                      loading ? (
-                        <CircularProgress size={16} color="inherit" />
-                      ) : (
-                        <CloudUploadIcon />
-                      )
-                    }
-                    onClick={handleImport}
-                    disabled={loading || !selectedFile}
-                    sx={{
-                      bgcolor: "#002630",
-                      color: "white",
-                      py: 1.25,
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      "&:hover": { bgcolor: "#003d4c" },
-                      "&:disabled": { bgcolor: alpha("#002630", 0.4) },
-                      borderRadius: "10px",
-                    }}
-                  >
-                    {loading ? "Importing..." : "Import Checklist"}
-                  </Button>
-                </Stack>
-              </Paper>
-            </Grid>
-          </Grid>
-        </Container>
+                      ({field.fieldType?.replace("_", " ") || field.fieldType})
+                    </span>
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        ))}
+        <Box sx={{ mt: 2, p: 2, bgcolor: "#f8fafc", borderRadius: 2 }}>
+          <Typography sx={{ fontSize: 12, color: "#6b7280" }}>
+            Total Fields: {importResponse.totalFields} | Version:{" "}
+            {importResponse.version} | Status: {importResponse.status}
+          </Typography>
+        </Box>
       </Box>
-    </PageContainer>
-  );
-};
+    );
+  };
 
-export default ImportChecklistFields;
+  return (
+    <Box
+      sx={{
+        minHeight: "100vh",
+        fontFamily: "'DM Sans', sans-serif",
+        p: { xs: 1, sm: 2, md: 3 },
+      }}
+    >
+      {/* Top Nav */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 2, sm: 0 },
+          px: { xs: 1, sm: 2, md: 3 },
+          pt: { xs: 2, sm: 2.5 },
+          pb: { xs: 1, sm: 1 },
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            width: { xs: "100%", sm: "auto" },
+          }}
+        >
+          <IconButton
+            size="small"
+            onClick={() => navigate("/admin/checklists")}
+            sx={{
+              color: "#1a2e44",
+              "&:hover": { backgroundColor: "rgba(26,46,68,0.08)" },
+            }}
+          >
+            <ArrowBack fontSize="small" />
+          </IconButton>
+          <Box>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "#1a2e44",
+                fontSize: { xs: "1rem", sm: "1.1rem", md: "1.2rem" },
+                lineHeight: 1.2,
+              }}
+            >
+              Import Checklist Fields
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: "#8a95a3", fontSize: "0.75rem" }}
+            >
+              Upload an Excel sheet to auto-generate input fields.
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            width: { xs: "100%", sm: "auto" },
+            justifyContent: { xs: "flex-end", sm: "flex-start" },
+          }}
+        >
+          <Button
+            startIcon={<Visibility sx={{ fontSize: "1rem" }} />}
+            onClick={handlePreview}
+            disabled={!selectedFile}
+            sx={{
+              textTransform: "none",
+              color: "#1a2e44",
+              fontWeight: 500,
+              fontSize: { xs: "0.8rem", sm: "0.85rem" },
+              "&:hover": { backgroundColor: "rgba(26,46,68,0.06)" },
+            }}
+          >
+            Preview File
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<CloudUpload sx={{ fontSize: "1rem" }} />}
+            onClick={handleImport}
+            disabled={!selectedFile || importing}
+            sx={{
+              textTransform: "none",
+              backgroundColor: "#1a3a4a",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: { xs: "0.8rem", sm: "0.85rem" },
+              borderRadius: "8px",
+              px: { xs: 2, sm: 2.5 },
+              py: { xs: 0.8, sm: 1 },
+              boxShadow: "none",
+              "&:hover": {
+                backgroundColor: "#122b38",
+                boxShadow: "none",
+              },
+            }}
+          >
+            {importing ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "Import Checklist"
+            )}
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Checklist Builder chip */}
+      <Box sx={{ px: { xs: 1, sm: 2, md: 3 }, pt: 1, pb: 2 }}>
+        <Chip
+          label="Excel Import"
+          variant="outlined"
+          sx={{
+            borderRadius: "6px",
+            fontSize: "0.75rem",
+            fontWeight: 500,
+            color: "#1a2e44",
+            borderColor: "#c5cdd6",
+            backgroundColor: "#fff",
+            height: 30,
+          }}
+        />
+      </Box>
+
+      {/* Centered drop zone card */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          px: { xs: 1, sm: 2, md: 3 },
+          pt: { xs: 2, sm: 3, md: 4 },
+        }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            width: "100%",
+            maxWidth: 980,
+            backgroundColor: "#fff",
+            borderRadius: "14px",
+            p: { xs: 2, sm: 3, md: 4 },
+            boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          {importSuccess ? (
+            // Success state - show import result
+            <Box>
+              <Box sx={{ textAlign: "center", mb: 3 }}>
+                <CheckCircle sx={{ fontSize: 64, color: "#4caf50", mb: 2 }} />
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 700, color: "#1a3a4a", mb: 1 }}
+                >
+                  Import Successful!
+                </Typography>
+                <Typography sx={{ color: "#6b7280" }}>
+                  Your checklist has been imported successfully.
+                </Typography>
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, color: "#1a3a4a", mb: 2 }}
+              >
+                Imported Checklist Details
+              </Typography>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ fontWeight: 600 }}>
+                  Name:{" "}
+                  <span style={{ fontWeight: 400 }}>
+                    {importResponse?.name}
+                  </span>
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mt: 1 }}>
+                  Description:{" "}
+                  <span style={{ fontWeight: 400 }}>
+                    {importResponse?.description}
+                  </span>
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mt: 1 }}>
+                  Category:{" "}
+                  <span style={{ fontWeight: 400 }}>
+                    {importResponse?.category}
+                  </span>
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mt: 1 }}>
+                  Type:{" "}
+                  <span style={{ fontWeight: 400 }}>
+                    {importResponse?.type}
+                  </span>
+                </Typography>
+              </Box>
+
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 600, color: "#1a4a5c", mt: 2, mb: 1 }}
+              >
+                Sections & Fields
+              </Typography>
+              {renderImportedSections()}
+
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  justifyContent: "center",
+                  mt: 4,
+                }}
+              >
+                <Button variant="outlined" onClick={handleReset}>
+                  Import Another
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleViewChecklist}
+                  sx={{ bgcolor: "#1a4a5c" }}
+                >
+                  View Checklist
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            // Drop zone
+            <Box
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{
+                border: `2px dashed ${isDragging ? "#1a3a4a" : "#a8c4d4"}`,
+                borderRadius: "10px",
+                backgroundColor: isDragging
+                  ? "rgba(26,58,74,0.04)"
+                  : "transparent",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                py: { xs: 6, sm: 7, md: 8 },
+                px: { xs: 2, sm: 3, md: 4 },
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  borderColor: "#1a3a4a",
+                  backgroundColor: "rgba(26,58,74,0.03)",
+                },
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: "none" }}
+                onChange={handleFileSelect}
+              />
+
+              <Box
+                sx={{
+                  width: { xs: 48, sm: 52 },
+                  height: { xs: 48, sm: 52 },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  mb: 2,
+                }}
+              >
+                <UploadFile
+                  sx={{
+                    fontSize: { xs: 40, sm: 46 },
+                    color: "#1a3a4a",
+                  }}
+                />
+              </Box>
+
+              {selectedFile ? (
+                <>
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      color: "#1a3a4a",
+                      fontSize: { xs: "0.9rem", sm: "1rem" },
+                      mb: 0.5,
+                      textAlign: "center",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {selectedFile.name}
+                  </Typography>
+                  <Typography sx={{ color: "#8a95a3", fontSize: "0.8rem" }}>
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReset();
+                    }}
+                    sx={{ mt: 1 }}
+                  >
+                    Remove
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      color: "#1a3a4a",
+                      fontSize: { xs: "0.9rem", sm: "1rem", md: "1.05rem" },
+                      mb: 0.5,
+                      textAlign: "center",
+                    }}
+                  >
+                    Drop your Excel file here or click to browse
+                  </Typography>
+                  <Typography
+                    sx={{
+                      color: "#8a95a3",
+                      fontSize: "0.8rem",
+                      mb: 2.5,
+                      textAlign: "center",
+                    }}
+                  >
+                    Supported formats: .xlsx / .xls
+                  </Typography>
+                </>
+              )}
+
+              <Button
+                variant="contained"
+                startIcon={<InsertDriveFile sx={{ fontSize: "1rem" }} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                sx={{
+                  mt: selectedFile ? 2 : 0,
+                  textTransform: "none",
+                  backgroundColor: "#1a3a4a",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: { xs: "0.8rem", sm: "0.88rem" },
+                  borderRadius: "8px",
+                  px: { xs: 2, sm: 3 },
+                  py: { xs: 0.8, sm: 1.1 },
+                  boxShadow: "none",
+                  "&:hover": {
+                    backgroundColor: "#122b38",
+                    boxShadow: "none",
+                  },
+                }}
+              >
+                {selectedFile ? "Change File" : "Select File"}
+              </Button>
+            </Box>
+          )}
+
+          {/* Excel template info - only show when no file selected and not imported */}
+          {!selectedFile && !importSuccess && (
+            <Box sx={{ mt: 3, textAlign: "center" }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "#8a95a3" }}>
+                <TableChart
+                  sx={{ fontSize: "0.9rem", verticalAlign: "middle", mr: 0.5 }}
+                />
+                Required columns: Field Name, Field Type, Required, Options (for
+                dropdown)
+              </Typography>
+              <Button
+                size="small"
+                sx={{ mt: 1, fontSize: "0.7rem" }}
+                onClick={() =>
+                  window.open("/sample-checklist-template.xlsx", "_blank")
+                }
+              >
+                Download Sample Template
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Box>
+
+      {/* Preview Dialog - shows file info before import */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: "16px" },
+            maxHeight: { xs: "100%", sm: "90vh" },
+          },
+        }}
+      >
+        <DialogTitle sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1, sm: 2 } }}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Box>
+              <Typography
+                sx={{
+                  fontSize: { xs: 18, sm: 20 },
+                  fontWeight: 700,
+                  color: "#1a1d23",
+                }}
+              >
+                File Preview
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.5 }}>
+                {selectedFile?.name}
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setPreviewOpen(false)} size="small">
+              <Close sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <Description sx={{ fontSize: 48, color: "#1a4a5c", mb: 2 }} />
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+              {selectedFile?.name}
+            </Typography>
+            <Typography sx={{ color: "#6b7280", mb: 2 }}>
+              Size: {(selectedFile?.size / 1024).toFixed(1)} KB
+            </Typography>
+            <Typography sx={{ color: "#6b7280", fontSize: 14 }}>
+              The Excel file will be parsed and converted into a checklist with:
+            </Typography>
+            <Box
+              sx={{
+                mt: 2,
+                textAlign: "left",
+                bgcolor: "#f8fafc",
+                p: 2,
+                borderRadius: 2,
+              }}
+            >
+              <Typography sx={{ fontSize: 13 }}>✓ Multiple sections</Typography>
+              <Typography sx={{ fontSize: 13 }}>
+                ✓ Various field types (text, dropdown, rating, etc.)
+              </Typography>
+              <Typography sx={{ fontSize: 13 }}>
+                ✓ Required field validation
+              </Typography>
+              <Typography sx={{ fontSize: 13 }}>✓ Dropdown options</Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 1, sm: 2 } }}>
+          <Button
+            onClick={() => setPreviewOpen(false)}
+            variant="outlined"
+            size="medium"
+          >
+            Close
+          </Button>
+          <Button
+            onClick={() => {
+              setPreviewOpen(false);
+              handleImport();
+            }}
+            variant="contained"
+            size="medium"
+            sx={{ bgcolor: "#1a4a5c" }}
+          >
+            Import Now
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+}

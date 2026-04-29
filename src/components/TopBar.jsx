@@ -1,3 +1,4 @@
+// components/TopHeader.jsx - Fully Responsive
 import React, { useState } from "react";
 import {
   Box,
@@ -11,6 +12,8 @@ import {
   useMediaQuery,
   useTheme,
   Fade,
+  InputBase,
+  alpha,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
@@ -18,24 +21,18 @@ import MenuIcon from "@mui/icons-material/Menu";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useAuth } from "../context/AuthContexts";
 
-// ─────────────────────────────────────────────
-// FIX 1: Removed hardcoded external avatar URL — it is brittle, may 404, and
-// leaks a dependency on a third-party image service.
-// Avatar now falls back to initials derived from the authenticated user.
-// ─────────────────────────────────────────────
-
 export default function TopHeader({ onMenuToggle }) {
-  const { user, logout } = useAuth(); // FIX 2: Destructure `logout` from auth context
+  const { user, logout } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
 
-  // FIX 3: Use real user data from auth context instead of hardcoded role-based names.
   const getUserDisplayName = () => {
     if (!user) return "User";
     return user.name || user.email?.split("@")[0] || "User";
@@ -51,16 +48,14 @@ export default function TopHeader({ onMenuToggle }) {
       .slice(0, 2);
   };
 
-  // FIX 4: Show real role from auth context, not the hardcoded string "admin".
   const getUserRole = () => user?.role || "member";
 
-  const handleNotificationOpen = (event) => setNotificationAnchor(event.currentTarget);
+  const handleNotificationOpen = (event) =>
+    setNotificationAnchor(event.currentTarget);
   const handleNotificationClose = () => setNotificationAnchor(null);
   const handleUserMenuOpen = (event) => setUserMenuAnchor(event.currentTarget);
   const handleUserMenuClose = () => setUserMenuAnchor(null);
 
-  // FIX 5: Wired up the Logout menu item to actually call logout() instead of
-  // just closing the menu — it was a no-op before.
   const handleLogout = async () => {
     handleUserMenuClose();
     try {
@@ -74,101 +69,143 @@ export default function TopHeader({ onMenuToggle }) {
     <Box
       component="header"
       sx={{
-        height: 70,
+        height: { xs: 56, sm: 64, md: 70 },
         bgcolor: "#ffffff",
         borderBottom: "1px solid",
-        borderColor: "#f0f0f0",
+        borderColor: alpha(theme.palette.divider, 0.1),
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        px: { xs: 2, sm: 3, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 3, lg: 4 },
         position: "sticky",
         top: 0,
         zIndex: 1100,
         width: "100%",
-        // FIX 6: Added box-sizing so horizontal padding doesn't overflow the header
         boxSizing: "border-box",
+        gap: { xs: 1, sm: 2 },
       }}
     >
       {/* Left Section */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <Box
+        sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 2 } }}
+      >
         {isMobile && (
           <IconButton
             onClick={onMenuToggle}
-            sx={{ color: "#5f6368", p: 1, "&:hover": { bgcolor: "#f5f5f5" } }}
+            sx={{
+              color: "#5f6368",
+              p: { xs: 0.5, sm: 1 },
+              "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+            }}
+            size="small"
           >
-            <MenuIcon sx={{ fontSize: 22 }} />
+            <MenuIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
           </IconButton>
+        )}
+
+        {/* Page Title for mobile */}
+        {isMobile && (
+          <Typography
+            sx={{
+              fontSize: { xs: 14, sm: 16 },
+              fontWeight: 600,
+              color: "#202124",
+              display: { sm: "none" },
+            }}
+          >
+            Dashboard
+          </Typography>
         )}
       </Box>
 
-      {/* Center — Search Bar (desktop only) */}
-      {!isMobile && (
-        // FIX 7: Removed hardcoded `marginRight: "600px"` which broke layout on
-        // most screen sizes. Used `mx: "auto"` to center the search bar naturally.
+      {/* Center — Search Bar */}
+      {isDesktop && (
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             bgcolor: searchFocused ? "#ffffff" : "#f1f3f4",
-            border: searchFocused ? "2px solid #1a73e8" : "2px solid transparent",
+            border: searchFocused
+              ? `2px solid ${theme.palette.primary.main}`
+              : "2px solid transparent",
             borderRadius: "24px",
             px: 2,
-            height: 46,
-            width: isTablet ? 300 : 360,
+            height: { md: 42, lg: 46 },
+            width: { md: 280, lg: 360, xl: 480 },
+            maxWidth: "100%",
             mx: "auto",
             transition: "all 0.2s ease",
             "&:hover": { bgcolor: "#e8eaed" },
           }}
         >
-          <SearchIcon sx={{ color: "#5f6368", fontSize: 20, mr: 1 }} />
-          <input
-            placeholder="Search..."
+          <SearchIcon
+            sx={{ color: "#5f6368", fontSize: 20, mr: 1, flexShrink: 0 }}
+          />
+          <InputBase
+            placeholder="Search assets, checklists, team members..."
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            style={{
-              border: "none",
-              background: "transparent",
-              width: "100%",
-              fontSize: "15px",
-              outline: "none",
+            sx={{
+              flex: 1,
+              fontSize: { md: "13px", lg: "14px" },
               color: "#202124",
-              fontFamily: "inherit",
+              "& input::placeholder": {
+                color: "#5f6368",
+                opacity: 1,
+              },
             }}
           />
         </Box>
       )}
 
       {/* Right Section */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        {/* Mobile Search Icon */}
-        {isMobile && (
-          <IconButton sx={{ color: "#5f6368", p: 1, "&:hover": { bgcolor: "#f5f5f5" } }}>
-            <SearchIcon sx={{ fontSize: 22 }} />
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: { xs: 0.5, sm: 1, md: 1.5 },
+        }}
+      >
+        {/* Mobile/Tablet Search Icon */}
+        {!isDesktop && (
+          <IconButton
+            sx={{
+              color: "#5f6368",
+              p: { xs: 0.5, sm: 1 },
+              "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+            }}
+            size="small"
+          >
+            <SearchIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
           </IconButton>
         )}
 
         {/* Notifications Bell */}
         <IconButton
           onClick={handleNotificationOpen}
-          sx={{ color: "#5f6368", p: 1, "&:hover": { bgcolor: "#f5f5f5" } }}
+          sx={{
+            color: "#5f6368",
+            p: { xs: 0.5, sm: 1 },
+            "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+          }}
+          size="small"
         >
           <Badge
             variant="dot"
             sx={{
               "& .MuiBadge-badge": {
                 bgcolor: "#ea4335",
-                width: 8,
-                height: 8,
+                width: { xs: 6, sm: 8 },
+                height: { xs: 6, sm: 8 },
                 borderRadius: "50%",
                 top: 2,
                 right: 2,
               },
             }}
           >
-            <NotificationsNoneIcon sx={{ fontSize: 22 }} />
+            <NotificationsNoneIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
           </Badge>
         </IconButton>
 
@@ -178,21 +215,20 @@ export default function TopHeader({ onMenuToggle }) {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1,
+            gap: { xs: 0.5, sm: 1 },
             cursor: "pointer",
             p: 0.5,
             borderRadius: "32px",
-            "&:hover": { bgcolor: "#f5f5f5" },
+            "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
           }}
         >
-          {/* FIX 1: No `src` — always render initials avatar from auth data */}
           <Avatar
             alt={getUserDisplayName()}
             sx={{
-              width: 36,
-              height: 36,
-              bgcolor: "#1a73e8",
-              fontSize: 14,
+              width: { xs: 28, sm: 32, md: 36 },
+              height: { xs: 28, sm: 32, md: 36 },
+              bgcolor: theme.palette.primary.main,
+              fontSize: { xs: 12, sm: 13, md: 14 },
               fontWeight: 500,
             }}
           >
@@ -203,16 +239,28 @@ export default function TopHeader({ onMenuToggle }) {
             <>
               <Box sx={{ display: { xs: "none", sm: "block" }, ml: 0.5 }}>
                 <Typography
-                  sx={{ fontSize: 14, fontWeight: 500, color: "#202124", lineHeight: 1.3 }}
+                  sx={{
+                    fontSize: { sm: 13, md: 14 },
+                    fontWeight: 500,
+                    color: "#202124",
+                    lineHeight: 1.3,
+                  }}
                 >
                   {getUserDisplayName()}
                 </Typography>
-                {/* FIX 4: Show real role instead of hardcoded "admin" */}
-                <Typography sx={{ fontSize: 12, color: "#5f6368", lineHeight: 1.2 }}>
+                <Typography
+                  sx={{
+                    fontSize: { sm: 11, md: 12 },
+                    color: "#5f6368",
+                    lineHeight: 1.2,
+                  }}
+                >
                   {getUserRole()}
                 </Typography>
               </Box>
-              <KeyboardArrowDownIcon sx={{ color: "#5f6368", fontSize: 18 }} />
+              <KeyboardArrowDownIcon
+                sx={{ color: "#5f6368", fontSize: { sm: 16, md: 18 } }}
+              />
             </>
           )}
         </Box>
@@ -226,7 +274,7 @@ export default function TopHeader({ onMenuToggle }) {
           PaperProps={{
             elevation: 2,
             sx: {
-              width: 300,
+              width: { xs: 280, sm: 300 },
               mt: 1.5,
               borderRadius: "12px",
               boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
@@ -248,26 +296,41 @@ export default function TopHeader({ onMenuToggle }) {
             <Typography variant="subtitle2" fontWeight={600} color="#202124">
               Notifications
             </Typography>
-            <Typography variant="caption" sx={{ color: "#1a73e8", cursor: "pointer" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: theme.palette.primary.main, cursor: "pointer" }}
+            >
               Mark all read
             </Typography>
           </Box>
           <Divider sx={{ borderColor: "#f0f0f0" }} />
           {[1, 2, 3].map((item) => (
-            <MenuItem key={item} onClick={handleNotificationClose} sx={{ py: 2, px: 2 }}>
+            <MenuItem
+              key={item}
+              onClick={handleNotificationClose}
+              sx={{ py: 2, px: 2 }}
+            >
               <Box>
-                <Typography variant="body2" fontWeight={500} color="#202124" sx={{ mb: 0.5 }}>
-                  Notification {item}
+                <Typography
+                  variant="body2"
+                  fontWeight={500}
+                  color="#202124"
+                  sx={{ mb: 0.5 }}
+                >
+                  New checklist assigned #{item}
                 </Typography>
                 <Typography variant="caption" color="#5f6368">
-                  2 hours ago
+                  {item * 2} hours ago
                 </Typography>
               </Box>
             </MenuItem>
           ))}
           <Divider sx={{ borderColor: "#f0f0f0" }} />
           <Box sx={{ p: 1, textAlign: "center" }}>
-            <Typography variant="caption" sx={{ color: "#1a73e8", cursor: "pointer" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: theme.palette.primary.main, cursor: "pointer" }}
+            >
               View all notifications
             </Typography>
           </Box>
@@ -282,7 +345,7 @@ export default function TopHeader({ onMenuToggle }) {
           PaperProps={{
             elevation: 2,
             sx: {
-              width: 240,
+              width: { xs: 220, sm: 240 },
               mt: 1,
               borderRadius: "12px",
               boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
@@ -301,18 +364,29 @@ export default function TopHeader({ onMenuToggle }) {
             </Typography>
           </Box>
           <Divider sx={{ borderColor: "#f0f0f0" }} />
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1.5, px: 2, color: "#202124" }}>
-            <Typography variant="body2">Profile</Typography>
+          <MenuItem
+            onClick={handleUserMenuClose}
+            sx={{ py: 1.5, px: 2, color: "#202124" }}
+          >
+            <Typography variant="body2">Profile Settings</Typography>
           </MenuItem>
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1.5, px: 2, color: "#202124" }}>
-            <Typography variant="body2">Settings</Typography>
+          <MenuItem
+            onClick={handleUserMenuClose}
+            sx={{ py: 1.5, px: 2, color: "#202124" }}
+          >
+            <Typography variant="body2">Account Settings</Typography>
           </MenuItem>
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1.5, px: 2, color: "#202124" }}>
-            <Typography variant="body2">Help</Typography>
+          <MenuItem
+            onClick={handleUserMenuClose}
+            sx={{ py: 1.5, px: 2, color: "#202124" }}
+          >
+            <Typography variant="body2">Help & Support</Typography>
           </MenuItem>
           <Divider sx={{ borderColor: "#f0f0f0" }} />
-          {/* FIX 5: Actually calls logout() — was a no-op before */}
-          <MenuItem onClick={handleLogout} sx={{ py: 1.5, px: 2, color: "#d93025" }}>
+          <MenuItem
+            onClick={handleLogout}
+            sx={{ py: 1.5, px: 2, color: "#d93025" }}
+          >
             <Typography variant="body2">Logout</Typography>
           </MenuItem>
         </Menu>

@@ -1,5 +1,5 @@
-// pages/Dashboard.jsx
-import React, { useState, useEffect, useCallback } from "react";
+// pages/Dashboard.jsx - Fully Responsive with Error Handling
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Grid,
@@ -26,6 +26,12 @@ import {
   ListItemIcon,
   ListItemText,
   Tooltip,
+  Skeleton,
+  alpha,
+  Divider,
+  Card,
+  CardContent,
+  LinearProgress,
 } from "@mui/material";
 import {
   TrendingUp as TrendingUpIcon,
@@ -43,10 +49,15 @@ import {
   Download as DownloadIcon,
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
+  ErrorOutline as ErrorIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Info as InfoIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useAuth } from "../context/AuthContexts";
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 
 // Custom color palette
 const colors = {
@@ -61,6 +72,8 @@ const colors = {
   onTertiaryContainer: "#df8f00",
   errorContainer: "#ffdad6",
   onErrorContainer: "#93000a",
+  success: "#2e7d32",
+  warning: "#ed6c02",
   surface: "#f7f9fb",
   surfaceContainerLow: "#f2f4f6",
   surfaceContainerLowest: "#ffffff",
@@ -69,7 +82,9 @@ const colors = {
   outlineVariant: "#c0c8cc",
 };
 
-// Stat Card Component
+// ─────────────────────────────────────────────
+// Stat Card Component with Loading & Error States
+// ─────────────────────────────────────────────
 const StatCard = ({
   icon: Icon,
   title,
@@ -80,23 +95,63 @@ const StatCard = ({
   iconBg,
   trendColor,
   loading,
+  error,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  if (error) {
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          p: isMobile ? 2 : 3,
+          borderRadius: 3,
+          bgcolor: colors.errorContainer,
+          border: `1px solid ${alpha(colors.onErrorContainer, 0.2)}`,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <ErrorIcon sx={{ color: colors.onErrorContainer, fontSize: 20 }} />
+        <Typography variant="caption" sx={{ color: colors.onErrorContainer }}>
+          Failed to load {title}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Paper elevation={0} sx={{ p: isMobile ? 2 : 3, borderRadius: 3 }}>
+        <Skeleton variant="circular" width={40} height={40} sx={{ mb: 2 }} />
+        <Skeleton variant="text" width="60%" height={20} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width="40%" height={32} />
+      </Paper>
+    );
+  }
 
   return (
     <Paper
       elevation={0}
       sx={{
-        p: isMobile ? 2 : 3,
-        borderRadius: 3,
+        p: { xs: 2, sm: 2.5, md: 3 },
+        borderRadius: { xs: 2, sm: 3 },
         bgcolor: bgColor || "background.paper",
         border: "1px solid",
-        borderColor: "transparent",
+        borderColor: bgColor ? "transparent" : alpha(colors.outlineVariant, 0.5),
         transition: "all 0.2s",
-        "&:hover": bgColor ? {} : { borderColor: colors.outlineVariant },
+        "&:hover": bgColor
+          ? { transform: "translateY(-2px)", boxShadow: 3 }
+          : { 
+              borderColor: colors.outlineVariant,
+              transform: "translateY(-2px)",
+              boxShadow: `0 4px 12px ${alpha(colors.primary, 0.08)}`
+            },
         position: "relative",
         overflow: "hidden",
+        cursor: "default",
       }}
     >
       {bgColor && (
@@ -105,8 +160,8 @@ const StatCard = ({
             position: "absolute",
             top: -16,
             right: -16,
-            width: 96,
-            height: 96,
+            width: { xs: 80, sm: 96 },
+            height: { xs: 80, sm: 96 },
             borderRadius: "50%",
             bgcolor: "rgba(255,255,255,0.05)",
           }}
@@ -118,12 +173,13 @@ const StatCard = ({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            mb: 2,
+            width:"215px",
+            mb: { xs: 1.5, sm: 2 },
           }}
         >
           <Box
             sx={{
-              p: 1.5,
+              p: { xs: 1, sm: 1.5 },
               borderRadius: 2,
               bgcolor:
                 iconBg ||
@@ -136,12 +192,12 @@ const StatCard = ({
               justifyContent: "center",
             }}
           >
-            <Icon fontSize="small" />
+            <Icon sx={{ fontSize: { xs: 16, sm: 18, md: 20 } }} />
           </Box>
           {trend && (
             <Box
               sx={{
-                px: 1,
+                px: { xs: 0.75, sm: 1 },
                 py: 0.5,
                 borderRadius: 1,
                 bgcolor: bgColor
@@ -155,21 +211,25 @@ const StatCard = ({
               {trendUp ? (
                 <TrendingUpIcon
                   sx={{
-                    fontSize: 12,
-                    color: bgColor ? "white" : trendColor || "inherit",
+                    fontSize: { xs: 10, sm: 12 },
+                    color: bgColor ? "white" : colors.success,
                   }}
                 />
               ) : (
                 <TrendingDownIcon
                   sx={{
-                    fontSize: 12,
-                    color: bgColor ? "white" : trendColor || "inherit",
+                    fontSize: { xs: 10, sm: 12 },
+                    color: bgColor ? "white" : colors.onErrorContainer,
                   }}
                 />
               )}
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 700, color: bgColor ? "white" : "inherit" }}
+                sx={{ 
+                  fontWeight: 700, 
+                  color: bgColor ? "white" : "inherit",
+                  fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" }
+                }}
               >
                 {trend}
               </Typography>
@@ -181,105 +241,245 @@ const StatCard = ({
           sx={{
             fontWeight: 600,
             letterSpacing: "0.05em",
-            color: bgColor ? colors.onPrimaryContainer : colors.secondary,
+            color: bgColor ? alpha("#fff", 0.8) : colors.secondary,
             textTransform: "uppercase",
-            fontSize: "0.65rem",
+            fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+            mb: 0.5,
           }}
         >
           {title}
         </Typography>
-        {loading ? (
-          <CircularProgress size={20} sx={{ mt: 1 }} />
-        ) : (
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 800,
-              color: bgColor ? "white" : colors.primary,
-              fontSize: isMobile ? "1.1rem" : "1.4rem",
-              lineHeight: 1.2,
-            }}
-          >
-            {value ?? 0}
-          </Typography>
-        )}
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 800,
+            color: bgColor ? "white" : colors.primary,
+            fontSize: { xs: "0.9rem", sm: "0.925rem", md: "1rem", lg: "1.2rem" },
+            lineHeight: 1.2,
+          }}
+        >
+          {value ?? 0}
+        </Typography>
       </Box>
     </Paper>
   );
 };
 
-// Helper function to export CSV
+// ─────────────────────────────────────────────
+// Loading Skeleton Component
+// ─────────────────────────────────────────────
+const DashboardSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+        <Skeleton variant="text" width={150} height={40} />
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Skeleton variant="circular" width={36} height={36} />
+          <Skeleton variant="circular" width={36} height={36} />
+        </Box>
+      </Box>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <Grid item xs={12} sm={6} lg={3} key={i}>
+            <Skeleton variant="rounded" height={isMobile ? 120 : 140} sx={{ borderRadius: 3 }} />
+          </Grid>
+        ))}
+      </Grid>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
+        <Grid item xs={12} lg={6}>
+          <Skeleton variant="rounded" height={300} sx={{ borderRadius: 3 }} />
+        </Grid>
+        <Grid item xs={12} lg={6}>
+          <Skeleton variant="rounded" height={300} sx={{ borderRadius: 3 }} />
+        </Grid>
+      </Grid>
+      <Skeleton variant="rounded" height={200} sx={{ borderRadius: 3 }} />
+    </Box>
+  );
+};
+
+// ─────────────────────────────────────────────
+// Empty State Component
+// ─────────────────────────────────────────────
+const EmptyState = ({ icon: Icon, title, description, action }) => (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      py: { xs: 4, sm: 6, md: 8 },
+      px: 2,
+      textAlign: "center",
+    }}
+  >
+    {Icon && (
+      <Icon
+        sx={{
+          fontSize: { xs: 48, sm: 64 },
+          color: alpha(colors.outline, 0.5),
+          mb: 2,
+        }}
+      />
+    )}
+    <Typography
+      variant="h6"
+      sx={{
+        color: colors.primary,
+        fontWeight: 600,
+        mb: 1,
+        fontSize: { xs: "1rem", sm: "1.1rem" },
+      }}
+    >
+      {title}
+    </Typography>
+    <Typography
+      variant="body2"
+      sx={{
+        color: colors.secondary,
+        mb: 3,
+        maxWidth: 400,
+        fontSize: { xs: "0.8rem", sm: "0.85rem" },
+      }}
+    >
+      {description}
+    </Typography>
+    {action && action}
+  </Box>
+);
+
+// ─────────────────────────────────────────────
+// Error Boundary Component
+// ─────────────────────────────────────────────
+const ErrorDisplay = ({ message, onRetry }) => (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      py: { xs: 6, sm: 8 },
+      px: 2,
+    }}
+  >
+    <ErrorIcon sx={{ fontSize: { xs: 48, sm: 64 }, color: colors.onErrorContainer, mb: 2 }} />
+    <Typography
+      variant="h6"
+      sx={{ fontWeight: 600, color: colors.onErrorContainer, mb: 1 }}
+    >
+      Something went wrong
+    </Typography>
+    <Typography
+      variant="body2"
+      sx={{ color: colors.secondary, mb: 3, textAlign: "center", maxWidth: 400 }}
+    >
+      {message || "Failed to load dashboard data. Please try again."}
+    </Typography>
+    <Button
+      variant="contained"
+      onClick={onRetry}
+      startIcon={<RefreshIcon />}
+      sx={{
+        bgcolor: colors.onErrorContainer,
+        "&:hover": { bgcolor: alpha(colors.onErrorContainer, 0.9) },
+      }}
+    >
+      Retry
+    </Button>
+  </Box>
+);
+
+// ─────────────────────────────────────────────
+// Export Helper Functions
+// ─────────────────────────────────────────────
 const exportToCSV = (data, filename) => {
-  if (!data) return;
+  try {
+    if (!data) return;
 
-  const flattenData = (obj, prefix = "") => {
-    const result = {};
-    for (const key in obj) {
-      if (
-        typeof obj[key] === "object" &&
-        obj[key] !== null &&
-        !Array.isArray(obj[key])
-      ) {
-        Object.assign(result, flattenData(obj[key], `${prefix}${key}_`));
-      } else if (Array.isArray(obj[key])) {
-        result[`${prefix}${key}`] = JSON.stringify(obj[key]);
-      } else {
-        result[`${prefix}${key}`] = obj[key];
+    const flattenData = (obj, prefix = "") => {
+      const result = {};
+      for (const key in obj) {
+        if (
+          typeof obj[key] === "object" &&
+          obj[key] !== null &&
+          !Array.isArray(obj[key])
+        ) {
+          Object.assign(result, flattenData(obj[key], `${prefix}${key}_`));
+        } else if (Array.isArray(obj[key])) {
+          result[`${prefix}${key}`] = JSON.stringify(obj[key]);
+        } else {
+          result[`${prefix}${key}`] = obj[key];
+        }
       }
-    }
-    return result;
-  };
+      return result;
+    };
 
-  const flatData = flattenData(data);
-  const headers = Object.keys(flatData);
-  const csvRows = [headers.join(",")];
-  const values = headers.map((header) => {
-    const value = flatData[header];
-    const escaped =
-      typeof value === "string" ? `"${value.replace(/"/g, '""')}"` : value;
-    return escaped;
-  });
-  csvRows.push(values.join(","));
+    const flatData = flattenData(data);
+    const headers = Object.keys(flatData);
+    const csvRows = [headers.join(",")];
+    const values = headers.map((header) => {
+      const value = flatData[header];
+      const escaped =
+        typeof value === "string" ? `"${value.replace(/"/g, '""')}"` : value;
+      return escaped;
+    });
+    csvRows.push(values.join(","));
 
-  const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("CSV export error:", error);
+    throw new Error("Failed to export CSV");
+  }
 };
 
-// Helper function to export PDF
 const exportToPDF = async (data, filename) => {
-  // Dynamic import for html2pdf
-  const html2pdf = (await import("html2pdf.js")).default;
+  try {
+    const html2pdf = (await import("html2pdf.js")).default;
 
-  const element = document.createElement("div");
-  element.style.padding = "20px";
-  element.style.fontFamily = "Arial, sans-serif";
-  element.innerHTML = `
-    <h1 style="color: #002631; text-align: center;">Dashboard Report</h1>
-    <p style="text-align: center; color: #666;">Generated on ${new Date().toLocaleString()}</p>
-    <pre style="background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 12px;">${JSON.stringify(data, null, 2)}</pre>
-  `;
+    const element = document.createElement("div");
+    element.style.padding = "20px";
+    element.style.fontFamily = "Arial, sans-serif";
+    element.innerHTML = `
+      <h1 style="color: #002631; text-align: center;">Dashboard Report</h1>
+      <p style="text-align: center; color: #666;">Generated on ${new Date().toLocaleString()}</p>
+      <pre style="background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 12px;">${JSON.stringify(data, null, 2)}</pre>
+    `;
 
-  document.body.appendChild(element);
-  const opt = {
-    margin: [0.5, 0.5, 0.5, 0.5],
-    filename: `${filename}.pdf`,
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-  };
-  await html2pdf().set(opt).from(element).save();
-  document.body.removeChild(element);
+    document.body.appendChild(element);
+    const opt = {
+      margin: [0.5, 0.5, 0.5, 0.5],
+      filename: `${filename}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+    };
+    await html2pdf().set(opt).from(element).save();
+    document.body.removeChild(element);
+  } catch (error) {
+    console.error("PDF export error:", error);
+    throw new Error("Failed to export PDF");
+  }
 };
 
+// ─────────────────────────────────────────────
+// Main Dashboard Component
+// ─────────────────────────────────────────────
 const Dashboard = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const { user } = useAuth();
   const {
     dashboardData,
@@ -300,52 +500,71 @@ const Dashboard = () => {
     message: "",
     severity: "success",
   });
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     loadDashboard();
+  }, [retryCount]);
+
+  // Toast notification handlers
+  const showToast = useCallback((msg, sev = "success") => {
+    setToast({ open: true, message: msg, severity: sev });
   }, []);
 
-  const showToast = (msg, sev = "success") =>
-    setToast({ open: true, message: msg, severity: sev });
-  const closeToast = () => setToast((prev) => ({ ...prev, open: false }));
+  const closeToast = useCallback(() => {
+    setToast((prev) => ({ ...prev, open: false }));
+  }, []);
 
-  const handleRefresh = () => {
-    loadDashboard();
-    showToast("Dashboard refreshed", "info");
-  };
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    setRetryCount((prev) => prev + 1);
+    showToast("Refreshing dashboard...", "info");
+  }, [showToast]);
 
-  const handleExport = async (type) => {
+  // Handle retry on error
+  const handleRetry = useCallback(() => {
+    setRetryCount((prev) => prev + 1);
+    clearError();
+  }, [clearError]);
+
+  // Handle export
+  const handleExport = useCallback(async (type) => {
     setExporting(true);
     setExportAnchorEl(null);
 
     try {
       const exportBlob = await exportDashboardReport();
-      if (exportBlob) {
-        const text = await exportBlob.text();
-        const data = JSON.parse(text);
+      if (!exportBlob) {
+        throw new Error("No data received");
+      }
 
-        const filename = `dashboard_report_${new Date().toISOString().split("T")[0]}`;
+      const text = await exportBlob.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { raw: text };
+      }
 
-        if (type === "csv") {
-          exportToCSV(data, filename);
-          showToast("CSV exported successfully", "success");
-        } else if (type === "pdf") {
-          await exportToPDF(data, filename);
-          showToast("PDF exported successfully", "success");
-        }
-      } else {
-        showToast("Failed to export dashboard", "error");
+      const filename = `dashboard_report_${new Date().toISOString().split("T")[0]}`;
+
+      if (type === "csv") {
+        exportToCSV(data, filename);
+        showToast("CSV exported successfully", "success");
+      } else if (type === "pdf") {
+        await exportToPDF(data, filename);
+        showToast("PDF exported successfully", "success");
       }
     } catch (err) {
       console.error("Export error:", err);
-      showToast("Failed to export dashboard", "error");
+      showToast(err.message || "Failed to export dashboard", "error");
     } finally {
       setExporting(false);
     }
-  };
+  }, [exportDashboardReport, showToast]);
 
-  // Get role-specific data
-  const getOverviewData = () => {
+  // Get role-specific overview data with memoization
+  const overview = useMemo(() => {
     if (user?.role === "super_admin") {
       return dashboardData?.overview || {};
     } else if (user?.role === "admin") {
@@ -353,160 +572,240 @@ const Dashboard = () => {
     } else {
       return statsData?.overview || {};
     }
-  };
+  }, [user?.role, dashboardData, statsData]);
 
-  const overview = getOverviewData();
+  // Stats configuration with memoization
+  const statsToShow = useMemo(() => {
+    if (user?.role === "super_admin") {
+      return [
+        {
+          icon: GroupIcon,
+          title: "Total Customers",
+          value: overview.totalClients,
+          trend: `${overview.clientGrowth || 0}%`,
+          trendUp: (overview.clientGrowth || 0) >= 0,
+          bgColor: colors.primaryContainer,
+        },
+        {
+          icon: CheckCircleIcon,
+          title: "Active Customers",
+          value: overview.activeClients,
+          trend: "8.2%",
+          trendUp: true,
+          iconBg: colors.secondaryContainer,
+        },
+        {
+          icon: PaymentsIcon,
+          title: "Total Revenue",
+          value: `$${(overview.totalRevenue || 0).toLocaleString()}`,
+          trend: "15.3%",
+          trendUp: true,
+        },
+        {
+          icon: WarningIcon,
+          title: "Expiring Soon",
+          value: overview.expiringSoon || 0,
+          trend: "3.1%",
+          trendUp: false,
+          iconBg: colors.errorContainer,
+          trendColor: colors.onErrorContainer,
+        },
+      ];
+    } else if (user?.role === "admin") {
+      return [
+        {
+          icon: GroupIcon,
+          title: "Team Members",
+          value: overview.totalTeamMembers,
+          bgColor: colors.primaryContainer,
+        },
+        {
+          icon: CheckCircleIcon,
+          title: "Active Team",
+          value: overview.activeTeamMembers,
+          iconBg: colors.secondaryContainer,
+        },
+        {
+          icon: Inventory2Icon,
+          title: "Total Assets",
+          value: overview.totalAssets,
+        },
+        {
+          icon: WarningIcon,
+          title: "Inspections",
+          value: overview.totalInspections,
+          iconBg: colors.errorContainer,
+        },
+      ];
+    } else {
+      return [
+        {
+          icon: TaskIcon,
+          title: "Total Tasks",
+          value: overview.totalTasks,
+          bgColor: colors.primaryContainer,
+        },
+        {
+          icon: CheckCircleIcon,
+          title: "Completed",
+          value: overview.completedTasks,
+          iconBg: colors.secondaryContainer,
+        },
+        {
+          icon: AnalyticsIcon,
+          title: "Completion Rate",
+          value: `${overview.completionRate || 0}%`,
+        },
+        {
+          icon: TrendingUpIcon,
+          title: "Performance",
+          value: `${overview.performanceScore || 0}%`,
+          iconBg: colors.errorContainer,
+        },
+      ];
+    }
+  }, [user?.role, overview]);
 
-  // Super Admin Stats
-  const superAdminStats = [
-    {
-      icon: GroupIcon,
-      title: "Total Customers",
-      value: overview.totalClients,
-      trend: `${overview.clientGrowth || 0}%`,
-      trendUp: overview.clientGrowth >= 0,
-      bgColor: colors.primaryContainer,
-    },
-    {
-      icon: GroupIcon,
-      title: "Active Customers",
-      value: overview.activeClients,
-      trend: "8.2%",
-      trendUp: true,
-      iconBg: colors.secondaryContainer,
-    },
-    {
-      icon: PaymentsIcon,
-      title: "Total Revenue",
-      value: `$${overview.totalRevenue?.toLocaleString() || 0}`,
-      trend: "15.3%",
-      trendUp: true,
-    },
-    {
-      icon: EventBusyIcon,
-      title: "Expiring Soon",
-      value: overview.expiringSoon || 0,
-      trend: "3.1%",
-      trendUp: false,
-      iconBg: colors.errorContainer,
-      trendColor: colors.onErrorContainer,
-    },
-  ];
+  // Chart data with memoization
+  const revenueTrend = useMemo(() => chartData?.revenueTrend || [], [chartData]);
+  const subscriptionDistribution = useMemo(() => chartData?.subscriptionDistribution || [], [chartData]);
 
-  // Admin Stats
-  const adminStats = [
-    {
-      icon: GroupIcon,
-      title: "Team Members",
-      value: overview.totalTeamMembers,
-      bgColor: colors.primaryContainer,
-    },
-    {
-      icon: GroupIcon,
-      title: "Active Team",
-      value: overview.activeTeamMembers,
-      iconBg: colors.secondaryContainer,
-    },
-    { icon: PaymentsIcon, title: "Total Assets", value: overview.totalAssets },
-    {
-      icon: EventBusyIcon,
-      title: "Inspections",
-      value: overview.totalInspections,
-      iconBg: colors.errorContainer,
-    },
-  ];
+  // Quick actions based on role
+  const quickActions = useMemo(() => {
+    const actions = [];
+    if (user?.role === "super_admin" || user?.role === "admin") {
+      actions.push({
+        icon: AddCircleIcon,
+        title: "New Checklist",
+        desc: "Create inspection form",
+        path: "/admin/checklists/custom-builder",
+      });
+    }
+    if (user?.role === "super_admin") {
+      actions.push({
+        icon: PersonAddIcon,
+        title: "Add Client",
+        desc: "Register new client",
+        path: "/admin/clients",
+      });
+    }
+    actions.push({
+      icon: AnalyticsIcon,
+      title: "Reports",
+      desc: "View analytics",
+      path: user?.role === "team" ? "/team/history" : "/admin/reports",
+    });
+    return actions;
+  }, [user?.role]);
 
-  // Team Stats
-  const teamStats = [
-    {
-      icon: GroupIcon,
-      title: "Total Tasks",
-      value: overview.totalTasks,
-      bgColor: colors.primaryContainer,
-    },
-    {
-      icon: GroupIcon,
-      title: "Completed",
-      value: overview.completedTasks,
-      iconBg: colors.secondaryContainer,
-    },
-    {
-      icon: PaymentsIcon,
-      title: "Completion Rate",
-      value: `${overview.completionRate || 0}%`,
-    },
-    {
-      icon: EventBusyIcon,
-      title: "Performance Score",
-      value: `${overview.performanceScore || 0}%`,
-      iconBg: colors.errorContainer,
-    },
-  ];
+  // Show loading skeleton on initial load
+  if (loading && !dashboardData && !statsData) {
+    return <DashboardSkeleton />;
+  }
 
-  const statsToShow =
-    user?.role === "super_admin"
-      ? superAdminStats
-      : user?.role === "admin"
-        ? adminStats
-        : teamStats;
-
-  // Get chart data
-  const revenueTrend = chartData?.revenueTrend || [];
-  const clientGrowth = chartData?.clientGrowth || { labels: [], data: [] };
-  const subscriptionDistribution = chartData?.subscriptionDistribution || [];
+  // Show error state
+  if (error && !dashboardData && !statsData) {
+    return <ErrorDisplay message={error} onRetry={handleRetry} />;
+  }
 
   return (
     <Box
       sx={{
         bgcolor: colors.surface,
-        minHeight: "100vh",
-        p: { xs: 1.5, sm: 2, md: 3 },
+        minHeight: "100%",
+        p: { xs: 1.5, sm: 2, md: 3, lg: 3.5 },
+        position: "relative",
       }}
     >
-      {/* Header with Export and Refresh */}
+      {/* Loading Overlay */}
+      {loading && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+          }}
+        >
+          <LinearProgress sx={{ height: 2 }} />
+        </Box>
+      )}
+
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 2.5,
+          mb: { xs: 2, sm: 2.5, md: 3 },
           flexWrap: "wrap",
-          gap: 1.5,
+          gap: { xs: 1, sm: 1.5 },
         }}
       >
-        <Typography
-          variant="h5"
-          sx={{
-            fontWeight: 700,
-            color: colors.primary,
-            fontSize: { xs: "1.1rem", sm: "1.2rem" },
-          }}
-        >
-          Dashboard
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Refresh">
+        <Box>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 700,
+              color: colors.primary,
+              fontSize: { xs: "1.1rem", sm: "1.3rem", md: "1.5rem" },
+            }}
+          >
+            Dashboard
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: colors.secondary, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
+          >
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </Typography>
+        </Box>
+
+        <Stack direction="row" spacing={{ xs: 0.5, sm: 1 }} alignItems="center">
+          <Tooltip title="Refresh data">
             <IconButton
               onClick={handleRefresh}
-              size="small"
-              sx={{ bgcolor: colors.surfaceContainerLow }}
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                bgcolor: colors.surfaceContainerLow,
+                "&:hover": { bgcolor: colors.surfaceVariant }
+              }}
             >
-              <RefreshIcon sx={{ fontSize: "1rem" }} />
+              <RefreshIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Export">
+
+          <Tooltip title="Export report">
             <IconButton
               onClick={(e) => setExportAnchorEl(e.currentTarget)}
-              size="small"
-              sx={{ bgcolor: colors.surfaceContainerLow }}
+              disabled={exporting || loading}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                bgcolor: colors.surfaceContainerLow,
+                "&:hover": { bgcolor: colors.surfaceVariant }
+              }}
             >
-              <DownloadIcon sx={{ fontSize: "1rem" }} />
+              {exporting ? (
+                <CircularProgress size={18} />
+              ) : (
+                <DownloadIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              )}
             </IconButton>
           </Tooltip>
+
           <Menu
             anchorEl={exportAnchorEl}
             open={Boolean(exportAnchorEl)}
             onClose={() => setExportAnchorEl(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
           >
             <MenuItem onClick={() => handleExport("csv")} disabled={exporting}>
               <ListItemIcon>
@@ -530,134 +829,57 @@ const Dashboard = () => {
           severity="error"
           onClose={clearError}
           sx={{ mb: 2, borderRadius: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleRetry}>
+              Retry
+            </Button>
+          }
         >
           {error}
         </Alert>
       )}
 
       {/* Stats Grid */}
-      <Grid
-        container
-        spacing={{ xs: 1.5, sm: 2 }}
-        sx={{ mb: { xs: 3, sm: 4 } }}
-      >
-        {statsToShow.map((stat, idx) => (
-          <Grid item xs={12} sm={6} lg={3} key={idx}>
-            <StatCard {...stat} loading={loading} />
-          </Grid>
-        ))}
-      </Grid>
+      {statsToShow.length > 0 ? (
+        <Grid
+          container
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+          sx={{ mb: { xs: 3, sm: 4 } }}
+        >
+          {statsToShow.map((stat, idx) => (
+            <Grid item xs={12} sm={6} lg={3} key={idx}>
+              <StatCard {...stat} loading={loading} />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        !loading && (
+          <EmptyState
+            icon={InfoIcon}
+            title="No stats available"
+            description="Dashboard statistics will appear here once data is available."
+          />
+        )
+      )}
 
-      {/* Charts Section - Only for Super Admin and Admin */}
+      {/* Charts Section */}
       {(user?.role === "super_admin" || user?.role === "admin") && (
         <Grid
           container
-          spacing={{ xs: 1.5, sm: 2 }}
+          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
           sx={{ mb: { xs: 3, sm: 4 } }}
         >
-          {/* Customer Activity / Revenue Trend */}
+          {/* Revenue Trend Chart */}
           <Grid item xs={12} lg={6}>
             <Paper
               elevation={0}
               sx={{
-                p: { xs: 2, sm: 2.5 },
-                borderRadius: 3,
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: 2, sm: 3 },
                 height: "100%",
+                width:"600px",
                 bgcolor: "background.paper",
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 2.5,
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: colors.primary,
-                    fontSize: { xs: "0.95rem", sm: "1rem" },
-                  }}
-                >
-                  Revenue Trend
-                </Typography>
-              </Box>
-              <Box sx={{ height: 200, overflowX: "auto" }}>
-                {revenueTrend.length > 0 ? (
-                  <Box sx={{ minWidth: 500 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "flex-end",
-                        gap: 1,
-                        height: 160,
-                      }}
-                    >
-                      {revenueTrend.map((item, idx) => (
-                        <Box
-                          key={idx}
-                          sx={{
-                            flex: 1,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: "100%",
-                              bgcolor: colors.primaryContainer,
-                              height: `${(item.revenue / Math.max(...revenueTrend.map((r) => r.revenue))) * 140}px`,
-                              borderRadius: "4px 4px 0 0",
-                            }}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              mt: 1,
-                              fontSize: "0.55rem",
-                              color: colors.outline,
-                            }}
-                          >
-                            {item.month}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  </Box>
-                ) : (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      height: 200,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: colors.outline }}
-                    >
-                      No data available
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Revenue Distribution */}
-          <Grid item xs={12} lg={6}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 2, sm: 2.5 },
-                borderRadius: 3,
-                height: "100%",
-                bgcolor: "background.paper",
+                border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
               }}
             >
               <Typography
@@ -665,66 +887,203 @@ const Dashboard = () => {
                 sx={{
                   fontWeight: 700,
                   color: colors.primary,
-                  fontSize: { xs: "0.95rem", sm: "1rem" },
-                  mb: 2,
+                  fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
+                  mb: { xs: 2, sm: 2.5 },
+                }}
+              >
+                Revenue Trend
+              </Typography>
+
+              {loading ? (
+                <Box sx={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <CircularProgress size={32} />
+                </Box>
+              ) : revenueTrend.length > 0 ? (
+                <Box sx={{ height: { xs: 180, sm: 200 }, overflowX: "auto" }}>
+                  <Box sx={{ minWidth: { xs: 400, sm: 500 }, height: "100%" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-end",
+                        gap: { xs: 0.5, sm: 1 },
+                        height: { xs: 140, sm: 160 },
+                        px: 1,
+                      }}
+                    >
+                      {revenueTrend.map((item, idx) => {
+                        const maxRevenue = Math.max(...revenueTrend.map((r) => r.revenue || 0));
+                        const heightPercent = maxRevenue > 0 ? ((item.revenue || 0) / maxRevenue) * 100 : 0;
+                        return (
+                          <Box
+                            key={idx}
+                            sx={{
+                              flex: 1,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              minWidth: 30,
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                mb: 0.5,
+                                fontSize: { xs: "0.5rem", sm: "0.55rem" },
+                                color: colors.outline,
+                              }}
+                            >
+                              ${((item.revenue || 0) / 1000).toFixed(0)}k
+                            </Typography>
+                            <Box
+                              sx={{
+                                width: "100%",
+                                maxWidth: 40,
+                                bgcolor: colors.primaryContainer,
+                                height: `${heightPercent}%`,
+                                borderRadius: "4px 4px 0 0",
+                                transition: "height 0.5s ease",
+                                "&:hover": {
+                                  bgcolor: colors.primary,
+                                },
+                              }}
+                            />
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                mt: 1,
+                                fontSize: { xs: "0.5rem", sm: "0.55rem" },
+                                color: colors.outline,
+                                transform: { xs: "rotate(-45deg)", sm: "none" },
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {item.month}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <EmptyState
+                  icon={AnalyticsIcon}
+                  title="No revenue data"
+                  description="Revenue trends will appear here."
+                />
+              )}
+            </Paper>
+          </Grid>
+
+          {/* Subscription Distribution */}
+          <Grid item xs={12} lg={6}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: 2, sm: 3 },
+                height: "100%",
+                width:"500px",
+                bgcolor: "background.paper",
+                border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  color: colors.primary,
+                  fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
+                  mb: { xs: 2, sm: 2.5 },
                 }}
               >
                 Subscription Distribution
               </Typography>
-              <Stack spacing={1.5}>
-                {subscriptionDistribution.length > 0 ? (
-                  subscriptionDistribution.map((item, idx) => {
+
+              {loading ? (
+                <Box sx={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <CircularProgress size={32} />
+                </Box>
+              ) : subscriptionDistribution.length > 0 ? (
+                <Stack spacing={{ xs: 1.5, sm: 2 }}>
+                  {subscriptionDistribution.map((item, idx) => {
                     const colorsList = [
                       colors.primaryContainer,
                       colors.onTertiaryContainer,
                       colors.tertiaryContainer,
                       colors.secondary,
                     ];
+                    const maxCount = Math.max(...subscriptionDistribution.map((s) => s.count || 0));
+                    const percentage = maxCount > 0 ? ((item.count || 0) / maxCount) * 100 : 0;
+                    
                     return (
-                      <Box
-                        key={idx}
-                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
-                      >
+                      <Box key={idx}>
                         <Box
                           sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            bgcolor: colorsList[idx % colorsList.length],
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            mb: 0.5,
                           }}
-                        />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography
-                            variant="body2"
-                            sx={{ fontWeight: 600, fontSize: "0.7rem" }}
-                          >
-                            {item.plan}
-                          </Typography>
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                width: { xs: 10, sm: 12 },
+                                height: { xs: 10, sm: 12 },
+                                borderRadius: "50%",
+                                bgcolor: colorsList[idx % colorsList.length],
+                              }}
+                            />
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.8rem" } }}
+                            >
+                              {item.plan || "Unknown"}
+                            </Typography>
+                          </Box>
                           <Typography
                             variant="caption"
-                            sx={{ fontSize: "0.6rem", color: colors.outline }}
+                            sx={{ fontWeight: 600, fontSize: { xs: "0.6rem", sm: "0.65rem" } }}
                           >
-                            {item.count} customers
+                            {item.count || 0} customers
                           </Typography>
                         </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={percentage}
+                          sx={{
+                            height: { xs: 6, sm: 8 },
+                            borderRadius: 4,
+                            bgcolor: alpha(colors.primary, 0.08),
+                            "& .MuiLinearProgress-bar": {
+                              bgcolor: colorsList[idx % colorsList.length],
+                              borderRadius: 4,
+                            },
+                          }}
+                        />
                         <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 700, fontSize: "0.7rem" }}
+                          variant="caption"
+                          sx={{
+                            color: colors.outline,
+                            fontSize: { xs: "0.55rem", sm: "0.6rem" },
+                            mt: 0.25,
+                            display: "block",
+                          }}
                         >
-                          ${item.potentialRevenue}/mo
+                          ${(item.potentialRevenue || 0).toLocaleString()}/mo
                         </Typography>
                       </Box>
                     );
-                  })
-                ) : (
-                  <Typography
-                    variant="caption"
-                    sx={{ color: colors.outline, textAlign: "center", py: 4 }}
-                  >
-                    No subscription data available
-                  </Typography>
-                )}
-              </Stack>
+                  })}
+                </Stack>
+              ) : (
+                <EmptyState
+                  icon={PaymentsIcon}
+                  title="No subscription data"
+                  description="Subscription distribution will appear here."
+                />
+              )}
             </Paper>
           </Grid>
         </Grid>
@@ -735,16 +1094,17 @@ const Dashboard = () => {
         <Paper
           elevation={0}
           sx={{
-            borderRadius: 3,
+            borderRadius: { xs: 2, sm: 3 },
             overflow: "hidden",
             bgcolor: "background.paper",
+            border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
           }}
         >
           <Box
             sx={{
-              px: { xs: 2, sm: 2.5 },
-              py: 1.5,
-              borderBottom: "1px solid rgba(0,0,0,0.05)",
+              px: { xs: 2, sm: 2.5, md: 3 },
+              py: { xs: 1.5, sm: 2 },
+              borderBottom: `1px solid ${alpha(colors.outlineVariant, 0.3)}`,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
@@ -758,215 +1118,222 @@ const Dashboard = () => {
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
-                fontSize: { xs: "0.9rem", sm: "1rem" },
+                fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
               }}
             >
               <HistoryIcon
-                sx={{ color: colors.primaryContainer, fontSize: "1.1rem" }}
+                sx={{ color: colors.primaryContainer, fontSize: { xs: 18, sm: 20 } }}
               />
               Recent Activity
             </Typography>
           </Box>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: "rgba(242,244,246,0.5)" }}>
-                  <TableCell
-                    sx={{
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      color: colors.secondary,
-                      py: 1.5,
-                    }}
-                  >
-                    Activity
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      color: colors.secondary,
-                      py: 1.5,
-                    }}
-                  >
-                    Details
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      color: colors.secondary,
-                      py: 1.5,
-                    }}
-                  >
-                    Date
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={24} />
-                    </TableCell>
-                  </TableRow>
-                ) : activities.length === 0 ? (
-                  <TableRow>
+
+          {loading ? (
+            <Box sx={{ p: 3 }}>
+              {[1, 2, 3].map((i) => (
+                <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                  <Skeleton variant="circular" width={32} height={32} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" width="60%" height={20} />
+                    <Skeleton variant="text" width="40%" height={16} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : activities.length === 0 ? (
+            <EmptyState
+              icon={HistoryIcon}
+              title="No recent activity"
+              description="Your recent activities will appear here."
+            />
+          ) : (
+            <TableContainer sx={{ maxHeight: { xs: 300, sm: 350, md: 400 } }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: alpha(colors.surfaceContainerLow, 0.5) }}>
                     <TableCell
-                      colSpan={3}
-                      align="center"
-                      sx={{ py: 4, color: colors.outline }}
+                      sx={{
+                        fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                        fontWeight: 700,
+                        color: colors.secondary,
+                        py: { xs: 1, sm: 1.5 },
+                      }}
                     >
-                      No recent activities
+                      Activity
                     </TableCell>
+                    <TableCell
+                      sx={{
+                        fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                        fontWeight: 700,
+                        color: colors.secondary,
+                        py: { xs: 1, sm: 1.5 },
+                      }}
+                    >
+                      Details
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell
+                        sx={{
+                          fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                          fontWeight: 700,
+                          color: colors.secondary,
+                          py: { xs: 1, sm: 1.5 },
+                        }}
+                      >
+                        Date
+                      </TableCell>
+                    )}
                   </TableRow>
-                ) : (
-                  activities.slice(0, 5).map((activity, idx) => (
-                    <TableRow key={idx} hover>
-                      <TableCell sx={{ py: 1.5 }}>
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                        >
-                          <Typography sx={{ fontSize: "1rem" }}>
-                            {activity.icon}
-                          </Typography>
+                </TableHead>
+                <TableBody>
+                  {activities.slice(0, isMobile ? 3 : 5).map((activity, idx) => (
+                    <TableRow
+                      key={idx}
+                      hover
+                      sx={{ "&:last-child td": { border: 0 } }}
+                    >
+                      <TableCell sx={{ py: { xs: 1, sm: 1.5 } }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 1 } }}>
+                          <Avatar
+                            sx={{
+                              width: { xs: 24, sm: 28 },
+                              height: { xs: 24, sm: 28 },
+                              bgcolor: alpha(colors.primary, 0.1),
+                              fontSize: { xs: 12, sm: 14 },
+                            }}
+                          >
+                            {activity.icon || "📋"}
+                          </Avatar>
                           <Typography
                             variant="body2"
                             sx={{
                               fontWeight: 600,
                               color: colors.primary,
-                              fontSize: "0.7rem",
+                              fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
                             }}
                           >
-                            {activity.title}
+                            {activity.title || "Activity"}
                           </Typography>
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ py: 1.5 }}>
+                      <TableCell sx={{ py: { xs: 1, sm: 1.5 } }}>
                         <Typography
                           variant="caption"
-                          sx={{ color: colors.secondary, fontSize: "0.65rem" }}
+                          sx={{
+                            color: colors.secondary,
+                            fontSize: { xs: "0.6rem", sm: "0.65rem" },
+                          }}
                         >
-                          {activity.details}
+                          {activity.details || "No details"}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ py: 1.5 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{ color: colors.outline, fontSize: "0.6rem" }}
-                        >
-                          {new Date(activity.timestamp).toLocaleDateString()}
-                        </Typography>
-                      </TableCell>
+                      {!isMobile && (
+                        <TableCell sx={{ py: { xs: 1, sm: 1.5 } }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: colors.outline,
+                              fontSize: { xs: "0.6rem", sm: "0.65rem" },
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {activity.timestamp
+                              ? new Date(activity.timestamp).toLocaleDateString()
+                              : "N/A"}
+                          </Typography>
+                        </TableCell>
+                      )}
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Paper>
       </Box>
 
       {/* Quick Actions */}
-      <Box>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 700,
-            color: colors.primary,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            mb: 1.5,
-            fontSize: { xs: "0.9rem", sm: "1rem" },
-          }}
-        >
-          <BoltIcon
-            sx={{ color: colors.primaryContainer, fontSize: "1.1rem" }}
-          />
-          Quick Actions
-        </Typography>
-        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-          {[
-            {
-              icon: AddCircleIcon,
-              title: "Create New Form",
-              desc: "Initialize a new checklist",
-              path:
-                user?.role === "admin"
-                  ? "/admin/checklists/custom-builder"
-                  : "/admin/checklists/custom-builder",
-            },
-            {
-              icon: PersonAddIcon,
-              title: "Add Customer",
-              desc: "Register a new client profile",
-              path: "/admin/clients",
-            },
-            {
-              icon: AnalyticsIcon,
-              title: "Generate Report",
-              desc: "Compile operational data",
-              path: "/admin/reports",
-            },
-          ].map((action, idx) => (
-            <Grid item xs={12} sm={4} key={idx}>
-              <Button
-                fullWidth
-                onClick={() => navigate(action.path)}
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  p: { xs: 2, sm: 2.5 },
-                  bgcolor: colors.primaryContainer,
-                  borderRadius: 3,
-                  textTransform: "none",
-                  transition: "all 0.3s",
-                  "&:hover": {
-                    transform: "scale(1.01)",
+      {quickActions.length > 0 && (
+        <Box>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: colors.primary,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: { xs: 1.5, sm: 2 },
+              fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
+            }}
+          >
+            <BoltIcon
+              sx={{ color: colors.onTertiaryContainer, fontSize: { xs: 18, sm: 20 } }}
+            />
+            Quick Actions
+          </Typography>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+            {quickActions.map((action, idx) => (
+              <Grid item xs={12} sm={6} md={4} key={idx} sx={{width:"360px"}}>
+                <Button
+                  fullWidth
+                  onClick={() => navigate(action.path)}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    p: { xs: 2, sm: 2.5, md: 3 },
                     bgcolor: colors.primaryContainer,
-                  },
-                  boxShadow: "0 2px 8px rgba(0,38,49,0.08)",
-                }}
-              >
-                <Box
-                  sx={{
-                    p: 1,
-                    bgcolor: "rgba(255,255,255,0.12)",
-                    borderRadius: 1.5,
-                    mb: 1.5,
+                    borderRadius: { xs: 2, sm: 3 },
+                    textTransform: "none",
+                    transition: "all 0.3s",
+                    height: "100%",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      bgcolor: alpha(colors.primaryContainer, 0.9),
+                      boxShadow: `0 4px 16px ${alpha(colors.primary, 0.15)}`,
+                    },
+                    boxShadow: `0 2px 8px ${alpha(colors.primary, 0.08)}`,
                   }}
                 >
-                  <action.icon sx={{ color: "white", fontSize: "1.1rem" }} />
-                </Box>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    color: "white",
-                    fontWeight: 700,
-                    fontSize: { xs: "0.85rem", sm: "0.95rem" },
-                    mb: 0.25,
-                  }}
-                >
-                  {action.title}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: colors.onPrimaryContainer,
-                    textAlign: "left",
-                    fontSize: "0.65rem",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {action.desc}
-                </Typography>
-              </Button>
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
+                  <Box
+                    sx={{
+                      p: { xs: 0.75, sm: 1 },
+                      bgcolor: "rgba(255,255,255,0.12)",
+                      borderRadius: 1.5,
+                      mb: { xs: 1, sm: 1.5 },
+                    }}
+                  >
+                    <action.icon sx={{ color: "white", fontSize: { xs: 16, sm: 18, md: 20 } }} />
+                  </Box>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      color: "white",
+                      fontWeight: 700,
+                      fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
+                      mb: 0.25,
+                    }}
+                  >
+                    {action.title}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: colors.onPrimaryContainer,
+                      textAlign: "left",
+                      fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {action.desc}
+                  </Typography>
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
 
       {/* Toast Notifications */}
       <Snackbar
@@ -974,11 +1341,19 @@ const Dashboard = () => {
         autoHideDuration={4000}
         onClose={closeToast}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        sx={{ 
+          bottom: { xs: 72, sm: 80, md: 24 } // Account for bottom nav on mobile
+        }}
       >
         <Alert
           onClose={closeToast}
           severity={toast.severity}
-          sx={{ borderRadius: 2, fontSize: "0.7rem" }}
+          sx={{
+            borderRadius: 2,
+            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
+            boxShadow: 3,
+          }}
+          variant="filled"
         >
           {toast.message}
         </Alert>
