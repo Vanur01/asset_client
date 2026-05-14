@@ -1,4 +1,4 @@
-// AddNewAsset.jsx (Optimized with Role-Based Access & Fast Image Upload)
+// AddNewAsset.jsx (Optimized with Role-Based Access)
 import { useState, useRef, useCallback, useMemo } from "react";
 import {
   Box,
@@ -77,13 +77,19 @@ const theme = createTheme({
   },
 });
 
-const SectionCard = ({ icon, title, color = "#1a5c6b", children, disabled }) => (
+const SectionCard = ({
+  icon,
+  title,
+  color = "#1a5c6b",
+  children,
+  disabled,
+}) => (
   <Paper
     elevation={0}
-    sx={{ 
-      border: "1px solid #e8eaed", 
-      borderRadius: 3, 
-      p: 3, 
+    sx={{
+      border: "1px solid #e8eaed",
+      borderRadius: 3,
+      p: 3,
       mb: 2,
       opacity: disabled ? 0.6 : 1,
       position: "relative",
@@ -154,202 +160,16 @@ const CBRow = ({ labels, values = {}, onChange, name, disabled }) => (
   </Grid>
 );
 
-// Optimized Image Upload Component
-const ImageUploadSection = ({ images, onImagesChange, disabled, maxImages = 10 }) => {
-  const fileInputRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
-
-  const handleImageUpload = useCallback(async (event) => {
-    const files = Array.from(event.target.files);
-    if (files.length === 0) return;
-    
-    if (images.length + files.length > maxImages) {
-      alert(`Maximum ${maxImages} images allowed`);
-      return;
-    }
-
-    setUploading(true);
-    
-    // Process images in parallel with compression
-    const processedImages = await Promise.all(
-      files.map(async (file) => {
-        // Compress image before creating preview
-        const compressedBlob = await compressImage(file);
-        const preview = URL.createObjectURL(compressedBlob);
-        return {
-          file: compressedBlob,
-          preview,
-          name: file.name,
-          originalSize: file.size,
-          compressedSize: compressedBlob.size,
-        };
-      })
-    );
-
-    onImagesChange([...images, ...processedImages]);
-    setUploading(false);
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, [images, maxImages, onImagesChange]);
-
-  // Image compression function
-  const compressImage = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (e) => {
-        const img = new Image();
-        img.src = e.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxWidth = 1200;
-          const maxHeight = 1200;
-          
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            resolve(blob);
-          }, 'image/jpeg', 0.7);
-        };
-      };
-    });
-  };
-
-  const removeImage = useCallback((index) => {
-    const imageToRemove = images[index];
-    if (imageToRemove.preview) {
-      URL.revokeObjectURL(imageToRemove.preview);
-    }
-    const newImages = images.filter((_, i) => i !== index);
-    onImagesChange(newImages);
-  }, [images, onImagesChange]);
-
-  const removeAllImages = useCallback(() => {
-    images.forEach(img => {
-      if (img.preview) URL.revokeObjectURL(img.preview);
-    });
-    onImagesChange([]);
-  }, [images, onImagesChange]);
-
-  return (
-    <Box mb={3}>
-      <FilterLabel>Asset Images (Max {maxImages})</FilterLabel>
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
-        {images.map((img, index) => (
-          <Box key={index} sx={{ position: "relative" }}>
-            <Avatar
-              src={img.preview}
-              variant="rounded"
-              sx={{ width: 80, height: 80, objectFit: "cover" }}
-            />
-            <IconButton
-              size="small"
-              sx={{
-                position: "absolute",
-                top: -8,
-                right: -8,
-                bgcolor: "white",
-                "&:hover": { bgcolor: "#f5f5f5" },
-                zIndex: 2,
-              }}
-              onClick={() => removeImage(index)}
-              disabled={disabled}
-            >
-              <Close fontSize="small" />
-            </IconButton>
-            {img.compressedSize && (
-              <Typography
-                variant="caption"
-                sx={{
-                  position: "absolute",
-                  bottom: -16,
-                  left: 0,
-                  right: 0,
-                  textAlign: "center",
-                  fontSize: 10,
-                  color: "text.secondary",
-                }}
-              >
-                {(img.compressedSize / 1024).toFixed(0)}KB
-              </Typography>
-            )}
-          </Box>
-        ))}
-        {images.length < maxImages && (
-          <Button
-            variant="outlined"
-            startIcon={uploading ? <CircularProgress size={20} /> : <AddPhotoAlternate />}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || disabled}
-            sx={{ height: 80, width: 250, minWidth: 80, borderRadius: 2, flexDirection: "column", gap: 0.5 }}
-          >
-            {!uploading && (
-              <>
-                <CloudUpload sx={{ fontSize: 24 }} />
-                <Typography variant="caption">Upload</Typography>
-              </>
-            )}
-          </Button>
-        )}
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept="image/jpeg,image/jpg,image/png,image/webp"
-          multiple
-          style={{ display: "none" }}
-          onChange={handleImageUpload}
-          disabled={disabled}
-        />
-      </Box>
-      {images.length > 0 && (
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="caption" color="text.secondary">
-            {images.length} / {maxImages} images selected
-          </Typography>
-          <Button
-            size="small"
-            startIcon={<DeleteSweep />}
-            onClick={removeAllImages}
-            disabled={disabled}
-            sx={{ fontSize: 11 }}
-          >
-            Clear All
-          </Button>
-        </Stack>
-      )}
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-        Upload PNG, JPG, or WEBP images (automatically compressed to ~70% quality)
-      </Typography>
-    </Box>
-  );
-};
-
 export default function AddNewAsset() {
   const { user } = useAuth();
-  const { createAsset, uploadMultipleAssetImages, uploadProgress, canWriteAssets } = useAsset();
+  const { createAsset, canWriteAssets } = useAsset();
   const navigate = useNavigate();
-  
+
   // Check if user has write permission (Admin only)
   const isAdmin = user?.role === "admin";
   const isTeam = user?.role === "team";
   const canEdit = isAdmin || isTeam; // Only Admin can create/edit assets
-  
+
   const [assetCategory, setAssetCategory] = useState("Equipment");
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -380,7 +200,6 @@ export default function AddNewAsset() {
       tags: [],
       notes: "",
     },
-    assetImages: [],
   });
 
   // Filter checkbox states
@@ -447,17 +266,15 @@ export default function AddNewAsset() {
 
   const handleTagsChange = (e) => {
     if (!canEdit) return;
-    const tags = e.target.value.split(",").map(tag => tag.trim()).filter(tag => tag);
+    const tags = e.target.value
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag);
     setFormData((prev) => ({
       ...prev,
       metadata: { ...prev.metadata, tags },
     }));
   };
-
-  const handleImagesChange = useCallback((newImages) => {
-    if (!canEdit) return;
-    setFormData(prev => ({ ...prev, assetImages: newImages }));
-  }, [canEdit]);
 
   const handleCheckboxChange = (section, label, checked) => {
     if (!canEdit) return;
@@ -470,7 +287,7 @@ export default function AddNewAsset() {
       pm: setPmFilters,
     };
     if (setters[section]) {
-      setters[section](prev => ({ ...prev, [label]: checked }));
+      setters[section]((prev) => ({ ...prev, [label]: checked }));
     }
   };
 
@@ -505,61 +322,69 @@ export default function AddNewAsset() {
         status: formData.status,
         assetCondition: formData.assetCondition,
         assetCategory,
-        purchaseCost: formData.purchaseCost ? parseFloat(formData.purchaseCost) : undefined,
+        purchaseCost: formData.purchaseCost
+          ? parseFloat(formData.purchaseCost)
+          : undefined,
         commissioningDate: formData.commissioningDate,
         healthScore: formData.healthScore,
         metadata: formData.metadata,
-        
+
         mhe: {
-          utilizationStatus: Object.keys(mheFilters).find(key => mheFilters[key]) || mheData.utilizationStatus,
-          engineRuntimeHours: mheData.engineRuntimeHours ? parseFloat(mheData.engineRuntimeHours) : undefined,
+          utilizationStatus:
+            Object.keys(mheFilters).find((key) => mheFilters[key]) ||
+            mheData.utilizationStatus,
+          engineRuntimeHours: mheData.engineRuntimeHours
+            ? parseFloat(mheData.engineRuntimeHours)
+            : undefined,
           safetyCertification: mheData.safetyCertification,
         },
-        
+
         transportation: {
-          vehicleType: Object.keys(vehicleFilters).find(key => vehicleFilters[key]) || transportationData.vehicleType,
+          vehicleType:
+            Object.keys(vehicleFilters).find((key) => vehicleFilters[key]) ||
+            transportationData.vehicleType,
           driver: transportationData.driver,
           loadStatus: transportationData.loadStatus,
         },
-        
+
         rotatingMachinery: {
           healthStatusIndex: rotatingMachineryData.healthStatusIndex,
           vibrationAlert: rotatingMachineryData.vibrationAlert,
           temperatureAlert: rotatingMachineryData.temperatureAlert,
-          faultType: Object.keys(faultTypeFilters).filter(key => faultTypeFilters[key]),
+          faultType: Object.keys(faultTypeFilters).filter(
+            (key) => faultTypeFilters[key],
+          ),
         },
-        
+
         garbageManagement: {
-          containerTypeSize: Object.keys(containerFilters).find(key => containerFilters[key]) || garbageManagementData.containerTypeSize,
-          smartStatusIoTFillLevel: garbageManagementData.smartStatusIoTFillLevel,
+          containerTypeSize:
+            Object.keys(containerFilters).find(
+              (key) => containerFilters[key],
+            ) || garbageManagementData.containerTypeSize,
+          smartStatusIoTFillLevel:
+            garbageManagementData.smartStatusIoTFillLevel,
           collectionStatus: garbageManagementData.collectionStatus,
         },
-        
+
         itAssets: {
-          osPlatform: Object.keys(osFilters).filter(key => osFilters[key]),
+          osPlatform: Object.keys(osFilters).filter((key) => osFilters[key]),
           softwareName: itAssetsData.softwareName,
           licenseStatus: itAssetsData.licenseStatus,
         },
-        
+
         facilityManagement: {
-          pmStatus: Object.keys(pmFilters).find(key => pmFilters[key]) || facilityManagementData.pmStatus,
+          pmStatus:
+            Object.keys(pmFilters).find((key) => pmFilters[key]) ||
+            facilityManagementData.pmStatus,
           maintenancePriority: facilityManagementData.maintenancePriority,
         },
-        
+
         inspectionSystems,
       };
 
       const response = await createAsset(submissionData);
-      
+
       if (response.success) {
-        const assetId = response.data?.asset?._id || response.data?.data?._id;
-        const imagesToUpload = formData.assetImages.filter(img => img.file);
-        
-        if (assetId && imagesToUpload.length > 0) {
-          const imageFiles = imagesToUpload.map(img => img.file);
-          await uploadMultipleAssetImages(assetId, imageFiles);
-        }
-        
         setSnackbar({
           open: true,
           message: "Asset created successfully!",
@@ -572,7 +397,10 @@ export default function AddNewAsset() {
     } catch (error) {
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || error.message || "Failed to create asset",
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to create asset",
         severity: "error",
       });
     } finally {
@@ -586,7 +414,8 @@ export default function AddNewAsset() {
       <Box sx={{ p: 4, textAlign: "center" }}>
         <Alert severity="error" sx={{ maxWidth: 500, mx: "auto" }}>
           <AlertTitle>Access Denied</AlertTitle>
-          Super Admin does not have access to Asset Management. Please contact your administrator.
+          Super Admin does not have access to Asset Management. Please contact
+          your administrator.
         </Alert>
         <Button
           sx={{ mt: 2 }}
@@ -615,12 +444,12 @@ export default function AddNewAsset() {
             py: 1.5,
             display: "flex",
             alignItems: "center",
-            width:"1130px",
-            marginLeft:"28px",
+            width: "1130px",
+            marginLeft: "28px",
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: 2,
-            borderRadius:"10px",
+            borderRadius: "10px",
           }}
         >
           <Stack direction="row" alignItems="center" spacing={1.5}>
@@ -636,9 +465,9 @@ export default function AddNewAsset() {
                 Add New Asset
               </Typography>
               <Typography fontSize={12} color="text.secondary">
-                {isAdmin 
-                  ? "Asset details, classification, images, and category filters"
-                  : isTeam 
+                {isAdmin
+                  ? "Asset details, classification, and category filters"
+                  : isTeam
                     ? "View mode - Contact admin to create assets"
                     : "Asset management"}
               </Typography>
@@ -654,74 +483,78 @@ export default function AddNewAsset() {
           )}
         </Box>
 
-        {/* Upload Progress */}
-        {uploadProgress > 0 && uploadProgress < 100 && (
-          <Box sx={{ px: 3, pt: 2 }}>
-            <LinearProgress variant="determinate" value={uploadProgress} sx={{ borderRadius: 2, height: 6 }} />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-              Uploading images: {uploadProgress}%
-            </Typography>
-          </Box>
-        )}
-
-        <Box sx={{ display: "flex", flexDirection: { xs: "column", lg: "row" }, gap: 2.5, p: 3, maxWidth: 1400, mx: "auto" }}>
-          
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", lg: "row" },
+            gap: 2.5,
+            p: 3,
+            maxWidth: 1400,
+            mx: "auto",
+          }}
+        >
           {/* LEFT PANEL */}
           <Box sx={{ width: { xs: "100%", lg: 320 }, flexShrink: 0 }}>
-            <Paper elevation={0} sx={{ border: "1px solid #e8eaed", borderRadius: 3, p: 3, mb: 2.5 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                border: "1px solid #e8eaed",
+                borderRadius: 3,
+                p: 3,
+                mb: 2.5,
+              }}
+            >
               <Stack direction="row" alignItems="center" spacing={1} mb={2.5}>
                 <Search fontSize="small" sx={{ color: "#1a5c6b" }} />
                 <Typography fontWeight={700} fontSize={14} color="#1a1a2e">
                   Core Identification
                 </Typography>
               </Stack>
-              
-              {/* Optimized Image Upload Section */}
-              <ImageUploadSection
-                images={formData.assetImages}
-                onImagesChange={handleImagesChange}
-                disabled={!canEdit}
-                maxImages={10}
-              />
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sx={{width:"270px",}}>
+                <Grid item xs={12} sx={{ width: "270px" }}>
                   <FilterLabel required>Asset Name</FilterLabel>
                   <TextField
                     fullWidth
                     size="small"
                     placeholder="Enter asset name"
                     value={formData.assetName}
-                    onChange={(e) => handleInputChange("assetName", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("assetName", e.target.value)
+                    }
                     disabled={!canEdit}
                     required
                   />
                 </Grid>
-                <Grid item xs={12} sx={{width:"270px",}}>
+                <Grid item xs={12} sx={{ width: "270px" }}>
                   <FilterLabel>Description</FilterLabel>
                   <TextField
                     fullWidth
                     size="small"
                     placeholder="Enter description"
                     value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("description", e.target.value)
+                    }
                     disabled={!canEdit}
                     multiline
                     rows={2}
                   />
                 </Grid>
-                <Grid item xs={12} sx={{width:"270px",}}>
+                <Grid item xs={12} sx={{ width: "270px" }}>
                   <FilterLabel>Serial Number</FilterLabel>
                   <TextField
                     fullWidth
                     size="small"
                     placeholder="Enter serial number"
                     value={formData.serialNumber}
-                    onChange={(e) => handleInputChange("serialNumber", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("serialNumber", e.target.value)
+                    }
                     disabled={!canEdit}
                   />
                 </Grid>
-                <Grid item xs={12} sx={{width:"270px",}}>
+                <Grid item xs={12} sx={{ width: "270px" }}>
                   <FilterLabel required>Asset Category</FilterLabel>
                   <FormControl fullWidth size="small">
                     <Select
@@ -741,7 +574,7 @@ export default function AddNewAsset() {
                   </FormControl>
                 </Grid>
               </Grid>
-              
+
               <Box sx={{ mt: 2, bgcolor: "#eef4f7", borderRadius: 2, p: 1.5 }}>
                 <Typography fontSize={12} color="#1a5c6b">
                   Category selected: {assetCategory}
@@ -750,7 +583,15 @@ export default function AddNewAsset() {
             </Paper>
 
             {/* Primary Filters */}
-            <Paper elevation={0} sx={{ border: "1px solid #e8eaed", borderRadius: 3, p: 3, mb: 2.5 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                border: "1px solid #e8eaed",
+                borderRadius: 3,
+                p: 3,
+                mb: 2.5,
+              }}
+            >
               <Typography fontWeight={700} fontSize={13} mb={2} color="#1a1a2e">
                 Primary Information
               </Typography>
@@ -761,7 +602,9 @@ export default function AddNewAsset() {
                 size="small"
                 placeholder="Enter current location"
                 value={formData.currentLocation}
-                onChange={(e) => handleInputChange("currentLocation", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("currentLocation", e.target.value)
+                }
                 disabled={!canEdit}
                 sx={{ mb: 2 }}
               />
@@ -785,7 +628,9 @@ export default function AddNewAsset() {
               <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                 <Select
                   value={formData.assetCondition}
-                  onChange={(e) => handleInputChange("assetCondition", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("assetCondition", e.target.value)
+                  }
                   disabled={!canEdit}
                 >
                   <MenuItem value="Excellent">Excellent</MenuItem>
@@ -801,22 +646,33 @@ export default function AddNewAsset() {
                 size="small"
                 type="number"
                 value={formData.healthScore}
-                onChange={(e) => handleInputChange("healthScore", parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "healthScore",
+                    parseInt(e.target.value) || 0,
+                  )
+                }
                 disabled={!canEdit}
                 InputProps={{ inputProps: { min: 0, max: 100 } }}
                 sx={{ mb: 2 }}
               />
 
-              <FilterLabel>Purchase Cost ($)</FilterLabel>
+              <FilterLabel>Purchase Cost </FilterLabel>
               <TextField
                 fullWidth
                 size="small"
                 type="number"
                 placeholder="Enter purchase cost"
                 value={formData.purchaseCost}
-                onChange={(e) => handleInputChange("purchaseCost", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("purchaseCost", e.target.value)
+                }
                 disabled={!canEdit}
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start"></InputAdornment>
+                  ),
+                }}
                 sx={{ mb: 2 }}
               />
 
@@ -826,7 +682,9 @@ export default function AddNewAsset() {
                 size="small"
                 type="date"
                 value={formData.commissioningDate}
-                onChange={(e) => handleInputChange("commissioningDate", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("commissioningDate", e.target.value)
+                }
                 disabled={!canEdit}
                 InputProps={{
                   startAdornment: (
@@ -855,10 +713,12 @@ export default function AddNewAsset() {
                 size="small"
                 placeholder="Additional notes"
                 value={formData.metadata.notes}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  metadata: { ...prev.metadata, notes: e.target.value }
-                }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, notes: e.target.value },
+                  }))
+                }
                 disabled={!canEdit}
                 multiline
                 rows={2}
@@ -868,11 +728,21 @@ export default function AddNewAsset() {
 
           {/* RIGHT PANEL - Category Specific Sections */}
           <Box sx={{ flex: 1 }}>
-            <SectionCard icon={<Inventory2Outlined fontSize="small" />} title="Material Handling Equipment" disabled={!canEdit}>
+            <SectionCard
+              icon={<Inventory2Outlined fontSize="small" />}
+              title="Material Handling Equipment"
+              disabled={!canEdit}
+            >
               <FilterLabel>Utilization Status</FilterLabel>
               <CBRow
                 name="mhe"
-                labels={["Active", "Idle", "Not Applicable", "Under Maintenance", "Decommissioned"]}
+                labels={[
+                  "Active",
+                  "Idle",
+                  "Not Applicable",
+                  "Under Maintenance",
+                  "Decommissioned",
+                ]}
                 values={mheFilters}
                 onChange={handleCheckboxChange}
                 disabled={!canEdit}
@@ -885,7 +755,12 @@ export default function AddNewAsset() {
                   type="number"
                   placeholder="Enter runtime hours"
                   value={mheData.engineRuntimeHours}
-                  onChange={(e) => setMheData(prev => ({ ...prev, engineRuntimeHours: e.target.value }))}
+                  onChange={(e) =>
+                    setMheData((prev) => ({
+                      ...prev,
+                      engineRuntimeHours: e.target.value,
+                    }))
+                  }
                   disabled={!canEdit}
                 />
               </Box>
@@ -896,13 +771,22 @@ export default function AddNewAsset() {
                   size="small"
                   placeholder="Enter safety certification"
                   value={mheData.safetyCertification}
-                  onChange={(e) => setMheData(prev => ({ ...prev, safetyCertification: e.target.value }))}
+                  onChange={(e) =>
+                    setMheData((prev) => ({
+                      ...prev,
+                      safetyCertification: e.target.value,
+                    }))
+                  }
                   disabled={!canEdit}
                 />
               </Box>
             </SectionCard>
 
-            <SectionCard icon={<DirectionsCarOutlined fontSize="small" />} title="Transportation" disabled={!canEdit}>
+            <SectionCard
+              icon={<DirectionsCarOutlined fontSize="small" />}
+              title="Transportation"
+              disabled={!canEdit}
+            >
               <FilterLabel>Vehicle Type</FilterLabel>
               <CBRow
                 name="vehicle"
@@ -918,15 +802,27 @@ export default function AddNewAsset() {
                   size="small"
                   placeholder="Enter driver name/ID"
                   value={transportationData.driver}
-                  onChange={(e) => setTransportationData(prev => ({ ...prev, driver: e.target.value }))}
+                  onChange={(e) =>
+                    setTransportationData((prev) => ({
+                      ...prev,
+                      driver: e.target.value,
+                    }))
+                  }
                   disabled={!canEdit}
                 />
               </Box>
               <Box mt={2}>
-                <Typography fontSize={13} mb={1}>Load Status: {transportationData.loadStatus}%</Typography>
+                <Typography fontSize={13} mb={1}>
+                  Load Status: {transportationData.loadStatus}%
+                </Typography>
                 <Slider
                   value={transportationData.loadStatus}
-                  onChange={(_, v) => setTransportationData(prev => ({ ...prev, loadStatus: v }))}
+                  onChange={(_, v) =>
+                    setTransportationData((prev) => ({
+                      ...prev,
+                      loadStatus: v,
+                    }))
+                  }
                   min={0}
                   max={100}
                   disabled={!canEdit}
@@ -934,56 +830,132 @@ export default function AddNewAsset() {
               </Box>
             </SectionCard>
 
-            <SectionCard icon={<SettingsOutlined fontSize="small" />} title="Rotating Machinery" disabled={!canEdit}>
+            <SectionCard
+              icon={<SettingsOutlined fontSize="small" />}
+              title="Rotating Machinery"
+              disabled={!canEdit}
+            >
               <FilterLabel>Health Status Index</FilterLabel>
               <Stack direction="row" spacing={1} mb={2}>
                 {["Green", "Yellow", "Red"].map((color) => (
                   <Chip
                     key={color}
                     label={color}
-                    variant={rotatingMachineryData.healthStatusIndex === color ? "filled" : "outlined"}
+                    variant={
+                      rotatingMachineryData.healthStatusIndex === color
+                        ? "filled"
+                        : "outlined"
+                    }
                     clickable={canEdit}
-                    onClick={() => canEdit && setRotatingMachineryData(prev => ({ ...prev, healthStatusIndex: color }))}
-                    sx={{ 
-                      bgcolor: rotatingMachineryData.healthStatusIndex === color ? 
-                        (color === "Green" ? "#4caf50" : color === "Yellow" ? "#ff9800" : "#f44336") : "transparent",
-                      color: rotatingMachineryData.healthStatusIndex === color ? "#fff" : "inherit",
+                    onClick={() =>
+                      canEdit &&
+                      setRotatingMachineryData((prev) => ({
+                        ...prev,
+                        healthStatusIndex: color,
+                      }))
+                    }
+                    sx={{
+                      bgcolor:
+                        rotatingMachineryData.healthStatusIndex === color
+                          ? color === "Green"
+                            ? "#4caf50"
+                            : color === "Yellow"
+                              ? "#ff9800"
+                              : "#f44336"
+                          : "transparent",
+                      color:
+                        rotatingMachineryData.healthStatusIndex === color
+                          ? "#fff"
+                          : "inherit",
                     }}
                   />
                 ))}
               </Stack>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
                 <Typography fontSize={13}>Vibration Alert</Typography>
-                <Switch checked={rotatingMachineryData.vibrationAlert} onChange={(e) => canEdit && setRotatingMachineryData(prev => ({ ...prev, vibrationAlert: e.target.checked }))} disabled={!canEdit} />
+                <Switch
+                  checked={rotatingMachineryData.vibrationAlert}
+                  onChange={(e) =>
+                    canEdit &&
+                    setRotatingMachineryData((prev) => ({
+                      ...prev,
+                      vibrationAlert: e.target.checked,
+                    }))
+                  }
+                  disabled={!canEdit}
+                />
               </Stack>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
                 <Typography fontSize={13}>Temperature Alert</Typography>
-                <Switch checked={rotatingMachineryData.temperatureAlert} onChange={(e) => canEdit && setRotatingMachineryData(prev => ({ ...prev, temperatureAlert: e.target.checked }))} disabled={!canEdit} />
+                <Switch
+                  checked={rotatingMachineryData.temperatureAlert}
+                  onChange={(e) =>
+                    canEdit &&
+                    setRotatingMachineryData((prev) => ({
+                      ...prev,
+                      temperatureAlert: e.target.checked,
+                    }))
+                  }
+                  disabled={!canEdit}
+                />
               </Stack>
               <FilterLabel>Fault Type</FilterLabel>
               <CBRow
                 name="faultType"
-                labels={["Mechanical", "Electrical", "Thermal", "Hydraulic", "Software"]}
+                labels={[
+                  "Mechanical",
+                  "Electrical",
+                  "Thermal",
+                  "Hydraulic",
+                  "Software",
+                ]}
                 values={faultTypeFilters}
                 onChange={handleCheckboxChange}
                 disabled={!canEdit}
               />
             </SectionCard>
 
-            <SectionCard icon={<DeleteOutlineOutlined fontSize="small" />} title="Garbage Management" disabled={!canEdit}>
+            <SectionCard
+              icon={<DeleteOutlineOutlined fontSize="small" />}
+              title="Garbage Management"
+              disabled={!canEdit}
+            >
               <FilterLabel>Container Type</FilterLabel>
               <CBRow
                 name="container"
-                labels={["Small (120L)", "Medium (240L)", "Large (660L)", "Industrial (1100L)"]}
+                labels={[
+                  "Small (120L)",
+                  "Medium (240L)",
+                  "Large (660L)",
+                  "Industrial (1100L)",
+                ]}
                 values={containerFilters}
                 onChange={handleCheckboxChange}
                 disabled={!canEdit}
               />
               <Box mt={2}>
-                <Typography fontSize={13} mb={1}>IoT Fill Level: {garbageManagementData.smartStatusIoTFillLevel}%</Typography>
+                <Typography fontSize={13} mb={1}>
+                  IoT Fill Level:{" "}
+                  {garbageManagementData.smartStatusIoTFillLevel}%
+                </Typography>
                 <Slider
                   value={garbageManagementData.smartStatusIoTFillLevel}
-                  onChange={(_, v) => setGarbageManagementData(prev => ({ ...prev, smartStatusIoTFillLevel: v }))}
+                  onChange={(_, v) =>
+                    setGarbageManagementData((prev) => ({
+                      ...prev,
+                      smartStatusIoTFillLevel: v,
+                    }))
+                  }
                   min={0}
                   max={100}
                   disabled={!canEdit}
@@ -996,13 +968,22 @@ export default function AddNewAsset() {
                   size="small"
                   placeholder="Collection status"
                   value={garbageManagementData.collectionStatus}
-                  onChange={(e) => setGarbageManagementData(prev => ({ ...prev, collectionStatus: e.target.value }))}
+                  onChange={(e) =>
+                    setGarbageManagementData((prev) => ({
+                      ...prev,
+                      collectionStatus: e.target.value,
+                    }))
+                  }
                   disabled={!canEdit}
                 />
               </Box>
             </SectionCard>
 
-            <SectionCard icon={<ComputerOutlined fontSize="small" />} title="IT Assets" disabled={!canEdit}>
+            <SectionCard
+              icon={<ComputerOutlined fontSize="small" />}
+              title="IT Assets"
+              disabled={!canEdit}
+            >
               <FilterLabel>OS Platform</FilterLabel>
               <CBRow
                 name="os"
@@ -1018,16 +999,26 @@ export default function AddNewAsset() {
                   size="small"
                   placeholder="Enter software name"
                   value={itAssetsData.softwareName}
-                  onChange={(e) => setItAssetsData(prev => ({ ...prev, softwareName: e.target.value }))}
+                  onChange={(e) =>
+                    setItAssetsData((prev) => ({
+                      ...prev,
+                      softwareName: e.target.value,
+                    }))
+                  }
                   disabled={!canEdit}
                 />
               </Box>
               <Box mt={2}>
                 <FilterLabel>License Status</FilterLabel>
                 <FormControl fullWidth size="small">
-                  <Select 
+                  <Select
                     value={itAssetsData.licenseStatus}
-                    onChange={(e) => setItAssetsData(prev => ({ ...prev, licenseStatus: e.target.value }))}
+                    onChange={(e) =>
+                      setItAssetsData((prev) => ({
+                        ...prev,
+                        licenseStatus: e.target.value,
+                      }))
+                    }
                     disabled={!canEdit}
                   >
                     <MenuItem value="">Select</MenuItem>
@@ -1038,7 +1029,11 @@ export default function AddNewAsset() {
               </Box>
             </SectionCard>
 
-            <SectionCard icon={<ApartmentOutlined fontSize="small" />} title="Facility Management" disabled={!canEdit}>
+            <SectionCard
+              icon={<ApartmentOutlined fontSize="small" />}
+              title="Facility Management"
+              disabled={!canEdit}
+            >
               <FilterLabel>PM Status</FilterLabel>
               <CBRow
                 name="pm"
@@ -1050,26 +1045,51 @@ export default function AddNewAsset() {
               <FilterLabel sx={{ mt: 2 }}>Maintenance Priority</FilterLabel>
               <RadioGroup
                 value={facilityManagementData.maintenancePriority}
-                onChange={(e) => canEdit && setFacilityManagementData(prev => ({ ...prev, maintenancePriority: e.target.value }))}
+                onChange={(e) =>
+                  canEdit &&
+                  setFacilityManagementData((prev) => ({
+                    ...prev,
+                    maintenancePriority: e.target.value,
+                  }))
+                }
               >
                 <Stack direction="row" spacing={2}>
                   {["High", "Medium", "Low"].map((p) => (
-                    <FormControlLabel key={p} value={p} control={<Radio size="small" disabled={!canEdit} />} label={p} />
+                    <FormControlLabel
+                      key={p}
+                      value={p}
+                      control={<Radio size="small" disabled={!canEdit} />}
+                      label={p}
+                    />
                   ))}
                 </Stack>
               </RadioGroup>
             </SectionCard>
 
-            <SectionCard icon={<Search fontSize="small" />} title="Inspection Systems" disabled={!canEdit}>
+            <SectionCard
+              icon={<Search fontSize="small" />}
+              title="Inspection Systems"
+              disabled={!canEdit}
+            >
               <Box mb={2}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
                   <Typography fontSize={13}>AMC Inspection</Typography>
-                  <Switch 
+                  <Switch
                     checked={inspectionSystems.amcInspection.enabled}
-                    onChange={(e) => canEdit && setInspectionSystems(prev => ({
-                      ...prev,
-                      amcInspection: { ...prev.amcInspection, enabled: e.target.checked }
-                    }))}
+                    onChange={(e) =>
+                      canEdit &&
+                      setInspectionSystems((prev) => ({
+                        ...prev,
+                        amcInspection: {
+                          ...prev.amcInspection,
+                          enabled: e.target.checked,
+                        },
+                      }))
+                    }
                     disabled={!canEdit}
                   />
                 </Stack>
@@ -1077,10 +1097,16 @@ export default function AddNewAsset() {
                   <FormControl fullWidth size="small" sx={{ mt: 1 }}>
                     <Select
                       value={inspectionSystems.amcInspection.schedule}
-                      onChange={(e) => canEdit && setInspectionSystems(prev => ({
-                        ...prev,
-                        amcInspection: { ...prev.amcInspection, schedule: e.target.value }
-                      }))}
+                      onChange={(e) =>
+                        canEdit &&
+                        setInspectionSystems((prev) => ({
+                          ...prev,
+                          amcInspection: {
+                            ...prev.amcInspection,
+                            schedule: e.target.value,
+                          },
+                        }))
+                      }
                       disabled={!canEdit}
                     >
                       <MenuItem value="Weekly">Weekly</MenuItem>
@@ -1092,14 +1118,24 @@ export default function AddNewAsset() {
                 )}
               </Box>
               <Box>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
                   <Typography fontSize={13}>CAMC Inspection</Typography>
-                  <Switch 
+                  <Switch
                     checked={inspectionSystems.camcInspection.enabled}
-                    onChange={(e) => canEdit && setInspectionSystems(prev => ({
-                      ...prev,
-                      camcInspection: { ...prev.camcInspection, enabled: e.target.checked }
-                    }))}
+                    onChange={(e) =>
+                      canEdit &&
+                      setInspectionSystems((prev) => ({
+                        ...prev,
+                        camcInspection: {
+                          ...prev.camcInspection,
+                          enabled: e.target.checked,
+                        },
+                      }))
+                    }
                     disabled={!canEdit}
                   />
                 </Stack>
@@ -1107,10 +1143,16 @@ export default function AddNewAsset() {
                   <FormControl fullWidth size="small" sx={{ mt: 1 }}>
                     <Select
                       value={inspectionSystems.camcInspection.schedule}
-                      onChange={(e) => canEdit && setInspectionSystems(prev => ({
-                        ...prev,
-                        camcInspection: { ...prev.camcInspection, schedule: e.target.value }
-                      }))}
+                      onChange={(e) =>
+                        canEdit &&
+                        setInspectionSystems((prev) => ({
+                          ...prev,
+                          camcInspection: {
+                            ...prev.camcInspection,
+                            schedule: e.target.value,
+                          },
+                        }))
+                      }
                       disabled={!canEdit}
                     >
                       <MenuItem value="Weekly">Weekly</MenuItem>
@@ -1124,7 +1166,13 @@ export default function AddNewAsset() {
             </SectionCard>
 
             {/* Footer Buttons */}
-            <Stack direction="row" justifyContent="flex-end" spacing={2} mt={3} pb={3}>
+            <Stack
+              direction="row"
+              justifyContent="flex-end"
+              spacing={2}
+              mt={3}
+              pb={3}
+            >
               <Button
                 variant="outlined"
                 color="inherit"
@@ -1138,7 +1186,11 @@ export default function AddNewAsset() {
                   variant="contained"
                   onClick={handleSubmit}
                   disabled={loading}
-                  sx={{ px: 4, bgcolor: "#1a3a4a", "&:hover": { bgcolor: "#0f2530" } }}
+                  sx={{
+                    px: 4,
+                    bgcolor: "#1a3a4a",
+                    "&:hover": { bgcolor: "#0f2530" },
+                  }}
                 >
                   {loading ? <CircularProgress size={24} /> : "Save Asset"}
                 </Button>

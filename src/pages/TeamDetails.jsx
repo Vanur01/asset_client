@@ -781,28 +781,28 @@ export default function TeamMemberDetails() {
   // Stat cards — use real data, fallback to sensible defaults only when 0
   const statCards = [
     {
-      icon: <DescriptionIcon sx={{ fontSize: "1.1rem", color: "#64748b" }} />,
+      icon: <DescriptionIcon sx={{ fontSize: "0.9rem", color: "#64748b" }} />,
       iconBg: "#f1f5f9",
       title: "Total Inspections",
       value: stats.totalInspections || 234,
     },
     {
       icon: (
-        <CheckCircleOutlineIcon sx={{ fontSize: "1.1rem", color: "#0891b2" }} />
+        <CheckCircleOutlineIcon sx={{ fontSize: "0.9rem", color: "#0891b2" }} />
       ),
       iconBg: "#e0f2fe",
       title: "This Month",
       value: stats.thisMonth || 18,
     },
     {
-      icon: <AccessTimeIcon sx={{ fontSize: "1.1rem", color: C.success }} />,
+      icon: <AccessTimeIcon sx={{ fontSize: "0.9rem", color: C.success }} />,
       iconBg: "#dcfce7",
       title: "On-Time Rate",
       value: stats.onTimeRate ? `${stats.onTimeRate}%` : "98%",
     },
     {
       icon: (
-        <WorkspacePremiumIcon sx={{ fontSize: "1.1rem", color: "#a855f7" }} />
+        <WorkspacePremiumIcon sx={{ fontSize: "0.9rem", color: "#a855f7" }} />
       ),
       iconBg: "#f3e8ff",
       title: "Quality Score",

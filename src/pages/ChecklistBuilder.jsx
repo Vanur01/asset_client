@@ -5,18 +5,8 @@ import {
   Typography,
   Button,
   TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
   InputAdornment,
   Paper,
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -29,6 +19,18 @@ import {
   Alert,
   Snackbar,
   Tooltip,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  Chip,
+  Stack,
+  useMediaQuery,
+  useTheme,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
@@ -40,6 +42,15 @@ import PublicIcon from "@mui/icons-material/Public";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import PendingIcon from "@mui/icons-material/Pending";
+import ArchiveIcon from "@mui/icons-material/Archive";
+import CategoryIcon from "@mui/icons-material/Category";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import PersonIcon from "@mui/icons-material/Person";
+import EmailIcon from "@mui/icons-material/Email";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import { useNavigate } from "react-router-dom";
 import { useChecklistBuilder } from "../context/ChecklistBuilderContext";
 import { useAssignment } from "../context/AssignmentContext";
@@ -47,81 +58,88 @@ import { useAuth } from "../context/AuthContexts";
 import axios from "axios";
 import AssignChecklistDialog from "./AssignChecklistDialog";
 
-// ─── Simple Theme ────────────────────────────────────────────────────────────
-const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: { main: "#1a4a5c" },
-    background: { default: "#f9fafb", paper: "#ffffff" },
-    text: { primary: "#111827", secondary: "#6b7280" },
+// ─── Consistent Palette ───────────────────────────────────────────────────
+const C = {
+  primary: "#0d4a5c",
+  primaryDark: "#0a3a49",
+  primaryLight: "#e8f2f5",
+  success: "#16a34a",
+  successBg: "#dcfce7",
+  surface: "#f1f4f8",
+  card: "#ffffff",
+  border: "#e2e8f0",
+  error: "#d32f2f",
+  warning: "#f59e0b",
+  warningBg: "#fef3c7",
+  info: "#3b82f6",
+  infoBg: "#dbeafe",
+  text: { primary: "#1e293b", secondary: "#64748b", disabled: "#94a3b8" },
+};
+
+// ─── Status Configuration ─────────────────────────────────────────────────
+const statusConfig = {
+  active: {
+    bg: C.successBg,
+    color: C.success,
+    icon: <CheckCircleIcon sx={{ fontSize: 12 }} />,
+    label: "Active",
   },
-  typography: {
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+  draft: {
+    bg: C.warningBg,
+    color: C.warning,
+    icon: <PendingIcon sx={{ fontSize: 12 }} />,
+    label: "Draft",
   },
-  shape: { borderRadius: 8 },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          fontWeight: 500,
-          fontSize: 13,
-          borderRadius: 6,
-          padding: "6px 14px",
-        },
-      },
-    },
-    MuiTableCell: {
-      styleOverrides: {
-        head: {
-          fontWeight: 600,
-          fontSize: 12,
-          color: "#6b7280",
-          padding: "12px 16px",
-        },
-        body: {
-          fontSize: 13,
-          padding: "12px 16px",
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          fontSize: 11,
-          fontWeight: 500,
-        },
-      },
-    },
-    MuiDialog: {
-      styleOverrides: {
-        paper: {
-          borderRadius: 12,
-        },
-      },
-    },
+  archived: {
+    bg: "#f1f5f9",
+    color: C.text.disabled,
+    icon: <ArchiveIcon sx={{ fontSize: 12 }} />,
+    label: "Archived",
   },
-});
+};
+
+const StatusChip = ({ status }) => {
+  const cfg = statusConfig[status?.toLowerCase()] || statusConfig.draft;
+  return (
+    <Chip
+      label={cfg.label}
+      size="small"
+      icon={cfg.icon}
+      sx={{
+        bgcolor: cfg.bg,
+        color: cfg.color,
+        fontWeight: 600,
+        fontSize: "0.7rem",
+        height: 30 , width: 100,
+        borderRadius: "20px",
+        "& .MuiChip-icon": { fontSize: 12, color: cfg.color },
+      }}
+    />
+  );
+};
 
 // ─── Checklist Types for Modal ──────────────────────────────────────────────
 const CHECKLIST_TYPES = [
   {
-    icon: <ArticleOutlinedIcon sx={{ fontSize: 20 }} />,
+    icon: <ArticleOutlinedIcon sx={{ fontSize: 22 }} />,
     label: "Custom Checklist",
-    desc: "Submit to Super Admin for approval",
+    desc: "Create a custom checklist from scratch",
     redirectTo: "/create-checklist/custom",
+    color: C.primary,
   },
   {
-    icon: <PublicIcon sx={{ fontSize: 20 }} />,
+    icon: <PublicIcon sx={{ fontSize: 22 }} />,
     label: "Global Checklist",
-    desc: "Submit to Super Admin for approval",
+    desc: "Use predefined global templates",
     redirectTo: "/create-checklist/global",
+    color: C.info,
   },
   {
-    icon: <TableChartIcon sx={{ fontSize: 20 }} />,
+    icon: <TableChartIcon sx={{ fontSize: 22 }} />,
     label: "Import from Excel",
-    desc: "Upload Excel to generate fields",
+    desc: "Upload Excel file to generate checklist",
     redirectTo: "/import-checklist/excel",
+    color: C.success,
   },
 ];
 
@@ -137,23 +155,32 @@ function CreateChecklistModal({ open, onClose }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ p: 2.5, pb: 1, bgcolor: "#1a4a5c", color: "#fff" }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle sx={{ p: 3, pb: 2, bgcolor: C.primary, color: "#fff" }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-            Create New Checklist
-          </Typography>
+          <Box>
+            <Typography sx={{ fontSize: "1.25rem", fontWeight: 700 }}>
+              Create New Checklist
+            </Typography>
+            <Typography
+              sx={{ fontSize: "0.75rem", color: "#ffffffcc", mt: 0.5 }}
+            >
+              Choose the type of checklist you want to create
+            </Typography>
+          </Box>
           <IconButton onClick={onClose} size="small" sx={{ color: "#fff" }}>
-            <CloseIcon sx={{ fontSize: 18 }} />
+            <CloseIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Box>
-        <Typography sx={{ fontSize: 13, color: "#ffffffcc", mt: 0.5 }}>
-          Choose the type of checklist you want to create
-        </Typography>
       </DialogTitle>
-
-      <DialogContent sx={{ p: 2.5, pt: 1 }}>
-        <Box display="flex" flexDirection="column" gap={1.5}>
+      <DialogContent sx={{ p: 3 }}>
+        <Stack spacing={2}>
           {CHECKLIST_TYPES.map((item, i) => (
             <Box
               key={i}
@@ -162,37 +189,50 @@ function CreateChecklistModal({ open, onClose }) {
                 display: "flex",
                 alignItems: "center",
                 gap: 2,
-                border: "1px solid #e5e7eb",
+                border: `1px solid ${C.border}`,
                 borderRadius: 2,
-                p: 2,
+                p: 2.5,
                 cursor: "pointer",
-                transition: "all 0.15s",
+                transition: "all 0.2s",
                 "&:hover": {
-                  borderColor: "#1a4a5c",
-                  bgcolor: "#e8f4f8",
+                  borderColor: item.color,
+                  bgcolor: C.primaryLight,
+                  transform: "translateX(4px)",
                 },
               }}
             >
-              <Box sx={{ color: "#1a4a5c" }}>{item.icon}</Box>
+              <Box sx={{ color: item.color }}>{item.icon}</Box>
               <Box flex={1}>
-                <Typography sx={{ fontSize: 14, fontWeight: 600, mb: 0.25 }}>
+                <Typography
+                  sx={{
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    color: C.text.primary,
+                    mb: 0.25,
+                  }}
+                >
                   {item.label}
                 </Typography>
-                <Typography sx={{ fontSize: 12, color: "#6b7280" }}>
+                <Typography
+                  sx={{ fontSize: "0.75rem", color: C.text.secondary }}
+                >
                   {item.desc}
                 </Typography>
               </Box>
             </Box>
           ))}
-        </Box>
+        </Stack>
       </DialogContent>
-
-      <Divider />
-      <Box sx={{ p: 2.5, display: "flex", justifyContent: "flex-end", gap: 1 }}>
-        <Button onClick={onClose} variant="outlined" size="small">
+      <DialogActions sx={{ p: 2.5, pt: 0 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: 2, textTransform: "none" }}
+        >
           Cancel
         </Button>
-      </Box>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -200,20 +240,33 @@ function CreateChecklistModal({ open, onClose }) {
 // ─── Delete Confirmation Dialog ──────────────────────────────────────────────
 function DeleteConfirmDialog({ open, onClose, onConfirm, checklistName }) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ p: 2.5, pb: 1 }}>
-        <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle sx={{ p: 3, pb: 1 }}>
+        <Typography
+          sx={{ fontSize: "1.1rem", fontWeight: 700, color: C.text.primary }}
+        >
           Delete Checklist
         </Typography>
       </DialogTitle>
       <DialogContent>
-        <Typography sx={{ fontSize: 14, color: "#374151" }}>
-          Are you sure you want to delete "{checklistName}"? This action cannot
-          be undone.
+        <Typography sx={{ fontSize: "0.85rem", color: C.text.secondary }}>
+          Are you sure you want to delete "<strong>{checklistName}</strong>"?
+          This action cannot be undone.
         </Typography>
       </DialogContent>
-      <DialogActions sx={{ p: 2.5, pt: 0 }}>
-        <Button onClick={onClose} variant="outlined" size="small">
+      <DialogActions sx={{ p: 3, pt: 0 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: 2, textTransform: "none" }}
+        >
           Cancel
         </Button>
         <Button
@@ -221,6 +274,7 @@ function DeleteConfirmDialog({ open, onClose, onConfirm, checklistName }) {
           variant="contained"
           color="error"
           size="small"
+          sx={{ borderRadius: 2, textTransform: "none" }}
         >
           Delete
         </Button>
@@ -234,155 +288,368 @@ function ViewChecklistDialog({ open, onClose, checklist }) {
   if (!checklist) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ p: 2.5, pb: 1, bgcolor: "#1a4a5c", color: "#fff" }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle sx={{ p: 3, pb: 2, bgcolor: C.primary, color: "#fff" }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography sx={{ fontSize: 18, fontWeight: 600 }}>
-            {checklist.name}
-          </Typography>
+          <Box>
+            <Typography sx={{ fontSize: "1.1rem", fontWeight: 700 }}>
+              {checklist.name}
+            </Typography>
+            <Typography
+              sx={{ fontSize: "0.75rem", color: "#ffffffcc", mt: 0.5 }}
+            >
+              {checklist.description || "No description provided"}
+            </Typography>
+          </Box>
           <IconButton onClick={onClose} size="small" sx={{ color: "#fff" }}>
-            <CloseIcon sx={{ fontSize: 18 }} />
+            <CloseIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Box>
-        <Typography sx={{ fontSize: 13, color: "#ffffffcc", mt: 0.5 }}>
-          {checklist.description || "No description provided"}
-        </Typography>
       </DialogTitle>
-
-      <DialogContent sx={{ p: 2.5, pt: 1 }}>
-        <Box display="flex" gap={2} flexWrap="wrap" mb={3}>
-          <Chip label={`Type: ${checklist.type || "N/A"}`} size="small" variant="outlined" />
-          <Chip label={`Category: ${checklist.category || "N/A"}`} size="small" variant="outlined" />
+      <DialogContent sx={{ p: 3, mt: 2 }}>
+        {/* Meta Info Chips */}
+        <Stack
+          direction="row"
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ mb: 3 }}
+        >
           <Chip
-            label={`Status: ${checklist.status || "N/A"}`}
             size="small"
-            sx={{
-              bgcolor: checklist.status === "active" ? "#dcfce7" : checklist.status === "draft" ? "#fed7aa" : "#f3f4f6",
-              color: checklist.status === "active" ? "#166534" : checklist.status === "draft" ? "#9a3412" : "#374151",
-            }}
+            label={`Type: ${checklist.type || "N/A"}`}
+            variant="outlined"
+            sx={{ fontSize: "0.7rem" }}
           />
-          <Chip label={`Version: ${checklist.version || "v1.0"}`} size="small" variant="outlined" />
-          <Chip label={`Total Fields: ${checklist.totalFields || 0}`} size="small" variant="outlined" />
+          <Chip
+            size="small"
+            label={`Category: ${checklist.category || "N/A"}`}
+            variant="outlined"
+            sx={{ fontSize: "0.7rem" }}
+          />
+          <StatusChip status={checklist.status} />
+          <Chip
+            size="small"
+            label={`Version: ${checklist.version || "v1.0"}`}
+            variant="outlined"
+            sx={{ fontSize: "0.7rem" }}
+          />
+          <Chip
+            size="small"
+            label={`Fields: ${checklist.totalFields || 0}`}
+            variant="outlined"
+            sx={{ fontSize: "0.7rem" }}
+          />
           {checklist.isApproved && (
-            <Chip label="Approved" size="small" sx={{ bgcolor: "#dbeafe", color: "#1d4ed8" }} />
+            <Chip
+              size="small"
+              label="Approved"
+              sx={{ bgcolor: C.infoBg, color: C.info, fontSize: "0.7rem" }}
+            />
           )}
-        </Box>
+        </Stack>
 
-        <Box mb={3}>
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: "#6b7280", mb: 1 }}>Created By</Typography>
-          <Box display="flex" alignItems="center" gap={1.5}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: "#1a4a5c" }}>
+        {/* Created By */}
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, mb: 3, bgcolor: C.surface, borderRadius: 2 }}
+        >
+          <Typography
+            sx={{
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              color: C.text.secondary,
+              mb: 1.5,
+              textTransform: "uppercase",
+            }}
+          >
+            Created By
+          </Typography>
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar sx={{ width: 40, height: 40, bgcolor: C.primary }}>
               {checklist.createdBy?.name?.charAt(0) || "U"}
             </Avatar>
             <Box>
-              <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: C.text.primary,
+                }}
+              >
                 {checklist.createdBy?.name || "Unknown"}
               </Typography>
-              <Typography sx={{ fontSize: 11, color: "#6b7280" }}>
-                {checklist.createdBy?.email || ""} • Role: {checklist.createdByRole || "N/A"}
+              <Typography sx={{ fontSize: "0.7rem", color: C.text.secondary }}>
+                {checklist.createdBy?.email || ""} • Role:{" "}
+                {checklist.createdByRole || "N/A"}
               </Typography>
             </Box>
           </Box>
-        </Box>
+        </Paper>
 
-        <Typography sx={{ fontSize: 14, fontWeight: 600, mb: 2 }}>Sections & Fields</Typography>
+        {/* Sections & Fields */}
+        <Typography
+          sx={{
+            fontSize: "0.85rem",
+            fontWeight: 700,
+            color: C.text.primary,
+            mb: 2,
+          }}
+        >
+          Sections & Fields
+        </Typography>
 
         {checklist.sections?.map((section, idx) => (
-          <Box key={idx} mb={3}>
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: "#f9fafb" }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
-                {section.sectionTitle || `Section ${idx + 1}`}
+          <Paper
+            key={idx}
+            variant="outlined"
+            sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: C.surface }}
+          >
+            <Typography
+              sx={{
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: C.text.primary,
+                mb: 0.5,
+              }}
+            >
+              {section.sectionTitle || `Section ${idx + 1}`}
+            </Typography>
+            {section.sectionDescription && (
+              <Typography
+                sx={{ fontSize: "0.7rem", color: C.text.secondary, mb: 1.5 }}
+              >
+                {section.sectionDescription}
               </Typography>
-              {section.sectionDescription && (
-                <Typography sx={{ fontSize: 11, color: "#6b7280", mb: 1.5 }}>
-                  {section.sectionDescription}
+            )}
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {section.fields?.map((field, fIdx) => (
+                <Typography
+                  component="li"
+                  key={fIdx}
+                  sx={{ fontSize: "0.75rem", py: 0.5, color: C.text.secondary }}
+                >
+                  {field.label}
+                  {field.isRequired && (
+                    <span style={{ color: C.error }}> *</span>
+                  )}
+                  <Chip
+                    label={field.fieldType?.replace(/_/g, " ") || "text"}
+                    size="small"
+                    sx={{ ml: 1, height: 18, fontSize: "0.6rem" }}
+                  />
                 </Typography>
-              )}
-              <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                {section.fields?.map((field, fIdx) => (
-                  <Typography component="li" key={fIdx} sx={{ fontSize: 12, py: 0.5 }}>
-                    {field.label}
-                    {field.isRequired && <span style={{ color: "red" }}> *</span>}
-                    <Chip
-                      label={field.fieldType?.replace(/_/g, " ") || "text"}
-                      size="small"
-                      sx={{ ml: 1, height: 20, fontSize: 10 }}
-                    />
-                  </Typography>
-                ))}
-              </Box>
-            </Paper>
-          </Box>
+              ))}
+            </Box>
+          </Paper>
         ))}
 
+        {/* Timestamps */}
         <Box mt={2} pt={1}>
-          <Typography sx={{ fontSize: 11, color: "#9ca3af" }}>
+          <Typography sx={{ fontSize: "0.65rem", color: C.text.disabled }}>
             Created: {new Date(checklist.createdAt).toLocaleString()}
           </Typography>
-          <Typography sx={{ fontSize: 11, color: "#9ca3af" }}>
+          <Typography sx={{ fontSize: "0.65rem", color: C.text.disabled }}>
             Last Updated: {new Date(checklist.updatedAt).toLocaleString()}
           </Typography>
         </Box>
       </DialogContent>
-
-      <DialogActions sx={{ p: 2.5, pt: 0 }}>
-        <Button onClick={onClose} variant="outlined" size="small">Close</Button>
+      <DialogActions sx={{ p: 3, pt: 0 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: 2, textTransform: "none" }}
+        >
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-// ─── Status Chip ──────────────────────────────────────────────────────────────
-function StatusChip({ status }) {
-  const colors = {
-    active: { bg: "#dcfce7", color: "#166534" },
-    draft: { bg: "#fed7aa", color: "#9a3412" },
-    archived: { bg: "#f3f4f6", color: "#374151" },
-  };
-  const style = colors[status?.toLowerCase()] || colors.draft;
+// ─── Checklist Card (Grid View) ──────────────────────────────────────────────
+function ChecklistCard({ checklist, onView, onDelete, onAssign }) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+
+  const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
 
   return (
-    <Chip
-      label={status || "Draft"}
-      size="small"
+    <Card
       sx={{
-        bgcolor: style.bg,
-        color: style.color,
-        height: 24,
-        fontSize: 11,
-        fontWeight: 500,
+        borderRadius: 2,
+        border: `1px solid ${C.border}`,
+        height: "100%",
+        display: "flex",
+        width: "365px",
+        flexDirection: "column",
+        transition: "all 0.2s",
+        "&:hover": {
+          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          transform: "translateY(-2px)",
+        },
       }}
-    />
-  );
-}
+    >
+      <CardContent sx={{ flex: 1, p: 2.5 }}>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          mb={1.5}
+        >
+          <Typography
+            variant="h6"
+            sx={{
+              fontSize: "0.95rem",
+              fontWeight: 700,
+              color: C.text.primary,
+              lineHeight: 1.3,
+            }}
+          >
+            {checklist.name}
+          </Typography>
+          <IconButton size="small" onClick={handleMenuClick}>
+            <MoreVertIcon sx={{ fontSize: "1rem", color: C.text.secondary }} />
+          </IconButton>
+        </Box>
 
-// ─── Action Buttons ──────────────────────────────────────────────────────────
-function ActionButtons({ checklist, onView, onDelete, onAssign }) {
-  return (
-    <Box display="flex" gap={0.5}>
-      <Tooltip title="View Details">
-        <Button size="small" startIcon={<VisibilityIcon sx={{ fontSize: 15 }} />} onClick={() => onView(checklist)}>
+        <Typography
+          sx={{ fontSize: "0.7rem", color: C.text.disabled, mb: 1.5 }}
+        >
+          ID: {checklist._id?.slice(-8) || "N/A"}
+        </Typography>
+
+        <Typography
+          sx={{
+            fontSize: "0.75rem",
+            color: C.text.secondary,
+            mb: 2,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {checklist.description || "No description provided"}
+        </Typography>
+
+        <Stack
+          direction="row"
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ mb: 2 }}
+        >
+          <Chip
+            size="small"
+            icon={<CategoryIcon sx={{ fontSize: 12 }} />}
+            label={checklist.category || "Uncategorized"}
+            variant="outlined"
+            sx={{ fontSize: "0.65rem", height: 30 , width: 100 }}
+          />
+          <Chip
+            size="small"
+            icon={<FormatListBulletedIcon sx={{ fontSize: 12 }} />}
+            label={`${checklist.totalFields || 0} fields`}
+            variant="outlined"
+            sx={{ fontSize: "0.65rem", height: 30 , width: 100 }}
+          />
+          <StatusChip status={checklist.status} />
+        </Stack>
+
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
+          <Avatar
+            sx={{
+              width: 24,
+              height: 24,
+              bgcolor: C.primaryLight,
+              fontSize: "0.7rem",
+              color: C.primary,
+            }}
+          >
+            {checklist.createdBy?.name?.charAt(0) || "U"}
+          </Avatar>
+          <Typography sx={{ fontSize: "0.7rem", color: C.text.secondary }}>
+            {checklist.createdBy?.name || "Unknown"}
+          </Typography>
+        </Stack>
+      </CardContent>
+
+      <CardActions sx={{ p: 2.5, pt: 0, gap: 1 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<VisibilityIcon sx={{ fontSize: 14 }} />}
+          onClick={() => onView(checklist)}
+          sx={{
+            flex: 1,
+            borderRadius: 2,
+            textTransform: "none",
+            fontSize: "0.7rem",
+          }}
+        >
           View
         </Button>
-      </Tooltip>
-      <Tooltip title="Assign Checklist">
-        <Button size="small" startIcon={<AssignmentIcon sx={{ fontSize: 15 }} />} onClick={() => onAssign(checklist)}>
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<AssignmentIcon sx={{ fontSize: 14 }} />}
+          onClick={() => onAssign(checklist)}
+          sx={{
+            flex: 1,
+            borderRadius: 2,
+            textTransform: "none",
+            fontSize: "0.7rem",
+            bgcolor: C.primary,
+          }}
+        >
           Assign
         </Button>
-      </Tooltip>
-      <Tooltip title="Delete Checklist">
-        <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 15 }} />} onClick={() => onDelete(checklist)} sx={{ color: '#dc2626' }}>
-          Delete
-        </Button>
-      </Tooltip>
-    </Box>
+      </CardActions>
+
+      <Menu anchorEl={anchorEl} open={open} onClose={handleMenuClose}>
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            onDelete(checklist);
+          }}
+        >
+          <ListItemIcon>
+            <DeleteIcon sx={{ fontSize: 18, color: C.error }} />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+          }}
+        >
+          <ListItemIcon>
+            <ContentCopyIcon sx={{ fontSize: 18 }} />
+          </ListItemIcon>
+          <ListItemText>Clone</ListItemText>
+        </MenuItem>
+      </Menu>
+    </Card>
   );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ChecklistPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.down("md"));
   const { user } = useAuth();
+
   const {
     getAllChecklists,
     deleteChecklist,
@@ -400,9 +667,15 @@ export default function ChecklistPage() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [viewMode, setViewMode] = useState("grid");
   const [createOpen, setCreateOpen] = useState(false);
   const [checklists, setChecklists] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 9,
+    total: 0,
+    totalPages: 1,
+  });
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -412,91 +685,100 @@ export default function ChecklistPage() {
   const [admins, setAdmins] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [assets, setAssets] = useState([]);
-  const [loadingAdmins, setLoadingAdmins] = useState(false);
-  const [loadingTeam, setLoadingTeam] = useState(false);
-  const [loadingAssets, setLoadingAssets] = useState(false);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const isSuperAdmin = user?.role === "super_admin";
   const token = localStorage.getItem("accessToken");
 
+  const showToast = (msg, sev = "success") =>
+    setSnackbar({ open: true, message: msg, severity: sev });
+  const closeToast = () => setSnackbar((p) => ({ ...p, open: false }));
+
   const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
   });
 
   const fetchAdmins = useCallback(async () => {
     if (!isSuperAdmin) return;
-    setLoadingAdmins(true);
     try {
-      const response = await axios.get("https://assset-management-backend-4.onrender.com/api/v1/user/clients", getAuthHeaders());
+      const response = await axios.get(
+        "http://localhost:9001/api/v1/user/clients",
+        getAuthHeaders(),
+      );
       if (response.data?.success && response.data?.clients) {
-        const adminList = response.data.clients.map((client) => ({
-          _id: client._id,
-          name: client.customerName || client.email,
-          email: client.email,
-          clientName: client.customerName,
-          status: client.status,
-          membershipPlan: client.membershipPlan,
-        }));
-        setAdmins(adminList);
+        setAdmins(
+          response.data.clients.map((client) => ({
+            _id: client._id,
+            name: client.customerName || client.email,
+            email: client.email,
+          })),
+        );
       }
     } catch (error) {
       console.error("Error fetching admins:", error);
-    } finally {
-      setLoadingAdmins(false);
     }
   }, [isSuperAdmin, token]);
 
   const fetchTeamMembers = useCallback(async () => {
     if (isSuperAdmin) return;
-    setLoadingTeam(true);
     try {
-      const response = await axios.get("https://assset-management-backend-4.onrender.com/api/v1/user/team", getAuthHeaders());
+      const response = await axios.get(
+        "http://localhost:9001/api/v1/user/team",
+        getAuthHeaders(),
+      );
       if (response.data?.success && response.data?.members) {
-        const teamList = response.data.members.map((member) => ({
-          _id: member.id,
-          name: member.firstName ? `${member.firstName} ${member.lastName || ""}` : member.email,
-          email: member.email,
-          role: member.role,
-          department: member.department,
-          status: member.status,
-        }));
-        setTeamMembers(teamList);
+        setTeamMembers(
+          response.data.members.map((member) => ({
+            _id: member.id,
+            name: member.firstName
+              ? `${member.firstName} ${member.lastName || ""}`
+              : member.email,
+            email: member.email,
+          })),
+        );
       }
     } catch (error) {
       console.error("Error fetching team members:", error);
-    } finally {
-      setLoadingTeam(false);
     }
   }, [isSuperAdmin, token]);
 
   const fetchAssets = useCallback(async () => {
     if (isSuperAdmin) return;
-    setLoadingAssets(true);
     try {
-      const response = await axios.get("https://assset-management-backend-4.onrender.com/api/v1/asset", getAuthHeaders());
-      if (response.data?.success && response.data?.assets) {
+      const response = await axios.get(
+        "http://localhost:9001/api/v1/asset",
+        getAuthHeaders(),
+      );
+      if (response.data?.success && response.data?.assets)
         setAssets(response.data.assets);
-      }
     } catch (error) {
       console.error("Error fetching assets:", error);
-    } finally {
-      setLoadingAssets(false);
     }
   }, [isSuperAdmin, token]);
 
   useEffect(() => {
     if (assignDialogOpen && checklistToAssign) {
-      if (isSuperAdmin) {
-        fetchAdmins();
-      } else {
+      if (isSuperAdmin) fetchAdmins();
+      else {
         fetchTeamMembers();
         fetchAssets();
       }
     }
-  }, [assignDialogOpen, checklistToAssign, isSuperAdmin, fetchAdmins, fetchTeamMembers, fetchAssets]);
+  }, [
+    assignDialogOpen,
+    checklistToAssign,
+    isSuperAdmin,
+    fetchAdmins,
+    fetchTeamMembers,
+    fetchAssets,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -511,19 +793,16 @@ export default function ChecklistPage() {
     if (debouncedSearch) filters.search = debouncedSearch;
     const result = await getAllChecklists(filters);
     if (result.success && result.data) {
-      if (Array.isArray(result.data)) {
-        setChecklists(result.data);
-      } else if (result.data.checklists) {
-        setChecklists(result.data.checklists);
-        if (result.data.pagination) {
-          setPagination({
-            page: result.data.pagination.page || pagination.page,
-            limit: result.data.pagination.limit || pagination.limit,
-            total: result.data.pagination.total || 0,
-            totalPages: result.data.pagination.totalPages || 1,
-          });
-        }
-      }
+      const checklistArray = Array.isArray(result.data)
+        ? result.data
+        : result.data.checklists || [];
+      setChecklists(checklistArray);
+      if (result.data.pagination)
+        setPagination((prev) => ({
+          ...prev,
+          total: result.data.pagination.total,
+          totalPages: result.data.pagination.totalPages,
+        }));
     }
   }, [getAllChecklists, debouncedSearch, pagination.page, pagination.limit]);
 
@@ -533,16 +812,12 @@ export default function ChecklistPage() {
 
   useEffect(() => {
     if (success) {
-      setSnackbarMessage(success);
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
+      showToast(success, "success");
       clearMessages();
       fetchChecklists();
     }
     if (error) {
-      setSnackbarMessage(error);
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showToast(error, "error");
       clearMessages();
     }
   }, [success, error, clearMessages, fetchChecklists]);
@@ -551,30 +826,20 @@ export default function ChecklistPage() {
     setSelectedChecklist(checklist);
     setViewDialogOpen(true);
   };
-
   const handleAssignClick = (checklist) => {
     setChecklistToAssign(checklist);
     setAssignDialogOpen(true);
   };
 
   const handleAssignSubmit = async (assignmentData) => {
-    let result;
-    if (isSuperAdmin) {
-      result = await assignToAdmin(assignmentData);
-    } else {
-      result = await assignToTeam(assignmentData);
-    }
+    const result = isSuperAdmin
+      ? await assignToAdmin(assignmentData)
+      : await assignToTeam(assignmentData);
     if (result.success) {
-      setSnackbarMessage("Checklist assigned successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
+      showToast("Checklist assigned successfully!", "success");
       setAssignDialogOpen(false);
       setChecklistToAssign(null);
-    } else {
-      setSnackbarMessage(result.error || "Failed to assign checklist");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    }
+    } else showToast(result.error || "Failed to assign checklist", "error");
   };
 
   const handleDeleteClick = (checklist) => {
@@ -586,157 +851,181 @@ export default function ChecklistPage() {
     if (checklistToDelete) {
       const result = await deleteChecklist(checklistToDelete._id);
       if (result.success) {
-        setSnackbarMessage("Checklist deleted successfully");
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
+        showToast("Checklist deleted successfully", "success");
         fetchChecklists();
-      } else {
-        setSnackbarMessage(result.error || "Failed to delete checklist");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-      }
+      } else showToast(result.error || "Failed to delete checklist", "error");
       setDeleteDialogOpen(false);
       setChecklistToDelete(null);
     }
   };
 
-  const handlePageChange = (event, value) => {
+  const handlePageChange = (event, value) =>
     setPagination((prev) => ({ ...prev, page: value }));
-  };
 
   const isLoading = checklistLoading || assignmentLoading;
+  const getGridSize = () => {
+    if (isMobile) return 12;
+    if (isTablet) return 6;
+    return 4;
+  };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap');`}</style>
-      <Box sx={{ p: 3, bgcolor: "#f9fafb", minHeight: "100vh" }}>
-        {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 600, color: "#1a4a5c", mb: 0.25 }}>Checklists</Typography>
-            <Typography sx={{ fontSize: 13, color: "#6b7280" }}>Manage inspection checklists and assignments</Typography>
-          </Box>
-          <Box display="flex" gap={1.5}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ContentCopyIcon sx={{ fontSize: 16 }} />}
-              onClick={() => navigate("/admin/checklists/clone")}
-              sx={{ borderColor: "#1a4a5c", color: "#1a4a5c" }}
-            >
-              Clone Checklist
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-              onClick={() => setCreateOpen(true)}
-              sx={{ bgcolor: "#1a4a5c", "&:hover": { bgcolor: "#2d7a9a" } }}
-            >
-              Create Checklist
-            </Button>
-          </Box>
+    <Box sx={{ minHeight: "100vh", p: { xs: 2, sm: 3 } }}>
+      {/* Header */}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        mb={3}
+        spacing={2}
+      >
+        <Box>
+          <Typography
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: "1.25rem", sm: "1.35rem" },
+              color: C.text.primary,
+            }}
+          >
+            Checklists
+          </Typography>
+          <Typography
+            sx={{ fontSize: "0.75rem", color: C.text.secondary, mt: 0.5 }}
+          >
+            Manage inspection checklists and assignments •{" "}
+            {pagination.total || 0} total checklists
+          </Typography>
         </Box>
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<ContentCopyIcon />}
+            onClick={() => navigate("/admin/checklists/clone")}
+            sx={{
+              borderColor: C.primary,
+              color: C.primary,
+              textTransform: "none",
+              borderRadius: 1,
+            }}
+          >
+            {!isMobile && "Clone Checklist"}
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            sx={{ bgcolor: C.primary, textTransform: "none", borderRadius: 2 , fontSize:13 , padding: 1.3 }}
+          >
+            Create Checklist
+          </Button>
+        </Stack>
+      </Stack>
 
-        {/* Search */}
+      {/* Search Bar */}
+      <Paper
+        elevation={0}
+        sx={{
+          border: `1px solid ${C.border}`,
+          borderRadius: 3,
+          p: 2,
+          mb: 3,
+          bgcolor: C.card,
+        }}
+      >
         <TextField
           fullWidth
           size="small"
-          placeholder="Search checklists by name, category, or tags..."
+          placeholder="Search checklists by name, category, or description..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: "#9ca3af" }} />
+                <SearchIcon sx={{ fontSize: "1rem", color: C.text.disabled }} />
               </InputAdornment>
             ),
+            sx: { fontSize: "0.75rem" },
           }}
-          sx={{ mb: 2, bgcolor: "#fff" }}
         />
+      </Paper>
 
-        {/* Table */}
-        <TableContainer component={Paper} sx={{ border: "1px solid #e5e7eb", boxShadow: "none" }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Checklist Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Total Fields</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading && checklists.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <CircularProgress size={32} sx={{ color: "#1a4a5c" }} />
-                  </TableCell>
-                </TableRow>
-              ) : checklists.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography sx={{ color: "#6b7280" }}>
-                      {debouncedSearch ? "No checklists match your search" : "No checklists found"}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                checklists.map((row) => (
-                  <TableRow key={row._id} hover>
-                    <TableCell sx={{ fontWeight: 500 }}>
-                      {row.name}
-                      {row.isApproved && (
-                        <Chip label="Approved" size="small" sx={{ ml: 1, height: 20, fontSize: 10, bgcolor: "#dbeafe", color: "#1d4ed8" }} />
-                      )}
-                      {row.importedFromExcel && (
-                        <Chip label="Imported" size="small" sx={{ ml: 1, height: 20, fontSize: 10, bgcolor: "#e0e7ff", color: "#3730a3" }} />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={row.type || "custom"} size="small" variant="outlined" sx={{ textTransform: "capitalize" }} />
-                    </TableCell>
-                    <TableCell>{row.category || "—"}</TableCell>
-                    <TableCell>
-                      <Chip label={row.totalFields || 0} size="small" sx={{ bgcolor: "#eff6ff", color: "#2563eb" }} />
-                    </TableCell>
-                    <TableCell><StatusChip status={row.status} /></TableCell>
-                    <TableCell>
-                      <ActionButtons
-                        checklist={row}
-                        onView={handleViewChecklist}
-                        onDelete={handleDeleteClick}
-                        onAssign={handleAssignClick}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {/* Loading State */}
+      {isLoading && checklists.length === 0 && (
+        <Box display="flex" justifyContent="center" alignItems="center" py={8}>
+          <CircularProgress sx={{ color: C.primary }} />
+        </Box>
+      )}
 
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <Box display="flex" justifyContent="flex-end" mt={2}>
-            <Pagination
-              count={pagination.totalPages}
-              page={pagination.page}
-              onChange={handlePageChange}
-              color="primary"
-              size="small"
-              sx={{ "& .MuiPaginationItem-root.Mui-selected": { bgcolor: "#1a4a5c", color: "#fff" } }}
-            />
-          </Box>
-        )}
-      </Box>
+      {/* Empty State */}
+      {!isLoading && checklists.length === 0 && (
+        <Paper
+          sx={{
+            textAlign: "center",
+            py: 8,
+            borderRadius: 3,
+            border: `1px solid ${C.border}`,
+          }}
+        >
+          <Typography sx={{ color: C.text.secondary, mb: 2 }}>
+            {debouncedSearch
+              ? "No checklists match your search"
+              : "No checklists found"}
+          </Typography>
+          {!debouncedSearch && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              sx={{ bgcolor: C.primary }}
+            >
+              Create Your First Checklist
+            </Button>
+          )}
+        </Paper>
+      )}
+
+      {/* Grid View */}
+      {!isLoading && checklists.length > 0 && (
+        <>
+          <Grid container spacing={2.5}>
+            {checklists.map((checklist) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={checklist._id}>
+                <ChecklistCard
+                  checklist={checklist}
+                  onView={handleViewChecklist}
+                  onDelete={handleDeleteClick}
+                  onAssign={handleAssignClick}
+                />
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <Box display="flex" justifyContent="center" mt={4}>
+              <Pagination
+                count={pagination.totalPages}
+                page={pagination.page}
+                onChange={handlePageChange}
+                color="primary"
+              />
+            </Box>
+          )}
+        </>
+      )}
 
       {/* Modals */}
-      <CreateChecklistModal open={createOpen} onClose={() => setCreateOpen(false)} />
-      <ViewChecklistDialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} checklist={selectedChecklist} />
+      <CreateChecklistModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
+      <ViewChecklistDialog
+        open={viewDialogOpen}
+        onClose={() => setViewDialogOpen(false)}
+        checklist={selectedChecklist}
+      />
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -755,20 +1044,24 @@ export default function ChecklistPage() {
         teamMembers={teamMembers}
         assets={assets}
         onAssign={handleAssignSubmit}
-        loading={assignmentLoading || loadingAdmins || loadingTeam || loadingAssets}
+        loading={assignmentLoading}
       />
 
       {/* Snackbar */}
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSnackbarOpen(false)}
+        onClose={closeToast}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity} sx={{ width: "100%" }}>
-          {snackbarMessage}
+        <Alert
+          onClose={closeToast}
+          severity={snackbar.severity}
+          sx={{ borderRadius: 2, fontSize: "0.75rem" }}
+        >
+          {snackbar.message}
         </Alert>
       </Snackbar>
-    </ThemeProvider>
+    </Box>
   );
 }

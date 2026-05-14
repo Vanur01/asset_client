@@ -1,4 +1,4 @@
-// components/Login.jsx
+// components/Login.jsx - Fully Responsive for All Devices (320px - 1200px+)
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -19,13 +19,18 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
+  Grid,
+  Divider,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import GoogleIcon from "@mui/icons-material/Google";
+import MicrosoftIcon from "@mui/icons-material/Microsoft";
+import AppleIcon from "@mui/icons-material/Apple";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContexts"; // Fixed import path (plural)
+import { useAuth } from "../context/AuthContexts";
 import Navbar from "../pages/landing/Navbar";
 
 const LoginPage = () => {
@@ -33,6 +38,8 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login, loading: authLoading } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isDesktop = useMediaQuery(theme.breakpoints.up("lg"));
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +51,9 @@ const LoginPage = () => {
     password: "",
     remember: false,
   });
+
+  // Demo credentials helper
+  const [showDemoCredentials, setShowDemoCredentials] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -76,6 +86,14 @@ const LoginPage = () => {
       return;
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
+      setSnackbarOpen(true);
+      return;
+    }
+
     setLoading(true);
     setError("");
     setSuccess("");
@@ -84,7 +102,9 @@ const LoginPage = () => {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        setSuccess(result.message || "Login successful! Redirecting to dashboard...");
+        setSuccess(
+          result.message || "Login successful! Redirecting to dashboard...",
+        );
         setSuccessSnackbarOpen(true);
 
         if (formData.remember) {
@@ -96,7 +116,7 @@ const LoginPage = () => {
         }
 
         setTimeout(() => {
-          navigate(result.redirectPath, { replace: true });
+          navigate(result.redirectPath || "/dashboard", { replace: true });
         }, 2000);
       } else {
         setError(result.error || "Invalid email or password");
@@ -115,12 +135,26 @@ const LoginPage = () => {
     navigate("/forgot-password");
   };
 
+  const handleSignUp = () => {
+    navigate("/signup");
+  };
+
   const handleCloseSnackbar = () => {
     setSnackbarOpen(false);
   };
 
   const handleCloseSuccessSnackbar = () => {
     setSuccessSnackbarOpen(false);
+  };
+
+  const fillDemoCredentials = () => {
+    setFormData({
+      email: "demo@assetflow.com",
+      password: "Demo@123",
+      remember: false,
+    });
+    setShowDemoCredentials(true);
+    setTimeout(() => setShowDemoCredentials(false), 3000);
   };
 
   useEffect(() => {
@@ -144,6 +178,7 @@ const LoginPage = () => {
         flexDirection: "column",
         bgcolor: "#f8fafc",
         fontFamily: '"Inter", sans-serif',
+        overflowX: "hidden",
       }}
     >
       <Navbar />
@@ -155,18 +190,18 @@ const LoginPage = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          p: { xs: 1.5, sm: 2, md: 3, lg: 4 },
-          mt: { xs: 8, sm: 9, md: 10 },
+          p: { xs: 1.5, sm: 2, md: 3, lg: 4, xl: 5 },
+          mt: { xs: 7, sm: 8, md: 9, lg: 10 },
         }}
       >
         <Paper
           elevation={0}
           sx={{
-            maxWidth: { xs: "100%", sm: 500, md: 700, lg: 1000 },
+            maxWidth: { xs: "100%", sm: 500, md: 700, lg: 1000, xl: 1100 },
             width: "100%",
             display: "grid",
-            gridTemplateColumns: { xs: "1fr", lg: "5fr 7fr" },
-            borderRadius: { xs: "1rem", sm: "1.25rem" },
+            gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
+            borderRadius: { xs: "1rem", sm: "1.25rem", md: "1.5rem" },
             overflow: "hidden",
             boxShadow: "0 20px 40px -12px rgba(0,0,0,0.1)",
           }}
@@ -177,7 +212,7 @@ const LoginPage = () => {
               display: { xs: "none", lg: "flex" },
               flexDirection: "column",
               justifyContent: "space-between",
-              p: { xl: 5, lg: 4 },
+              p: { lg: 3.5, xl: 4 },
               background:
                 "linear-gradient(135deg, rgba(26, 74, 107, 0.95) 0%, rgba(0, 51, 80, 0.98) 100%), url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')",
               backgroundSize: "cover",
@@ -185,18 +220,19 @@ const LoginPage = () => {
               color: "white",
               position: "relative",
               overflow: "hidden",
+              minHeight: 500,
             }}
           >
             <Box sx={{ position: "relative", zIndex: 2 }}>
-              <Box sx={{ mb: 4 }}>
+              <Box sx={{ mb: 3 }}>
                 <Typography
                   variant="h2"
                   sx={{
-                    fontSize: "2.2rem",
+                    fontSize: { lg: "1.8rem", xl: "2rem", xxl: "2.2rem" },
                     fontWeight: 800,
                     lineHeight: 1.2,
                     letterSpacing: "-0.025em",
-                    mb: 1.5,
+                    mb: 1,
                   }}
                 >
                   Precision in <br />
@@ -205,17 +241,17 @@ const LoginPage = () => {
                 <Box
                   sx={{
                     width: 40,
-                    height: 4,
+                    height: 3,
                     bgcolor: alpha("#ffffff", 0.3),
                     borderRadius: "full",
-                    mb: 3,
+                    mb: 2.5,
                   }}
                 />
                 <Typography
                   variant="body2"
                   sx={{
                     color: alpha("#ffffff", 0.8),
-                    fontSize: "0.85rem",
+                    fontSize: { lg: "0.7rem", xl: "0.75rem" },
                     maxWidth: "280px",
                     fontWeight: 400,
                     lineHeight: 1.5,
@@ -235,16 +271,16 @@ const LoginPage = () => {
                 zIndex: 2,
                 bgcolor: alpha("#ffffff", 0.03),
                 backdropFilter: "blur(12px)",
-                borderRadius: "0.75rem",
+                borderRadius: "0.875rem",
                 p: 2.5,
                 border: "1px solid rgba(255,255,255,0.1)",
-                mt: 2,
+                mt: 1,
               }}
             >
               <Typography
                 variant="body2"
                 sx={{
-                  fontSize: "0.7rem",
+                  fontSize: { lg: "0.6rem", xl: "0.65rem" },
                   fontStyle: "italic",
                   color: alpha("#ffffff", 0.9),
                   mb: 1.5,
@@ -259,8 +295,8 @@ const LoginPage = () => {
                 <Avatar
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLCu_EUKJrSJiUVVAXsi8T22b92VZxvYOuIuDjvPeHA2sjj8D1heZu_khnNtdSG-vZTY9AJp0ze4h8Ohjg_qSVkrhP3OlbILSfCeMm6aIWRY8r_14XplmwLKWLbvi8hm0_HJQ_45KSfAQljMwlPwrGixAmnAgrDdDqL9R5wXs8GpbjnM4LXPOa-qbc4-CRTSKhoRwBk7FyBKj9krpJ5RVy8leZWgp2uNYS0OoI7nzW_uvf49vfrEQ9OFTKNBzEHWBgnUNCrWxVsE1g"
                   sx={{
-                    width: 40,
-                    height: 40,
+                    width: { lg: 32, xl: 36 },
+                    height: { lg: 32, xl: 36 },
                     border: "1.5px solid rgba(255,255,255,0.2)",
                   }}
                 />
@@ -268,7 +304,7 @@ const LoginPage = () => {
                   <Typography
                     variant="caption"
                     sx={{
-                      fontSize: "0.6rem",
+                      fontSize: { lg: "0.55rem", xl: "0.6rem" },
                       fontWeight: 700,
                       letterSpacing: "0.05em",
                       color: "white",
@@ -280,7 +316,7 @@ const LoginPage = () => {
                   <Typography
                     variant="caption"
                     sx={{
-                      fontSize: "0.55rem",
+                      fontSize: { lg: "0.5rem", xl: "0.55rem" },
                       color: alpha("#ffffff", 0.7),
                       display: "block",
                     }}
@@ -310,7 +346,7 @@ const LoginPage = () => {
           {/* Right Side - Login Form */}
           <Box
             sx={{
-              p: { xs: 2.5, sm: 3, md: 4, lg: 5 },
+              p: { xs: 2.5, sm: 3, md: 3.5, lg: 4, xl: 4.5 },
               bgcolor: "white",
               display: "flex",
               flexDirection: "column",
@@ -319,27 +355,35 @@ const LoginPage = () => {
           >
             <Box
               sx={{
-                maxWidth: { xs: "100%", sm: 400 },
+                maxWidth: { xs: "100%", sm: 380, md: 400 },
                 mx: "auto",
                 width: "100%",
               }}
             >
               {/* Header */}
-              <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+              <Box sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
                 <Typography
                   variant="h4"
                   sx={{
-                    fontSize: { xs: "1.3rem", sm: "1.5rem", md: "1.6rem" },
-                    fontWeight: 700,
+                    fontSize: {
+                      xs: "1.3rem",
+                      sm: "1.5rem",
+                      md: "1.6rem",
+                      lg: "1.7rem",
+                    },
+                    fontWeight: 800,
                     color: "#0f172a",
-                    mb: 0.5,
+                    mb: 0.75,
                   }}
                 >
                   Welcome Back
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ color: "#64748b", fontSize: "0.75rem" }}
+                  sx={{
+                    color: "#64748b",
+                    fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
+                  }}
                 >
                   Sign in to access your dashboard
                 </Typography>
@@ -353,7 +397,7 @@ const LoginPage = () => {
                     <Typography
                       variant="caption"
                       sx={{
-                        fontSize: "0.55rem",
+                        fontSize: { xs: "0.55rem", sm: "0.6rem" },
                         fontWeight: 700,
                         letterSpacing: "0.1em",
                         color: "#94a3b8",
@@ -377,7 +421,7 @@ const LoginPage = () => {
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           bgcolor: "#fafbfc",
-                          borderRadius: "0.5rem",
+                          borderRadius: "0.625rem",
                           "& fieldset": {
                             borderColor: "#e2e8f0",
                           },
@@ -390,8 +434,12 @@ const LoginPage = () => {
                           },
                         },
                         "& .MuiInputBase-input": {
-                          py: { xs: 1.2, sm: 1.3 },
-                          fontSize: "0.85rem",
+                          py: { xs: 1, sm: 1.1, md: 1.2 },
+                          fontSize: {
+                            xs: "0.75rem",
+                            sm: "0.8rem",
+                            md: "0.85rem",
+                          },
                         },
                       }}
                     />
@@ -410,7 +458,7 @@ const LoginPage = () => {
                       <Typography
                         variant="caption"
                         sx={{
-                          fontSize: "0.55rem",
+                          fontSize: { xs: "0.55rem", sm: "0.6rem" },
                           fontWeight: 700,
                           letterSpacing: "0.1em",
                           color: "#94a3b8",
@@ -425,9 +473,13 @@ const LoginPage = () => {
                         onClick={handleForgotPassword}
                         underline="hover"
                         sx={{
-                          fontSize: "0.65rem",
+                          fontSize: {
+                            xs: "0.6rem",
+                            sm: "0.65rem",
+                            md: "0.7rem",
+                          },
                           color: "#1a4a6b",
-                          fontWeight: 500,
+                          fontWeight: 600,
                           textDecoration: "none",
                           "&:hover": {
                             textDecoration: "underline",
@@ -463,9 +515,13 @@ const LoginPage = () => {
                               disabled={loading || authLoading}
                             >
                               {showPassword ? (
-                                <VisibilityOffIcon sx={{ fontSize: 16 }} />
+                                <VisibilityOffIcon
+                                  sx={{ fontSize: { xs: 16, sm: 18 } }}
+                                />
                               ) : (
-                                <VisibilityIcon sx={{ fontSize: 16 }} />
+                                <VisibilityIcon
+                                  sx={{ fontSize: { xs: 16, sm: 18 } }}
+                                />
                               )}
                             </IconButton>
                           </InputAdornment>
@@ -474,7 +530,7 @@ const LoginPage = () => {
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           bgcolor: "#fafbfc",
-                          borderRadius: "0.5rem",
+                          borderRadius: "0.625rem",
                           "& fieldset": {
                             borderColor: "#e2e8f0",
                           },
@@ -487,36 +543,69 @@ const LoginPage = () => {
                           },
                         },
                         "& .MuiInputBase-input": {
-                          py: { xs: 1.2, sm: 1.3 },
-                          fontSize: "0.85rem",
+                          py: { xs: 1, sm: 1.1, md: 1.2 },
+                          fontSize: {
+                            xs: "0.75rem",
+                            sm: "0.8rem",
+                            md: "0.85rem",
+                          },
                         },
                       }}
                     />
                   </Box>
 
-                  {/* Remember Me Checkbox */}
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.remember}
-                        onChange={handleCheckboxChange}
-                        disabled={loading || authLoading}
-                        sx={{
-                          color: "#94a3b8",
-                          "&.Mui-checked": {
-                            color: "#1a4a6b",
-                          },
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography
-                        sx={{ fontSize: "0.75rem", color: "#64748b" }}
-                      >
-                        Remember me
-                      </Typography>
-                    }
-                  />
+                  {/* Remember Me Checkbox & Demo Credentials */}
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ flexWrap: "wrap", gap: 1 }}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={formData.remember}
+                          onChange={handleCheckboxChange}
+                          disabled={loading || authLoading}
+                          sx={{
+                            color: "#94a3b8",
+                            "&.Mui-checked": {
+                              color: "#1a4a6b",
+                            },
+                            "& .MuiSvgIcon-root": {
+                              fontSize: { xs: 18, sm: 20 },
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography
+                          sx={{
+                            fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                            color: "#64748b",
+                          }}
+                        >
+                          Remember me
+                        </Typography>
+                      }
+                    />
+
+                    <Button
+                      type="button"
+                      onClick={fillDemoCredentials}
+                      size="small"
+                      sx={{
+                        fontSize: { xs: "0.6rem", sm: "0.65rem" },
+                        color: "#1a4a6b",
+                        textTransform: "none",
+                        "&:hover": {
+                          bgcolor: alpha("#1a4a6b", 0.05),
+                        },
+                      }}
+                    >
+                      Use demo credentials
+                    </Button>
+                  </Stack>
 
                   {/* Submit Button */}
                   <Button
@@ -525,19 +614,23 @@ const LoginPage = () => {
                     variant="contained"
                     disabled={loading || authLoading}
                     endIcon={
-                      !(loading || authLoading) && <ArrowForwardIcon sx={{ fontSize: 16 }} />
+                      !(loading || authLoading) && (
+                        <ArrowForwardIcon
+                          sx={{ fontSize: { xs: 14, sm: 16 } }}
+                        />
+                      )
                     }
                     sx={{
-                      py: { xs: 1, sm: 1.2 },
+                      py: { xs: 1, sm: 1.1, md: 1.2 },
                       bgcolor: "#1a4a6b",
-                      borderRadius: "0.5rem",
-                      fontWeight: 600,
+                      borderRadius: "0.625rem",
+                      fontWeight: 700,
                       textTransform: "none",
-                      fontSize: "0.8rem",
+                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
                       boxShadow: "0 4px 12px rgba(26,74,107,0.2)",
                       "&:hover": {
                         bgcolor: "#003350",
-                        transform: "translateY(-1px)",
+                        transform: "translateY(-2px)",
                       },
                       "&.Mui-disabled": {
                         bgcolor: alpha("#1a4a6b", 0.6),
@@ -545,7 +638,7 @@ const LoginPage = () => {
                       transition: "all 0.2s ease",
                     }}
                   >
-                    {(loading || authLoading) ? (
+                    {loading || authLoading ? (
                       <CircularProgress size={20} color="inherit" />
                     ) : (
                       "Sign In"
@@ -553,6 +646,119 @@ const LoginPage = () => {
                   </Button>
                 </Stack>
               </form>
+
+              {/* Divider */}
+              <Box sx={{ my: 3 }}>
+                <Divider sx={{ my: 2 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#94a3b8",
+                      fontSize: { xs: "0.6rem", sm: "0.65rem" },
+                      px: 1,
+                    }}
+                  >
+                    OR CONTINUE WITH
+                  </Typography>
+                </Divider>
+              </Box>
+
+              {/* Social Login Buttons */}
+              <Stack
+                direction="row"
+                spacing={2}
+                justifyContent="center"
+                sx={{ mb: 3 }}
+              >
+                <IconButton
+                  sx={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "0.625rem",
+                    p: { xs: 1, sm: 1.2 },
+                    "&:hover": {
+                      bgcolor: alpha("#1a4a6b", 0.04),
+                      transform: "translateY(-2px)",
+                    },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <GoogleIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                </IconButton>
+                <IconButton
+                  sx={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "0.625rem",
+                    p: { xs: 1, sm: 1.2 },
+                    "&:hover": {
+                      bgcolor: alpha("#1a4a6b", 0.04),
+                      transform: "translateY(-2px)",
+                    },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <MicrosoftIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                </IconButton>
+                <IconButton
+                  sx={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "0.625rem",
+                    p: { xs: 1, sm: 1.2 },
+                    "&:hover": {
+                      bgcolor: alpha("#1a4a6b", 0.04),
+                      transform: "translateY(-2px)",
+                    },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <AppleIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                </IconButton>
+              </Stack>
+
+              {/* Sign Up Link */}
+              <Box sx={{ textAlign: "center" }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "#64748b",
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                  }}
+                >
+                  Don't have an account?{" "}
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={handleSignUp}
+                    underline="hover"
+                    sx={{
+                      color: "#1a4a6b",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      "&:hover": {
+                        color: "#003350",
+                      },
+                    }}
+                  >
+                    Sign up
+                  </Link>
+                </Typography>
+              </Box>
+
+              {/* Demo Credentials Alert */}
+              {showDemoCredentials && (
+                <Alert
+                  severity="info"
+                  sx={{
+                    mt: 2,
+                    fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                    borderRadius: "0.625rem",
+                  }}
+                >
+                  <strong>Demo Credentials:</strong> demo@assetflow.com /
+                  Demo@123
+                </Alert>
+              )}
             </Box>
           </Box>
         </Paper>
@@ -564,11 +770,17 @@ const LoginPage = () => {
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        sx={{ bottom: { xs: 16, sm: 24, md: 32 } }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity="error"
-          sx={{ width: "100%" }}
+          sx={{
+            width: "100%",
+            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
+            borderRadius: "0.75rem",
+          }}
+          elevation={6}
         >
           {error}
         </Alert>
@@ -582,7 +794,7 @@ const LoginPage = () => {
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         sx={{
           "& .MuiSnackbar-root": {
-            mt: 8,
+            mt: { xs: 7, sm: 8, md: 9 },
           },
         }}
       >
@@ -592,22 +804,25 @@ const LoginPage = () => {
           icon={<CheckCircleIcon fontSize="inherit" />}
           sx={{
             width: "100%",
-            minWidth: "300px",
+            minWidth: { xs: "260px", sm: "300px" },
             backgroundColor: "#4caf50",
             color: "white",
             fontWeight: 600,
+            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
+            borderRadius: "0.75rem",
             "& .MuiAlert-icon": {
               color: "white",
-              fontSize: "24px",
+              fontSize: { xs: 18, sm: 20 },
             },
             "& .MuiAlert-message": {
-              fontSize: "0.9rem",
+              fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
               fontWeight: 500,
             },
             "& .MuiAlert-action": {
               color: "white",
             },
           }}
+          elevation={6}
         >
           {success}
         </Alert>

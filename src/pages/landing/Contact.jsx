@@ -1,54 +1,260 @@
-// components/Contact.jsx - Both Cards in Same Row (Side by Side)
+// components/Contact.jsx - Fully Responsive for All Devices (320px - 1200px+)
 import React, { useState } from "react";
 import {
   Box,
   Container,
   Typography,
-  Paper,
+  Card,
+  CardContent,
   TextField,
   Button,
   Stack,
   alpha,
   useTheme,
   useMediaQuery,
+  Chip,
+  IconButton,
+  Alert,
+  Snackbar,
+  Grid,
+  Tooltip,
+  CircularProgress,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import PhoneIcon from "@mui/icons-material/Phone";
 import EmailIcon from "@mui/icons-material/Email";
 import SendIcon from "@mui/icons-material/Send";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
+import TwitterIcon from "@mui/icons-material/Twitter";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import InstagramIcon from "@mui/icons-material/Instagram";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import axios from "axios";
 
 const Contact = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
-  
+  const isDesktop = useMediaQuery(theme.breakpoints.up("lg"));
+
   const [formData, setFormData] = useState({
-    name: "",
+    fullName: "",
     email: "",
+    phone: "",
     message: "",
   });
 
+  const [errors, setErrors] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+
+  const [touched, setTouched] = useState({
+    fullName: false,
+    email: false,
+    phone: false,
+    message: false,
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+  const validateField = (name, value) => {
+    let error = "";
+
+    switch (name) {
+      case "fullName":
+        if (!value.trim()) {
+          error = "Full name is required";
+        } else if (value.trim().length < 2) {
+          error = "Name must be at least 2 characters";
+        } else if (value.trim().length > 50) {
+          error = "Name must be less than 50 characters";
+        } else if (!/^[a-zA-Z\s\-']+$/.test(value.trim())) {
+          error =
+            "Name can only contain letters, spaces, hyphens, and apostrophes";
+        }
+        break;
+
+      case "email":
+        if (!value.trim()) {
+          error = "Email address is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = "Please enter a valid email address (e.g., name@example.com)";
+        } else if (value.length > 100) {
+          error = "Email must be less than 100 characters";
+        }
+        break;
+
+      case "phone":
+        const cleanPhone = value.replace(/\s/g, "");
+        if (!value.trim()) {
+          error = "Phone number is required";
+        } else if (!/^\d{10}$/.test(cleanPhone)) {
+          error = "Please enter a valid 10-digit phone number";
+        }
+        break;
+
+      case "message":
+        if (!value.trim()) {
+          error = "Message is required";
+        } else if (value.trim().length < 10) {
+          error = "Message must be at least 10 characters";
+        } else if (value.trim().length > 1000) {
+          error = "Message must be less than 1000 characters";
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return error;
+  };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    if (touched[name]) {
+      const error = validateField(name, value);
+      setErrors({ ...errors, [name]: error });
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name]: true });
+    const error = validateField(name, value);
+    setErrors({ ...errors, [name]: error });
+  };
+
+  const validateForm = () => {
+    const newErrors = {
+      fullName: validateField("fullName", formData.fullName),
+      email: validateField("email", formData.email),
+      phone: validateField("phone", formData.phone),
+      message: validateField("message", formData.message),
+    };
+
+    setErrors(newErrors);
+    setTouched({
+      fullName: true,
+      email: true,
+      phone: true,
+      message: true,
+    });
+
+    return !Object.values(newErrors).some((error) => error !== "");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate all fields
+    if (!validateForm()) {
+      setSnackbar({
+        open: true,
+        message: "Please fix the errors in the form",
+        severity: "error",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      alert("Thank you! We'll get back to you soon.");
-      setFormData({ name: "", email: "", message: "" });
+
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL || "http://localhost:9001"}/api/v1/user/contact`,
+        {
+          fullName: formData.fullName.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.replace(/\s/g, ""),
+          message: formData.message.trim(),
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        },
+      );
+
+      if (response.data && (response.data.success || response.status === 200)) {
+        setSnackbar({
+          open: true,
+          message:
+            response.data.message || "Thank you! We'll get back to you soon.",
+          severity: "success",
+        });
+
+        // Reset form
+        setFormData({
+          fullName: "",
+          email: "",
+          phone: "",
+          message: "",
+        });
+        setErrors({
+          fullName: "",
+          email: "",
+          phone: "",
+          message: "",
+        });
+        setTouched({
+          fullName: false,
+          email: false,
+          phone: false,
+          message: false,
+        });
+      } else {
+        throw new Error(response.data?.message || "Failed to send message");
+      }
+    } catch (error) {
+      console.error("Contact form submission error:", error);
+
+      let errorMessage = "Failed to send message. Please try again later.";
+
+      if (error.code === "ECONNABORTED") {
+        errorMessage =
+          "Request timed out. Please check your connection and try again.";
+      } else if (error.response) {
+        errorMessage =
+          error.response.data?.message ||
+          "Server error. Please try again later.";
+      } else if (error.request) {
+        errorMessage =
+          "Unable to connect to server. Please check your internet connection.";
+      }
+
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: "error",
+      });
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
   const fadeInUp = {
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, ease: "easeOut" },
+    },
   };
 
   const staggerContainer = {
@@ -56,470 +262,799 @@ const Contact = () => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1,
+        staggerChildren: 0.12,
       },
     },
   };
+
+  const contactInfo = [
+    {
+      icon: (
+        <LocationOnIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24, lg: 26 } }} />
+      ),
+      title: "Visit Us",
+      details: ["Tech Park, Sector 62", "Noida, UP - 201301", "India"],
+      color: "#3b82f6",
+      link: "https://maps.google.com",
+    },
+    {
+      icon: <PhoneIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24, lg: 26 } }} />,
+      title: "Call Us",
+      details: ["+91 120 456 7890", "Mon-Fri, 9 AM - 6 PM IST"],
+      color: "#10b981",
+      link: "tel:+911204567890",
+    },
+    {
+      icon: <EmailIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24, lg: 26 } }} />,
+      title: "Email Us",
+      details: ["support@assetflow.com", "sales@assetflow.com"],
+      color: "#8b5cf6",
+      link: "mailto:support@assetflow.com",
+    },
+  ];
+
+  const socialLinks = [
+    {
+      icon: <LinkedInIcon />,
+      url: "https://linkedin.com",
+      color: "#0077b5",
+      name: "LinkedIn",
+    },
+    {
+      icon: <TwitterIcon />,
+      url: "https://twitter.com",
+      color: "#1da1f2",
+      name: "Twitter",
+    },
+    {
+      icon: <FacebookIcon />,
+      url: "https://facebook.com",
+      color: "#1877f2",
+      name: "Facebook",
+    },
+    {
+      icon: <InstagramIcon />,
+      url: "https://instagram.com",
+      color: "#e4405f",
+      name: "Instagram",
+    },
+  ];
 
   return (
     <Box
       id="contact"
       component="section"
       sx={{
-        py: { xs: 6, sm: 8, md: 10, lg: 12 },
-        bgcolor: "#fafbfc",
+        py: { xs: 5, sm: 6, md: 8, lg: 10, xl: 12 },
+        px: { xs: 1.5, sm: 2, md: 3, lg: 4, xl: 5 },
+        bgcolor: "background.default",
         position: "relative",
         overflow: "hidden",
+        width: "100%",
+        minHeight: { xs: "auto", sm: "auto", md: "100vh" },
+        display: "flex",
+        alignItems: "center",
       }}
     >
-      {/* Background decorative elements */}
+      {/* Background Decorations - Responsive */}
       <Box
         sx={{
           position: "absolute",
-          top: "10%",
-          right: "-5%",
-          width: { xs: "60%", sm: "50%", md: "40%", lg: "30%" },
-          height: { xs: "60%", sm: "50%", md: "40%", lg: "30%" },
-          background: "radial-gradient(circle, rgba(26,74,107,0.03) 0%, rgba(26,74,107,0) 70%)",
+          top: { xs: "3%", sm: "5%", md: "8%", lg: "10%" },
+          right: { xs: "-20%", sm: "-15%", md: "-10%", lg: "-5%" },
+          width: { xs: "90%", sm: "70%", md: "50%", lg: "40%", xl: "35%" },
+          height: { xs: "90%", sm: "70%", md: "50%", lg: "40%", xl: "35%" },
+          background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.04)} 0%, transparent 70%)`,
           borderRadius: "50%",
           pointerEvents: "none",
+          zIndex: 0,
         }}
       />
       <Box
         sx={{
           position: "absolute",
-          bottom: "10%",
-          left: "-5%",
-          width: { xs: "60%", sm: "50%", md: "40%", lg: "30%" },
-          height: { xs: "60%", sm: "50%", md: "40%", lg: "30%" },
-          background: "radial-gradient(circle, rgba(26,74,107,0.03) 0%, rgba(26,74,107,0) 70%)",
+          bottom: { xs: "3%", sm: "5%", md: "8%", lg: "10%" },
+          left: { xs: "-20%", sm: "-15%", md: "-10%", lg: "-5%" },
+          width: { xs: "90%", sm: "70%", md: "50%", lg: "40%", xl: "35%" },
+          height: { xs: "90%", sm: "70%", md: "50%", lg: "40%", xl: "35%" },
+          background: `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.03)} 0%, transparent 70%)`,
           borderRadius: "50%",
           pointerEvents: "none",
+          zIndex: 0,
         }}
       />
 
-      <Container 
-        maxWidth="lg"
+      <Container
+        maxWidth="xl"
         sx={{
-          px: { xs: 2, sm: 3, md: 4, lg: 5, xl: 6 },
           position: "relative",
           zIndex: 1,
+          px: { xs: 1, sm: 1.5, md: 2, lg: 2.5, xl: 3 },
+          maxWidth: {
+            xs: "100%",
+            sm: "100%",
+            md: "90%",
+            lg: "1200px",
+            xl: "1400px",
+          },
         }}
       >
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
+          viewport={{ once: true, amount: 0.15 }}
           variants={staggerContainer}
+          style={{ width: "100%" }}
         >
-          {/* Section Header */}
+          {/* Section Header - Fully Responsive */}
           <motion.div variants={fadeInUp}>
-            <Box sx={{ 
-              textAlign: "center", 
-              mb: { xs: 4, sm: 5, md: 6, lg: 7, xl: 8 }
-            }}>
-              <Typography
-                variant="overline"
+            <Box
+              sx={{
+                textAlign: "center",
+                mb: { xs: 4, sm: 5, md: 6, lg: 7, xl: 8 },
+              }}
+            >
+              <Chip
+                label="CONTACT US"
+                size="small"
                 sx={{
-                  color: "#1a4a6b",
-                  fontSize: { xs: "0.55rem", sm: "0.6rem", md: "0.65rem", lg: "0.7rem", xl: "0.75rem" },
-                  fontWeight: 600,
-                  letterSpacing: "0.1em",
-                  mb: { xs: 0.75, sm: 1, md: 1.25 },
-                  display: "block",
-                }}
-              >
-                CONTACT US
-              </Typography>
-              <Typography
-                variant="h3"
-                sx={{
-                  fontSize: { 
-                    xs: "1.5rem", 
-                    sm: "1.8rem", 
-                    md: "2rem", 
-                    lg: "2.2rem",
-                    xl: "2.5rem" 
-                  },
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  color: theme.palette.primary.main,
                   fontWeight: 700,
-                  mb: { xs: 1, sm: 1.25, md: 1.5 },
-                  color: "#0f172a",
-                  px: { xs: 2, sm: 0 },
+                  fontSize: {
+                    xs: "0.55rem",
+                    sm: "0.6rem",
+                    md: "0.65rem",
+                    lg: "0.7rem",
+                    xl: "0.75rem",
+                  },
+                  letterSpacing: "0.1em",
+                  mb: { xs: 1.5, sm: 2, md: 2.5 },
+                  height: { xs: 22, sm: 24, md: 26, lg: 28, xl: 30 },
+                  borderRadius: "100px",
+                  px: { xs: 1, sm: 1.2, md: 1.5, lg: 1.8, xl: 2 },
+                }}
+              />
+              <Typography
+                variant="h2"
+                sx={{
+                  fontSize: {
+                    xs: "1.6rem",
+                    sm: "1.9rem",
+                    md: "2.2rem",
+                    lg: "2.6rem",
+                    xl: "3rem",
+                  },
+                  fontWeight: 800,
+                  mb: { xs: 1, sm: 1.2, md: 1.5 },
+                  letterSpacing: "-0.02em",
+                  color: "text.primary",
+                  lineHeight: 1.2,
                 }}
               >
                 Let's Talk
               </Typography>
               <Typography
-                variant="body2"
+                variant="body1"
                 sx={{
-                  color: "#64748b",
-                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem", lg: "0.9rem", xl: "0.95rem" },
-                  maxWidth: { xs: "90%", sm: "80%", md: "70%", lg: "600px", xl: "700px" },
+                  color: "text.secondary",
+                  fontSize: {
+                    xs: "0.75rem",
+                    sm: "0.8rem",
+                    md: "0.85rem",
+                    lg: "0.9rem",
+                    xl: "1rem",
+                  },
+                  maxWidth: {
+                    xs: "95%",
+                    sm: "85%",
+                    md: "75%",
+                    lg: "65%",
+                    xl: "55%",
+                  },
                   mx: "auto",
+                  lineHeight: 1.6,
+                  px: { xs: 1, sm: 0 },
                 }}
               >
-                Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+                Have questions about AssetFlow? We'd love to hear from you and
+                help with any inquiries about our asset management solutions.
               </Typography>
             </Box>
           </motion.div>
 
-          {/* Cards in Same Row - Side by Side Layout */}
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: { xs: "column", md: "row" },
-              gap: { xs: 3, sm: 3.5, md: 4, lg: 5, xl: 6 },
-              justifyContent: "center",
-              alignItems: { xs: "center", md: "stretch" },
-              maxWidth: "1600px",
-              mx: "auto",
-            }}
+          {/* Two Column Layout - Responsive Grid */}
+          <Grid
+            container
+            spacing={{ xs: 2, sm: 2.5, md: 3, lg: 3.5, xl: 4 }}
+            justifyContent="center"
+            alignItems="stretch"
           >
-            {/* Contact Information Card */}
-            <motion.div
-              variants={fadeInUp}
-              style={{
-                flex: 1,
-                width: "100%",
-                minWidth: 0, // Prevents overflow issues
-              }}
-            >
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 2.5, sm: 3, md: 3.5, lg: 4, xl: 4.5 },
-                  borderRadius: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem", lg: "2rem", xl: "2.25rem" },
-                  border: `1px solid ${alpha("#0f172a", 0.06)}`,
-                  bgcolor: "#ffffff",
-                  height: "100%",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: { xs: "none", md: "translateY(-4px)", lg: "translateY(-6px)" },
-                    boxShadow: { xs: "none", md: "0 20px 30px -12px rgba(0,0,0,0.1)" },
-                    borderColor: { md: alpha("#1a4a6b", 0.15) },
-                  },
-                }}
-              >
-                <Typography
-                  variant="h5"
+            {/* Contact Information Column */}
+            <Grid item xs={12} md={6}>
+              <motion.div variants={fadeInUp} style={{ height: "100%" }}>
+                <Card
+                  elevation={0}
                   sx={{
-                    fontSize: { xs: "1.2rem", sm: "1.3rem", md: "1.4rem", lg: "1.5rem", xl: "1.6rem" },
-                    fontWeight: 600,
-                    mb: { xs: 1.5, sm: 2, md: 2.5 },
-                    color: "#0f172a",
+                    borderRadius: {
+                      xs: "1.25rem",
+                      sm: "1.5rem",
+                      md: "1.75rem",
+                      lg: "2rem",
+                    },
+                    border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                    bgcolor: "background.paper",
+                    height: "100%",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    "&:hover": {
+                      transform: isDesktop
+                        ? "translateY(-8px)"
+                        : "translateY(-4px)",
+                      boxShadow: `0 24px 48px -16px ${alpha(theme.palette.common.black, 0.15)}`,
+                    },
                   }}
                 >
-                  Get in Touch
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "#64748b",
-                    fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem", lg: "0.9rem" },
-                    mb: { xs: 2.5, sm: 3, md: 3.5 },
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Our team is here to help you with any questions about our platform, pricing, or implementation.
-                </Typography>
-
-                <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
-                  {/* Address */}
-                  <motion.div whileHover={!isMobile ? { x: 5 } : {}}>
-                    <Stack direction="row" spacing={{ xs: 1.5, sm: 2, md: 2.5 }} alignItems="flex-start">
-                      <Box
-                        sx={{
-                          width: { xs: 36, sm: 40, md: 44, lg: 48 },
-                          height: { xs: 36, sm: 40, md: 44, lg: 48 },
-                          borderRadius: "0.75rem",
-                          bgcolor: alpha("#1a4a6b", 0.08),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <LocationOnIcon sx={{ fontSize: { xs: 18, sm: 20, md: 22, lg: 24 }, color: "#1a4a6b" }} />
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem", lg: "0.9rem" },
-                            color: "#0f172a",
-                            mb: 0.25,
-                          }}
-                        >
-                          Visit Us
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem", lg: "0.85rem" },
-                            color: "#64748b",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          Tech Park, Sector 62<br />
-                          Noida, Uttar Pradesh<br />
-                          India - 201301
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </motion.div>
-
-                  {/* Phone */}
-                  <motion.div whileHover={!isMobile ? { x: 5 } : {}}>
-                    <Stack direction="row" spacing={{ xs: 1.5, sm: 2, md: 2.5 }} alignItems="center">
-                      <Box
-                        sx={{
-                          width: { xs: 36, sm: 40, md: 44, lg: 48 },
-                          height: { xs: 36, sm: 40, md: 44, lg: 48 },
-                          borderRadius: "0.75rem",
-                          bgcolor: alpha("#1a4a6b", 0.08),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <PhoneIcon sx={{ fontSize: { xs: 18, sm: 20, md: 22, lg: 24 }, color: "#1a4a6b" }} />
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem", lg: "0.9rem" },
-                            color: "#0f172a",
-                            mb: 0.25,
-                          }}
-                        >
-                          Call Us
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem", lg: "0.85rem" },
-                            color: "#64748b",
-                          }}
-                        >
-                          +91 120 456 7890<br />
-                          Mon-Fri, 9 AM - 6 PM IST
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </motion.div>
-
-                  {/* Email */}
-                  <motion.div whileHover={!isMobile ? { x: 5 } : {}}>
-                    <Stack direction="row" spacing={{ xs: 1.5, sm: 2, md: 2.5 }} alignItems="center">
-                      <Box
-                        sx={{
-                          width: { xs: 36, sm: 40, md: 44, lg: 48 },
-                          height: { xs: 36, sm: 40, md: 44, lg: 48 },
-                          borderRadius: "0.75rem",
-                          bgcolor: alpha("#1a4a6b", 0.08),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <EmailIcon sx={{ fontSize: { xs: 18, sm: 20, md: 22, lg: 24 }, color: "#1a4a6b" }} />
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem", lg: "0.9rem" },
-                            color: "#0f172a",
-                            mb: 0.25,
-                          }}
-                        >
-                          Email Us
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem", lg: "0.85rem" },
-                            color: "#64748b",
-                          }}
-                        >
-                          support@assetflow.com<br />
-                          sales@assetflow.com
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </motion.div>
-                </Stack>
-
-                {/* Business Hours */}
-                <Box
-                  sx={{
-                    mt: { xs: 3, sm: 3.5, md: 4, lg: 4.5 },
-                    pt: { xs: 2, sm: 2.5, md: 3, lg: 3.5 },
-                    borderTop: "1px solid",
-                    borderColor: alpha("#0f172a", 0.06),
-                  }}
-                >
-                  <Typography
-                    variant="caption"
+                  <CardContent
                     sx={{
-                      fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem", lg: "0.75rem" },
-                      color: "#64748b",
-                      display: "block",
-                      textAlign: "center",
+                      p: { xs: 2, sm: 2.5, md: 3, lg: 3.5, xl: 4 },
                     }}
                   >
-                    🚀 Average response time: &lt; 24 hours
-                  </Typography>
-                </Box>
-              </Paper>
-            </motion.div>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: {
+                          xs: "1rem",
+                          sm: "1.1rem",
+                          md: "1.2rem",
+                          lg: "1.3rem",
+                          xl: "1.4rem",
+                        },
+                        mb: 0.75,
+                        color: "text.primary",
+                      }}
+                    >
+                      Get in Touch
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        fontSize: {
+                          xs: "0.75rem",
+                          sm: "0.8rem",
+                          md: "0.85rem",
+                          lg: "0.875rem",
+                        },
+                        mb: { xs: 2.5, sm: 3, md: 3.5 },
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Our dedicated team is here to assist you with any
+                      questions or support needs you may have.
+                    </Typography>
 
-            {/* Contact Form Card */}
-            <motion.div
-              variants={fadeInUp}
-              style={{
-                flex: 1,
-                width: "100%",
-                minWidth: 0, // Prevents overflow issues
-              }}
-            >
-              <Paper
-                elevation={0}
-                component="form"
-                onSubmit={handleSubmit}
-                sx={{
-                  p: { xs: 2.5, sm: 3, md: 3.5, lg: 4, xl: 4.5 },
-                  borderRadius: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem", lg: "2rem", xl: "2.25rem" },
-                  border: `1px solid ${alpha("#0f172a", 0.06)}`,
-                  bgcolor: "#ffffff",
-                  height: "100%",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: { xs: "none", md: "translateY(-4px)", lg: "translateY(-6px)" },
-                    boxShadow: { xs: "none", md: "0 20px 30px -12px rgba(0,0,0,0.08)" },
-                  },
-                }}
-              >
-                <Typography
-                  variant="h5"
+                    {/* Contact Info Items */}
+                    <Stack
+                      spacing={{ xs: 2, sm: 2.5, md: 3 }}
+                      sx={{ mb: { xs: 3, sm: 3.5, md: 4 } }}
+                    >
+                      {contactInfo.map((item, idx) => (
+                        <Stack
+                          key={idx}
+                          direction="row"
+                          spacing={{ xs: 1.5, sm: 2, md: 2.5 }}
+                          alignItems="flex-start"
+                          component="a"
+                          href={item.link}
+                          target={
+                            item.link.startsWith("http") ? "_blank" : undefined
+                          }
+                          rel="noopener noreferrer"
+                          sx={{
+                            textDecoration: "none",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              transform: "translateX(8px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: { xs: 40, sm: 44, md: 48, lg: 52, xl: 56 },
+                              height: {
+                                xs: 40,
+                                sm: 44,
+                                md: 48,
+                                lg: 52,
+                                xl: 56,
+                              },
+                              borderRadius: {
+                                xs: "0.875rem",
+                                sm: "1rem",
+                                md: "1.125rem",
+                              },
+                              bgcolor: alpha(item.color, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: item.color,
+                              flexShrink: 0,
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                transform: "scale(1.05)",
+                                bgcolor: alpha(item.color, 0.15),
+                              },
+                            }}
+                          >
+                            {item.icon}
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{
+                                fontWeight: 700,
+                                fontSize: {
+                                  xs: "0.8rem",
+                                  sm: "0.85rem",
+                                  md: "0.9rem",
+                                  lg: "0.95rem",
+                                },
+                                color: "text.primary",
+                                mb: 0.5,
+                              }}
+                            >
+                              {item.title}
+                            </Typography>
+                            {item.details.map((line, i) => (
+                              <Typography
+                                key={i}
+                                variant="caption"
+                                sx={{
+                                  display: "block",
+                                  fontSize: {
+                                    xs: "0.65rem",
+                                    sm: "0.7rem",
+                                    md: "0.75rem",
+                                    lg: "0.8rem",
+                                  },
+                                  color: "text.secondary",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Stack>
+                      ))}
+                    </Stack>
+
+                    {/* Social Links */}
+                    <Box
+                      sx={{
+                        pt: { xs: 2, sm: 2.5, md: 3 },
+                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: {
+                            xs: "0.65rem",
+                            sm: "0.7rem",
+                            md: "0.75rem",
+                          },
+                          color: "text.secondary",
+                          display: "block",
+                          mb: 1.5,
+                          fontWeight: 600,
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        CONNECT WITH US
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={{ xs: 1, sm: 1.5, md: 2 }}
+                      >
+                        {socialLinks.map((social, idx) => (
+                          <Tooltip key={idx} title={social.name} arrow>
+                            <IconButton
+                              size="small"
+                              sx={{
+                                bgcolor: alpha(social.color, 0.08),
+                                color: social.color,
+                                "&:hover": {
+                                  bgcolor: alpha(social.color, 0.15),
+                                  transform: "translateY(-3px)",
+                                },
+                                transition: "all 0.2s ease",
+                                width: { xs: 34, sm: 36, md: 40, lg: 44 },
+                                height: { xs: 34, sm: 36, md: 40, lg: 44 },
+                              }}
+                              component="a"
+                              href={social.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {React.cloneElement(social.icon, {
+                                sx: { fontSize: { xs: 16, sm: 18, md: 20 } },
+                              })}
+                            </IconButton>
+                          </Tooltip>
+                        ))}
+                      </Stack>
+                    </Box>
+
+                    {/* Response Time Badge */}
+                    <Box
+                      sx={{
+                        mt: { xs: 2.5, sm: 3, md: 3.5 },
+                        pt: { xs: 2, sm: 2.5, md: 3 },
+                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 1,
+                      }}
+                    >
+                      <CheckCircleIcon
+                        sx={{ fontSize: 14, color: "#10b981" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: {
+                            xs: "0.6rem",
+                            sm: "0.65rem",
+                            md: "0.7rem",
+                          },
+                          color: "text.secondary",
+                        }}
+                      >
+                        Average response time: &lt; 2 hours
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </Grid>
+
+            {/* Contact Form Column */}
+            <Grid item xs={12} md={6}>
+              <motion.div variants={fadeInUp} style={{ height: "100%" }}>
+                <Card
+                  elevation={0}
+                  component="form"
+                  onSubmit={handleSubmit}
                   sx={{
-                    fontSize: { xs: "1.2rem", sm: "1.3rem", md: "1.4rem", lg: "1.5rem", xl: "1.6rem" },
-                    fontWeight: 600,
-                    mb: { xs: 2, sm: 2.5, md: 3, lg: 3.5 },
-                    color: "#0f172a",
+                    borderRadius: {
+                      xs: "1.25rem",
+                      sm: "1.5rem",
+                      md: "1.75rem",
+                      lg: "2rem",
+                    },
+                    border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                    bgcolor: "background.paper",
+                    height: "100%",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    "&:hover": {
+                      transform: isDesktop
+                        ? "translateY(-8px)"
+                        : "translateY(-4px)",
+                      boxShadow: `0 24px 48px -16px ${alpha(theme.palette.common.black, 0.15)}`,
+                    },
                   }}
                 >
-                  Send us a Message
-                </Typography>
+                  <CardContent
+                    sx={{
+                      p: { xs: 2, sm: 2.5, md: 3, lg: 3.5, xl: 4 },
+                    }}
+                  >
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: {
+                          xs: "1rem",
+                          sm: "1.1rem",
+                          md: "1.2rem",
+                          lg: "1.3rem",
+                          xl: "1.4rem",
+                        },
+                        mb: 0.75,
+                        color: "text.primary",
+                      }}
+                    >
+                      Send a Message
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        fontSize: {
+                          xs: "0.75rem",
+                          sm: "0.8rem",
+                          md: "0.85rem",
+                          lg: "0.875rem",
+                        },
+                        mb: { xs: 2.5, sm: 3, md: 3.5 },
+                      }}
+                    >
+                      Fill out the form and we'll respond within 24 hours
+                    </Typography>
 
-                <TextField
-                  fullWidth
-                  label="Full Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  size={isMobile ? "small" : "medium"}
-                  sx={{ 
-                    mb: { xs: 1.5, sm: 2, md: 2.5 },
-                    "& .MuiInputLabel-root": {
-                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" }
-                    },
-                    "& .MuiInputBase-root": {
-                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" }
-                    }
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  size={isMobile ? "small" : "medium"}
-                  sx={{ 
-                    mb: { xs: 1.5, sm: 2, md: 2.5 },
-                    "& .MuiInputLabel-root": {
-                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" }
-                    },
-                    "& .MuiInputBase-root": {
-                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" }
-                    }
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  label="Message"
-                  name="message"
-                  multiline
-                  rows={isMobile ? 4 : isTablet ? 5 : 6}
-                  value={formData.message}
-                  onChange={handleChange}
-                  required
-                  size="small"
-                  sx={{ 
-                    mb: { xs: 2, sm: 2.5, md: 3 },
-                    "& .MuiInputLabel-root": {
-                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" }
-                    },
-                    "& .MuiInputBase-root": {
-                      fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" }
-                    }
-                  }}
-                />
-                
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  disabled={isSubmitting}
-                  endIcon={!isSubmitting && <SendIcon sx={{ fontSize: { xs: 14, sm: 16, md: 18 } }} />}
-                  sx={{
-                    py: { xs: 1, sm: 1.125, md: 1.25, lg: 1.5 },
-                    borderRadius: { xs: "0.75rem", sm: "1rem", md: "1.125rem", lg: "1.25rem" },
-                    bgcolor: "#1a4a6b",
-                    fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem", lg: "0.9rem" },
-                    fontWeight: 600,
-                    textTransform: "none",
-                    transition: "all 0.3s ease",
-                    "&:hover": { 
-                      bgcolor: "#0d3b56",
-                      transform: "translateY(-2px)",
-                    },
-                    "&:active": {
-                      transform: "translateY(0)",
-                    },
-                  }}
-                >
-                  {isSubmitting ? "Sending..." : "Send Message"}
-                </Button>
+                    <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
+                      <TextField
+                        fullWidth
+                        label="Full Name *"
+                        name="fullName"
+                        value={formData.fullName}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        required
+                        size="medium"
+                        placeholder="John Doe"
+                        error={!!errors.fullName && touched.fullName}
+                        helperText={touched.fullName && errors.fullName}
+                        sx={{
+                          "& .MuiInputLabel-root": {
+                            fontSize: {
+                              xs: "0.75rem",
+                              sm: "0.8rem",
+                              md: "0.85rem",
+                            },
+                          },
+                          "& .MuiInputBase-root": {
+                            fontSize: {
+                              xs: "0.8rem",
+                              sm: "0.85rem",
+                              md: "0.9rem",
+                            },
+                          },
+                          "& .MuiFormHelperText-root": {
+                            fontSize: {
+                              xs: "0.65rem",
+                              sm: "0.7rem",
+                              md: "0.75rem",
+                            },
+                          },
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Email Address *"
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        required
+                        size="medium"
+                        placeholder="john@example.com"
+                        error={!!errors.email && touched.email}
+                        helperText={touched.email && errors.email}
+                        sx={{
+                          "& .MuiInputLabel-root": {
+                            fontSize: {
+                              xs: "0.75rem",
+                              sm: "0.8rem",
+                              md: "0.85rem",
+                            },
+                          },
+                          "& .MuiInputBase-root": {
+                            fontSize: {
+                              xs: "0.8rem",
+                              sm: "0.85rem",
+                              md: "0.9rem",
+                            },
+                          },
+                          "& .MuiFormHelperText-root": {
+                            fontSize: {
+                              xs: "0.65rem",
+                              sm: "0.7rem",
+                              md: "0.75rem",
+                            },
+                          },
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Phone Number *"
+                        name="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        required
+                        size="medium"
+                        placeholder="9876543210"
+                        helperText={
+                          (touched.phone && errors.phone) ||
+                          "Enter 10-digit mobile number"
+                        }
+                        error={!!errors.phone && touched.phone}
+                        sx={{
+                          "& .MuiInputLabel-root": {
+                            fontSize: {
+                              xs: "0.75rem",
+                              sm: "0.8rem",
+                              md: "0.85rem",
+                            },
+                          },
+                          "& .MuiInputBase-root": {
+                            fontSize: {
+                              xs: "0.8rem",
+                              sm: "0.85rem",
+                              md: "0.9rem",
+                            },
+                          },
+                          "& .MuiFormHelperText-root": {
+                            fontSize: {
+                              xs: "0.65rem",
+                              sm: "0.7rem",
+                              md: "0.75rem",
+                            },
+                          },
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Message *"
+                        name="message"
+                        multiline
+                        rows={4}
+                        value={formData.message}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        required
+                        size="medium"
+                        placeholder="How can we help you? Please provide details..."
+                        error={!!errors.message && touched.message}
+                        helperText={touched.message && errors.message}
+                        sx={{
+                          "& .MuiInputLabel-root": {
+                            fontSize: {
+                              xs: "0.75rem",
+                              sm: "0.8rem",
+                              md: "0.85rem",
+                            },
+                          },
+                          "& .MuiInputBase-root": {
+                            fontSize: {
+                              xs: "0.8rem",
+                              sm: "0.85rem",
+                              md: "0.9rem",
+                            },
+                          },
+                          "& .MuiFormHelperText-root": {
+                            fontSize: {
+                              xs: "0.65rem",
+                              sm: "0.7rem",
+                              md: "0.75rem",
+                            },
+                          },
+                        }}
+                      />
 
-                {/* Form assurance text */}
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: "block",
-                    textAlign: "center",
-                    mt: { xs: 1.5, sm: 2, md: 2.5 },
-                    fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
-                    color: "#94a3b8",
-                  }}
-                >
-                  We'll never share your information. Promise. ✨
-                </Typography>
-              </Paper>
-            </motion.div>
-          </Box>
+                      <Button
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        disabled={isSubmitting}
+                        endIcon={
+                          !isSubmitting ? (
+                            <SendIcon
+                              sx={{
+                                fontSize: { xs: 16, sm: 17, md: 18, lg: 20 },
+                              }}
+                            />
+                          ) : null
+                        }
+                        sx={{
+                          py: { xs: 1.2, sm: 1.3, md: 1.4, lg: 1.5 },
+                          borderRadius: {
+                            xs: "0.875rem",
+                            sm: "1rem",
+                            md: "1.125rem",
+                          },
+                          fontSize: {
+                            xs: "0.8rem",
+                            sm: "0.85rem",
+                            md: "0.9rem",
+                            lg: "0.95rem",
+                          },
+                          fontWeight: 700,
+                          textTransform: "none",
+                          bgcolor: theme.palette.primary.main,
+                          mt: 1,
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
+                          },
+                          "&:active": {
+                            transform: "translateY(0)",
+                          },
+                          transition: "all 0.2s ease",
+                          position: "relative",
+                        }}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <CircularProgress
+                              size={20}
+                              sx={{
+                                color: "white",
+                                position: "absolute",
+                                left: "50%",
+                                marginLeft: "-10px",
+                              }}
+                            />
+                            Sending...
+                          </>
+                        ) : (
+                          "Send Message"
+                        )}
+                      </Button>
+
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: "block",
+                          textAlign: "center",
+                          mt: 1,
+                          fontSize: {
+                            xs: "0.55rem",
+                            sm: "0.6rem",
+                            md: "0.65rem",
+                          },
+                          color: "text.secondary",
+                        }}
+                      >
+                        <CheckCircleIcon
+                          sx={{
+                            fontSize: 10,
+                            mr: 0.5,
+                            verticalAlign: "middle",
+                          }}
+                        />
+                        Your information is safe with us. We'll never share your
+                        data.
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </Grid>
+          </Grid>
         </motion.div>
       </Container>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        sx={{
+          bottom: { xs: 16, sm: 20, md: 24 },
+        }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{
+            width: "100%",
+            fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
+            borderRadius: { xs: "0.75rem", sm: "1rem" },
+          }}
+          elevation={6}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

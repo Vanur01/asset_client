@@ -117,7 +117,7 @@ const INSP_SCHEDULES = [
   "Quarterly",
   "Annually",
 ];
-const API_HOST = "https://assset-management-backend-4.onrender.com";
+const API_HOST = "http://localhost:9001";
 
 // ── Styled helpers ────────────────────────────────────────────────────────────
 const SectionCard = styled(Paper)(({ theme }) => ({

@@ -1,4 +1,4 @@
-// pages/RequestChecklist.jsx
+// pages/RequestChecklist.jsx - Complete Working Version
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
@@ -34,12 +34,12 @@ import {
   Tabs,
   Tab,
   Divider,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
   useMediaQuery,
+  alpha,
+  LinearProgress,
+  Stack,
 } from "@mui/material";
-import { styled, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
@@ -49,53 +49,41 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import PendingIcon from "@mui/icons-material/Pending";
 import RateReviewIcon from "@mui/icons-material/RateReview";
 import AssignmentIcon from "@mui/icons-material/Assignment";
-import FlagIcon from "@mui/icons-material/Flag";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import ThumbUpIcon from "@mui/icons-material/ThumbUp";
+import ThumbDownIcon from "@mui/icons-material/ThumbDown";
+import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
 import { useAuth } from "../context/AuthContexts";
 import { useRequestChecklist } from "../context/RequestChecklistContext";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const PRIMARY = "#1a4a5c";
-const PRIMARY_LIGHT = "#e8f4f8";
-const PRIMARY_MID = "#2d7a9a";
+// ─── Color Palette ────────────────────────────────────────────────────────────────
+const C = {
+  primary: "#0d4a5c",
+  primaryLight: "#e6f0f3",
+  primaryMid: "#2d7a9a",
+  success: "#2e7d32",
+  warning: "#ed6c02",
+  error: "#d32f2f",
+  surface: "#f8fafc",
+  card: "#ffffff",
+  border: "#e2e8f0",
+  text: { primary: "#1e293b", secondary: "#475569", disabled: "#94a3b8" },
+};
 
-// ─── Styled Components ────────────────────────────────────────────────────────
-const StatCard = styled(Card)(() => ({
-  borderRadius: 14,
-  width:"268px",
-  border: `1px solid ${PRIMARY}18`,
-  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-  transition: "all 0.2s ease",
-  "&:hover": {
-    transform: "translateY(-2px)",
-    boxShadow: `0 6px 18px ${PRIMARY}18`,
-  },
-}));
+// Responsive font sizes (reduced)
+const fontSizes = {
+  xs: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
+  sm: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
+  md: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
+  lg: { xs: "0.85rem", sm: "0.9rem", md: "0.95rem" },
+  xl: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
+  xxl: { xs: "1rem", sm: "1.1rem", md: "1.25rem" },
+};
 
-const PrimaryButton = styled(Button)(() => ({
-  backgroundColor: PRIMARY,
-  color: "#fff",
-  fontWeight: 600,
-  fontSize: 13,
-  borderRadius: 10,
-  textTransform: "none",
-  padding: "8px 20px",
-  "&:hover": { backgroundColor: PRIMARY_MID },
-  "&:disabled": { backgroundColor: `${PRIMARY}50`, color: "#fff" },
-}));
-
-const OutlineButton = styled(Button)(() => ({
-  borderColor: `${PRIMARY}50`,
-  color: PRIMARY,
-  fontWeight: 500,
-  fontSize: 13,
-  borderRadius: 10,
-  textTransform: "none",
-  padding: "8px 20px",
-  "&:hover": { borderColor: PRIMARY, backgroundColor: PRIMARY_LIGHT },
-}));
+const getResponsiveFont = (size) => fontSizes[size];
 
 // ─── Status Chip ──────────────────────────────────────────────────────────────
-const STATUS_MAP = {
+const STATUS_CONFIG = {
   approved: {
     bg: "#ecfdf5",
     color: "#065f46",
@@ -130,7 +118,7 @@ const STATUS_MAP = {
 
 const StatusChip = ({ status }) => {
   const key = typeof status === "string" ? status : status?.status || "pending";
-  const cfg = STATUS_MAP[key] || STATUS_MAP.pending;
+  const cfg = STATUS_CONFIG[key] || STATUS_CONFIG.pending;
   const { Icon } = cfg;
   return (
     <Chip
@@ -138,56 +126,117 @@ const StatusChip = ({ status }) => {
       label={cfg.label}
       icon={
         <Icon
-          sx={{ fontSize: "13px !important", color: `${cfg.color} !important` }}
+          sx={{ fontSize: "12px !important", color: `${cfg.color} !important` }}
         />
       }
       sx={{
         bgcolor: cfg.bg,
         color: cfg.color,
-        fontWeight: 700,
-        fontSize: 11,
-        height: 26,
+        fontWeight: 600,
+        fontSize: getResponsiveFont("xs"),
+        height: 24,
         borderRadius: "6px",
-        "& .MuiChip-icon": { ml: "6px" },
+        "& .MuiChip-icon": { ml: "4px", mr: "2px" },
       }}
     />
   );
 };
 
 const UrgencyChip = ({ level }) => {
-  const map = {
-    low: { bg: "#ecfdf5", color: "#065f46" },
-    medium: { bg: "#fff8e1", color: "#b45309" },
-    high: { bg: "#fff3e0", color: "#c2410c" },
-    critical: { bg: "#fef2f2", color: "#991b1b" },
+  const urgencyMap = {
+    low: { bg: "#ecfdf5", color: "#065f46", label: "LOW" },
+    medium: { bg: "#fff8e1", color: "#b45309", label: "MEDIUM" },
+    high: { bg: "#fff3e0", color: "#c2410c", label: "HIGH" },
+    critical: { bg: "#fef2f2", color: "#991b1b", label: "CRITICAL" },
   };
   const levelLower = level?.toLowerCase() || "medium";
-  const cfg = map[levelLower] || { bg: `${PRIMARY}10`, color: PRIMARY };
+  const cfg = urgencyMap[levelLower] || urgencyMap.medium;
   return (
     <Chip
       size="small"
-      label={(level || "MEDIUM").toUpperCase()}
+      label={cfg.label}
       sx={{
         bgcolor: cfg.bg,
         color: cfg.color,
         fontWeight: 700,
-        fontSize: 10,
-        height: 24,
-        borderRadius: "6px",
+        fontSize: getResponsiveFont("xs"),
+        height: 22,
+        borderRadius: "4px",
       }}
     />
   );
 };
 
+// ─── Stat Card ──────────────────────────────────────────────────────────────
+const StatCard = ({ label, value, icon, iconBg, iconColor }) => (
+  <Card
+    sx={{
+      borderRadius: "12px",
+      border: `1px solid ${alpha(C.primary, 0.08)}`,
+      boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+      transition: "all 0.2s ease",
+      width: "285px",
+      height: "100%",
+      "&:hover": {
+        transform: "translateY(-1px)",
+        boxShadow: `0 4px 12px ${alpha(C.primary, 0.08)}`,
+      },
+    }}
+  >
+    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Box>
+          <Typography
+            sx={{
+              fontSize: getResponsiveFont("xs"),
+              fontWeight: 600,
+              color: C.text.disabled,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              mb: 0.5,
+            }}
+          >
+            {label}
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: getResponsiveFont("xl"),
+              fontWeight: 800,
+              color: C.primary,
+              lineHeight: 1.2,
+            }}
+          >
+            {value}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            width: { xs: 36, sm: 40 },
+            height: { xs: 36, sm: 40 },
+            borderRadius: "10px",
+            bgcolor: iconBg,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: iconColor,
+          }}
+        >
+          {React.cloneElement(icon, { sx: { fontSize: { xs: 18, sm: 20 } } })}
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
 // ─── Section Label ─────────────────────────────────────────────────────────
 const SectionLabel = ({ children }) => (
   <Typography
     sx={{
-      fontSize: 11,
+      fontSize: getResponsiveFont("xs"),
       fontWeight: 700,
-      color: "#94a3b8",
+      color: C.text.disabled,
       textTransform: "uppercase",
-      letterSpacing: ".6px",
+      letterSpacing: "0.5px",
       mb: 0.75,
     }}
   >
@@ -195,34 +244,12 @@ const SectionLabel = ({ children }) => (
   </Typography>
 );
 
-const InfoBox = styled(Paper)(({ variant: v }) => ({
-  padding: "10px 14px",
-  borderRadius: 8,
-  fontSize: 13,
-  lineHeight: 1.6,
-  ...(v === "danger" && {
-    background: "#fef2f2",
-    borderColor: "#fca5a5",
-    color: "#991b1b",
-  }),
-  ...(v === "success" && {
-    background: "#ecfdf5",
-    borderColor: "#6ee7b7",
-    color: "#065f46",
-  }),
-  ...(!v && {
-    background: "#f8fafc",
-    borderColor: "#e2e8f0",
-    color: "#334155",
-  }),
-}));
-
-// ─── Submit Request Dialog ────────────────────────────────────────────────────
-function SubmitRequestDialog({ open, onClose, onSubmit, loading }) {
+// ─── Submit Request Dialog ─────────────────────────────────────────────────
+const SubmitRequestDialog = ({ open, onClose, onSubmit, loading }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const init = {
+  const [form, setForm] = useState({
     checklistName: "",
     category: "",
     detailedDescription: "",
@@ -231,45 +258,54 @@ function SubmitRequestDialog({ open, onClose, onSubmit, loading }) {
     expectedUsageFrequency: "monthly",
     numberOfTeamMembers: 1,
     additionalNotes: "",
-  };
-  const [form, setForm] = useState(init);
+  });
 
-  const set = (field) => (e) =>
-    setForm((p) => ({ ...p, [field]: e.target.value }));
-
-  const disabled =
-    !form.checklistName ||
-    !form.category ||
-    !form.detailedDescription ||
-    !form.businessJustification;
+  const handleChange = (field) => (e) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleClose = () => {
-    setForm(init);
+    setForm({
+      checklistName: "",
+      category: "",
+      detailedDescription: "",
+      businessJustification: "",
+      urgencyLevel: "medium",
+      expectedUsageFrequency: "monthly",
+      numberOfTeamMembers: 1,
+      additionalNotes: "",
+    });
     onClose();
   };
 
+  const isDisabled =
+    !form.checklistName.trim() ||
+    !form.category ||
+    !form.detailedDescription.trim() ||
+    !form.businessJustification.trim();
+
   const handleSubmit = () => {
-    // Prepare data for API
-    const submitData = {
+    onSubmit({
       checklistName: form.checklistName,
       category: form.category,
       detailedDescription: form.detailedDescription,
       businessJustification: form.businessJustification,
-      urgencyLevel: form.urgencyLevel.toLowerCase(),
-      expectedUsageFrequency: form.expectedUsageFrequency.toLowerCase(),
+      urgencyLevel: form.urgencyLevel,
+      expectedUsageFrequency: form.expectedUsageFrequency,
       numberOfTeamMembers: parseInt(form.numberOfTeamMembers) || 1,
       additionalNotes: form.additionalNotes || "",
-    };
-    onSubmit(submitData);
+    });
   };
 
-  const fieldSx = {
+  const textFieldSx = {
     "& .MuiOutlinedInput-root": {
-      borderRadius: "10px",
-      fontSize: 13,
-      "&.Mui-focused fieldset": { borderColor: PRIMARY },
+      borderRadius: "8px",
+      fontSize: getResponsiveFont("md"),
+      "&.Mui-focused fieldset": { borderColor: C.primary },
     },
-    "& .MuiInputLabel-root.Mui-focused": { color: PRIMARY },
+    "& .MuiInputLabel-root": {
+      fontSize: getResponsiveFont("sm"),
+      "&.Mui-focused": { color: C.primary },
+    },
   };
 
   return (
@@ -283,16 +319,15 @@ function SubmitRequestDialog({ open, onClose, onSubmit, loading }) {
         sx: {
           borderRadius: fullScreen ? 0 : "16px",
           overflow: "hidden",
-          width: "100%",
         },
       }}
     >
       <DialogTitle
         sx={{
-          background: `linear-gradient(135deg, ${PRIMARY} 0%, ${PRIMARY_MID} 100%)`,
+          background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryMid} 100%)`,
           color: "#fff",
-          px: 3,
-          py: 2.5,
+          px: { xs: 2, sm: 3 },
+          py: { xs: 1.5, sm: 2 },
         }}
       >
         <Box
@@ -301,51 +336,52 @@ function SubmitRequestDialog({ open, onClose, onSubmit, loading }) {
           alignItems="flex-start"
         >
           <Box>
-            <Typography fontWeight={700} fontSize={18}>
+            <Typography
+              fontWeight={700}
+              sx={{ fontSize: getResponsiveFont("lg") }}
+            >
               Request New Checklist
             </Typography>
-            <Typography fontSize={12} sx={{ opacity: 0.8, mt: 0.5 }}>
+            <Typography
+              sx={{
+                fontSize: getResponsiveFont("sm"),
+                opacity: 0.85,
+                mt: 0.25,
+              }}
+            >
               Submit your request for a custom checklist form
             </Typography>
           </Box>
-
           <IconButton onClick={handleClose} sx={{ color: "#fff", mt: -0.5 }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
       </DialogTitle>
 
-      <DialogContent
-        sx={{
-          px: { xs: 2, sm: 3 },
-          py: 3,
-          bgcolor: "#fafbfc",
-          mt: 2,
-        }}
-      >
+      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: 2.5, bgcolor: "#fafbfc" }}>
         <Grid container spacing={2}>
-          {/* Checklist Name */}
-          <Grid item xs={12} sm={6} sx={{width:"250px"}}>
+          <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              size="small"
               label="Checklist Name *"
-              placeholder="e.g. Fire Safety Inspection"
+              placeholder="e.g., Fire Safety Inspection"
               value={form.checklistName}
-              onChange={set("checklistName")}
-              sx={fieldSx}
+              onChange={handleChange("checklistName")}
+              size="small"
+              sx={textFieldSx}
             />
           </Grid>
 
-          {/* Category */}
-          <Grid item xs={12} sm={6} sx={{width:"250px"}}>
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth size="small">
-              <InputLabel>Category *</InputLabel>
+              <InputLabel sx={{ fontSize: getResponsiveFont("sm") }}>
+                Category *
+              </InputLabel>
               <Select
-                label="Category *"
                 value={form.category}
-                onChange={set("category")}
-                sx={{ borderRadius: "10px" }}
+                onChange={handleChange("category")}
+                label="Category *"
+                sx={{ borderRadius: "8px", fontSize: getResponsiveFont("md") }}
               >
                 {[
                   "Safety",
@@ -353,8 +389,14 @@ function SubmitRequestDialog({ open, onClose, onSubmit, loading }) {
                   "Environmental",
                   "Quality",
                   "Compliance",
+                  "Maintenance",
+                  "Audit",
                 ].map((c) => (
-                  <MenuItem key={c} value={c}>
+                  <MenuItem
+                    key={c}
+                    value={c}
+                    sx={{ fontSize: getResponsiveFont("md") }}
+                  >
                     {c}
                   </MenuItem>
                 ))}
@@ -362,171 +404,226 @@ function SubmitRequestDialog({ open, onClose, onSubmit, loading }) {
             </FormControl>
           </Grid>
 
-          {/* Description */}
-          <Grid item xs={12} sx={{width:"250px"}}>
+          <Grid item xs={12}>
             <TextField
-            fullWidth
+              fullWidth
+              multiline
+              rows={2}
               label="Detailed Description *"
               placeholder="Mention fields, sections, approvals, workflow, etc."
               value={form.detailedDescription}
-              onChange={set("detailedDescription")}
-              sx={fieldSx}
-            />
-          </Grid>
-
-          {/* Business Justification */}
-          <Grid item xs={12} sx={{width:"250px"}}>
-            <TextField
-              fullWidth
-              label="Business Justification *"
-              placeholder="Why is this checklist required?"
-              value={form.businessJustification}
-              onChange={set("businessJustification")}
-              sx={fieldSx}
-            />
-          </Grid>
-
-          {/* Urgency */}
-          <Grid item xs={12} sm={6} sx={{width:"250px"}}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Urgency Level</InputLabel>
-              <Select
-                label="Urgency Level"
-                value={form.urgencyLevel}
-                onChange={set("urgencyLevel")}
-                sx={{ borderRadius: "10px" }}
-              >
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="critical">Critical</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Frequency */}
-          <Grid item xs={12} sm={6} sx={{width:"250px"}}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Usage Frequency</InputLabel>
-              <Select
-                label="Usage Frequency"
-                value={form.expectedUsageFrequency}
-                onChange={set("expectedUsageFrequency")}
-                sx={{ borderRadius: "10px" }}
-              >
-                <MenuItem value="daily">Daily</MenuItem>
-                <MenuItem value="weekly">Weekly</MenuItem>
-                <MenuItem value="monthly">Monthly</MenuItem>
-                <MenuItem value="quarterly">Quarterly</MenuItem>
-                <MenuItem value="yearly">Yearly</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Team Members */}
-          <Grid item xs={12} sm={6} sx={{width:"250px"}}>
-            <TextField
-              fullWidth
+              onChange={handleChange("detailedDescription")}
               size="small"
+              sx={textFieldSx}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              label="Business Justification *"
+              placeholder="Why is this checklist required? What problem will it solve?"
+              value={form.businessJustification}
+              onChange={handleChange("businessJustification")}
+              size="small"
+              sx={textFieldSx}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: getResponsiveFont("sm") }}>
+                Urgency Level
+              </InputLabel>
+              <Select
+                value={form.urgencyLevel}
+                onChange={handleChange("urgencyLevel")}
+                label="Urgency Level"
+                sx={{ borderRadius: "8px", fontSize: getResponsiveFont("md") }}
+              >
+                <MenuItem
+                  value="low"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Low
+                </MenuItem>
+                <MenuItem
+                  value="medium"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Medium
+                </MenuItem>
+                <MenuItem
+                  value="high"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  High
+                </MenuItem>
+                <MenuItem
+                  value="critical"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Critical
+                </MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: getResponsiveFont("sm") }}>
+                Usage Frequency
+              </InputLabel>
+              <Select
+                value={form.expectedUsageFrequency}
+                onChange={handleChange("expectedUsageFrequency")}
+                label="Usage Frequency"
+                sx={{ borderRadius: "8px", fontSize: getResponsiveFont("md") }}
+              >
+                <MenuItem
+                  value="daily"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Daily
+                </MenuItem>
+                <MenuItem
+                  value="weekly"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Weekly
+                </MenuItem>
+                <MenuItem
+                  value="monthly"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Monthly
+                </MenuItem>
+                <MenuItem
+                  value="quarterly"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Quarterly
+                </MenuItem>
+                <MenuItem
+                  value="yearly"
+                  sx={{ fontSize: getResponsiveFont("md") }}
+                >
+                  Yearly
+                </MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
               type="number"
               label="Number of Team Members"
               value={form.numberOfTeamMembers}
-              onChange={set("numberOfTeamMembers")}
+              onChange={handleChange("numberOfTeamMembers")}
               inputProps={{ min: 1, max: 100 }}
-              sx={fieldSx}
+              size="small"
+              sx={textFieldSx}
             />
           </Grid>
 
-          {/* Notes */}
-          <Grid item xs={12} sm={6} sx={{width:"250px"}}>
+          <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              size="small"
               label="Additional Notes"
-              placeholder="Optional notes..."
+              placeholder="Optional notes or special requirements..."
               value={form.additionalNotes}
-              onChange={set("additionalNotes")}
-              sx={fieldSx}
+              onChange={handleChange("additionalNotes")}
+              multiline
+              rows={1}
+              size="small"
+              sx={textFieldSx}
             />
           </Grid>
         </Grid>
       </DialogContent>
 
       <Divider />
-
       <DialogActions
         sx={{
-          px: 3,
-          py: 2,
-          gap: 1.5,
+          px: { xs: 2, sm: 3 },
+          py: 1.5,
+          gap: 1,
           flexDirection: { xs: "column-reverse", sm: "row" },
         }}
       >
-        <OutlineButton
+        <Button
           fullWidth={fullScreen}
           variant="outlined"
           onClick={handleClose}
+          size="small"
+          sx={{
+            borderRadius: "8px",
+            fontSize: getResponsiveFont("sm"),
+            textTransform: "none",
+            py: 0.5,
+          }}
         >
           Cancel
-        </OutlineButton>
-
-        <PrimaryButton
+        </Button>
+        <Button
           fullWidth={fullScreen}
+          variant="contained"
           onClick={handleSubmit}
-          disabled={loading || disabled}
-          startIcon={
-            loading ? (
-              <CircularProgress size={15} color="inherit" />
-            ) : (
-              <AddIcon fontSize="small" />
-            )
-          }
+          disabled={loading || isDisabled}
+          size="small"
+          sx={{
+            backgroundColor: C.primary,
+            borderRadius: "8px",
+            fontSize: getResponsiveFont("sm"),
+            textTransform: "none",
+            py: 0.5,
+            "&:hover": { backgroundColor: C.primaryMid },
+          }}
         >
-          {loading ? "Submitting..." : "Submit Request"}
-        </PrimaryButton>
+          {loading ? (
+            <CircularProgress size={18} color="inherit" />
+          ) : (
+            "Submit Request"
+          )}
+        </Button>
       </DialogActions>
     </Dialog>
   );
-}
+};
 
-// ─── Review Dialog ────────────────────────────────────────────────────────────
-function ReviewRequestDialog({ open, onClose, request, onReview, loading }) {
-  const [action, setAction] = useState("under_review");
-  const [comments, setComments] = useState("");
-  const [checklistId, setChecklistId] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
+// ─── Review Request Dialog ─────────────────────────────────────────────────
+const ReviewRequestDialog = ({ open, onClose, request, onReview, loading }) => {
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedAction, setSelectedAction] = useState(null);
 
   useEffect(() => {
     if (open) {
-      setAction("under_review");
-      setComments("");
-      setChecklistId("");
-      setRejectReason("");
+      setRejectionReason("");
+      setSelectedAction(null);
     }
   }, [open]);
 
-  const canSubmit =
-    comments.trim() &&
-    (action !== "approved" || checklistId.trim()) &&
-    (action !== "rejected" || rejectReason.trim());
-
-  const handleSubmit = () => {
-    onReview(
-      action,
-      comments,
-      action === "approved" ? checklistId : null,
-      action === "rejected" ? rejectReason : null,
-    );
+  const handleAction = (action) => {
+    if (action === "rejected" && !rejectionReason.trim()) {
+      return;
+    }
+    onReview(action, rejectionReason || null);
+    setSelectedAction(action);
   };
 
-  const radioSx = { color: PRIMARY, "&.Mui-checked": { color: PRIMARY } };
-  const fieldSx = {
+  const textFieldSx = {
     "& .MuiOutlinedInput-root": {
-      borderRadius: "10px",
-      fontSize: 13,
-      "&.Mui-focused fieldset": { borderColor: PRIMARY },
+      borderRadius: "8px",
+      fontSize: getResponsiveFont("md"),
+      "&.Mui-focused fieldset": { borderColor: C.primary },
     },
-    "& .MuiInputLabel-root.Mui-focused": { color: PRIMARY },
+    "& .MuiInputLabel-root": {
+      fontSize: getResponsiveFont("sm"),
+      "&.Mui-focused": { color: C.primary },
+    },
   };
 
   return (
@@ -539,10 +636,10 @@ function ReviewRequestDialog({ open, onClose, request, onReview, loading }) {
     >
       <DialogTitle
         sx={{
-          background: `linear-gradient(135deg, ${PRIMARY}, ${PRIMARY_MID})`,
+          background: `linear-gradient(135deg, ${C.primary}, ${C.primaryMid})`,
           color: "#fff",
-          px: 3,
-          py: 2.5,
+          px: { xs: 2, sm: 3 },
+          py: { xs: 1.5, sm: 2 },
         }}
       >
         <Box
@@ -551,10 +648,19 @@ function ReviewRequestDialog({ open, onClose, request, onReview, loading }) {
           alignItems="flex-start"
         >
           <Box>
-            <Typography fontWeight={700} fontSize={18}>
+            <Typography
+              fontWeight={700}
+              sx={{ fontSize: getResponsiveFont("lg") }}
+            >
               Review Request
             </Typography>
-            <Typography fontSize={12} sx={{ opacity: 0.8, mt: 0.5 }}>
+            <Typography
+              sx={{
+                fontSize: getResponsiveFont("sm"),
+                opacity: 0.85,
+                mt: 0.25,
+              }}
+            >
               {request?.checklistName}
             </Typography>
           </Box>
@@ -564,126 +670,144 @@ function ReviewRequestDialog({ open, onClose, request, onReview, loading }) {
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ px: 3, py: 3, bgcolor: "#fafbfc" }}>
+      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: 2.5, bgcolor: "#fafbfc" }}>
         <Grid container spacing={2.5}>
           <Grid item xs={12}>
-            <SectionLabel>Action *</SectionLabel>
-            <RadioGroup
-              row
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              sx={{ gap: 1 }}
+            <Box sx={{ mb: 1, mt: 1 }}>
+              <SectionLabel>Select Action</SectionLabel>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
             >
-              {[
-                { value: "under_review", label: "Under Review" },
-                { value: "approved", label: "Approve" },
-                { value: "rejected", label: "Reject" },
-              ].map((opt) => (
-                <FormControlLabel
-                  key={opt.value}
-                  value={opt.value}
-                  label={opt.label}
-                  control={<Radio size="small" sx={radioSx} />}
-                  sx={{
-                    border: `1.5px solid`,
-                    borderColor: action === opt.value ? PRIMARY : "#e2e8f0",
-                    borderRadius: "10px",
-                    px: 1.5,
-                    py: 0.5,
-                    mr: 0,
-                    bgcolor:
-                      action === opt.value ? PRIMARY_LIGHT : "transparent",
-                    transition: "all .15s",
-                    "& .MuiFormControlLabel-label": {
-                      fontSize: 13,
-                      fontWeight: action === opt.value ? 600 : 400,
-                      color: action === opt.value ? PRIMARY : "#475569",
-                    },
-                  }}
-                />
-              ))}
-            </RadioGroup>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleAction("approved")}
+                disabled={loading}
+                startIcon={<ThumbUpIcon />}
+                sx={{
+                  backgroundColor: C.success,
+                  borderRadius: "8px",
+                  width: "200px",
+                  fontSize: getResponsiveFont("md"),
+                  textTransform: "none",
+                  py: 1,
+                  "&:hover": { backgroundColor: "#1b5e20" },
+                }}
+              >
+                Approve
+              </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleAction("under_review")}
+                disabled={loading}
+                startIcon={<RemoveRedEyeIcon />}
+                sx={{
+                  backgroundColor: "#1d4ed8",
+                  borderRadius: "8px",
+                  width: "200px",
+                  fontSize: getResponsiveFont("md"),
+                  textTransform: "none",
+                  py: 1,
+                  "&:hover": { backgroundColor: "#1e40af" },
+                }}
+              >
+                Under Review
+              </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleAction("rejected")}
+                disabled={loading || !rejectionReason.trim()}
+                startIcon={<ThumbDownIcon />}
+                sx={{
+                  backgroundColor: C.error,
+                  borderRadius: "8px",
+                  fontSize: getResponsiveFont("md"),
+                  textTransform: "none",
+                  width: "200px",
+                  py: 1,
+                  "&:hover": { backgroundColor: "#b71c1c" },
+                }}
+              >
+                Reject
+              </Button>
+            </Box>
           </Grid>
 
           <Grid item xs={12}>
             <TextField
               fullWidth
               multiline
-              rows={2}
+              rows={3}
+              label="Rejection Reason"
+              placeholder="Please provide a reason for rejection (required for rejection)"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
               size="small"
-              label="Review Comments *"
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              sx={fieldSx}
+              helperText="Required when rejecting a request"
+              sx={{
+                ...textFieldSx,
+                width: "400px",
+              }}
             />
           </Grid>
-
-          {action === "approved" && (
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Created Checklist ID *"
-                placeholder="Enter the ID of the created checklist"
-                helperText="Enter the checklist ID that was created from this request"
-                value={checklistId}
-                onChange={(e) => setChecklistId(e.target.value)}
-                sx={fieldSx}
-              />
-            </Grid>
-          )}
-
-          {action === "rejected" && (
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label="Rejection Reason *"
-                helperText="Explain why this request is being rejected"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                sx={fieldSx}
-              />
-            </Grid>
-          )}
         </Grid>
       </DialogContent>
 
-      <Divider />
-      <DialogActions sx={{ px: 3, py: 2, gap: 1.5 }}>
-        <OutlineButton variant="outlined" onClick={onClose}>
-          Cancel
-        </OutlineButton>
-        <PrimaryButton
-          onClick={handleSubmit}
-          disabled={loading || !canSubmit}
-          startIcon={
-            loading ? <CircularProgress size={15} color="inherit" /> : null
-          }
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 1.5, gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          size="small"
+          sx={{
+            borderRadius: "8px",
+            fontSize: getResponsiveFont("sm"),
+            textTransform: "none",
+            py: 0.5,
+          }}
         >
-          {loading ? "Processing…" : "Submit Review"}
-        </PrimaryButton>
+          Cancel
+        </Button>
       </DialogActions>
     </Dialog>
   );
-}
+};
 
-// ─── View Request Dialog ──────────────────────────────────────────────────────
-function ViewRequestDialog({
+// ─── View Request Dialog ───────────────────────────────────────────────────
+const ViewRequestDialog = ({
   open,
   onClose,
   request,
   userRole,
   onReviewClick,
-}) {
+}) => {
   if (!request) return null;
 
   const canReview =
     userRole === "super_admin" &&
     request.status !== "approved" &&
     request.status !== "rejected";
+
+  const InfoField = ({ label, value }) => (
+    <Box>
+      <SectionLabel>{label}</SectionLabel>
+      <Typography
+        sx={{
+          fontSize: getResponsiveFont("md"),
+          color: C.text.primary,
+          fontWeight: 500,
+        }}
+      >
+        {value || "—"}
+      </Typography>
+    </Box>
+  );
 
   return (
     <Dialog
@@ -695,14 +819,17 @@ function ViewRequestDialog({
     >
       <DialogTitle
         sx={{
-          background: `linear-gradient(135deg, ${PRIMARY}, ${PRIMARY_MID})`,
+          background: `linear-gradient(135deg, ${C.primary}, ${C.primaryMid})`,
           color: "#fff",
-          px: 3,
-          py: 2.5,
+          px: { xs: 2, sm: 3 },
+          py: { xs: 1.5, sm: 2 },
         }}
       >
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography fontWeight={700} fontSize={18}>
+          <Typography
+            fontWeight={700}
+            sx={{ fontSize: getResponsiveFont("lg") }}
+          >
             Request Details
           </Typography>
           <IconButton onClick={onClose} sx={{ color: "#fff" }}>
@@ -711,8 +838,8 @@ function ViewRequestDialog({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: 3, bgcolor: "#fafbfc" }}>
-        {/* Title row */}
+      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: 2.5, bgcolor: "#fafbfc" }}>
+        {/* Header */}
         <Box
           display="flex"
           flexWrap="wrap"
@@ -724,145 +851,191 @@ function ViewRequestDialog({
           <Box>
             <Typography
               fontWeight={700}
-              fontSize={17}
-              color={PRIMARY}
-              mb={0.75}
+              sx={{
+                fontSize: getResponsiveFont("md"),
+                color: C.primary,
+                mb: 0.5,
+              }}
             >
               {request.checklistName}
             </Typography>
-            <Box display="flex" gap={1} flexWrap="wrap">
+            <Box display="flex" gap={0.75} flexWrap="wrap">
               <StatusChip status={request.status} />
               <UrgencyChip level={request.urgencyLevel} />
             </Box>
           </Box>
-          <Typography fontSize={12} color="text.secondary" sx={{ mt: 0.5 }}>
-            {new Date(request.requestDate).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}
-          </Typography>
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <CalendarTodayIcon sx={{ fontSize: 12, color: C.text.disabled }} />
+            <Typography
+              sx={{
+                fontSize: getResponsiveFont("xs"),
+                color: C.text.secondary,
+              }}
+            >
+              {new Date(request.requestDate).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </Typography>
+          </Box>
         </Box>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.5 }} />
 
-        {/* Meta grid */}
+        {/* Meta Info Grid */}
         <Grid container spacing={2} mb={2}>
-          {[
-            { label: "Category", value: request.category },
-            {
-              label: "Requested By",
-              value: request.requestedByName || request.requestedBy?.email,
-            },
-            { label: "Team Members", value: request.numberOfTeamMembers || 1 },
-            {
-              label: "Usage Frequency",
-              value: request.expectedUsageFrequency || "—",
-            },
-          ].map((item) => (
-            <Grid item xs={6} sm={3} key={item.label}>
-              <SectionLabel>{item.label}</SectionLabel>
-              <Typography fontSize={13} fontWeight={600} color={PRIMARY}>
-                {item.value}
-              </Typography>
-            </Grid>
-          ))}
+          <Grid item xs={6} sm={3}>
+            <InfoField label="Category" value={request.category} />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <InfoField
+              label="Requested By"
+              value={request.requestedByName || request.requestedBy?.email}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <InfoField
+              label="Team Members"
+              value={request.numberOfTeamMembers || 1}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <InfoField
+              label="Usage Frequency"
+              value={request.expectedUsageFrequency || "—"}
+            />
+          </Grid>
         </Grid>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.5 }} />
 
-        {/* Text blocks */}
-        <Box display="flex" flexDirection="column" gap={2}>
+        {/* Description Fields */}
+        <Stack spacing={2}>
           <Box>
             <SectionLabel>Detailed Description</SectionLabel>
-            <InfoBox variant="outlined">{request.detailedDescription}</InfoBox>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                borderRadius: "8px",
+                bgcolor: "#fff",
+                borderColor: C.border,
+                fontSize: getResponsiveFont("sm"),
+                lineHeight: 1.5,
+              }}
+            >
+              {request.detailedDescription}
+            </Paper>
           </Box>
+
           <Box>
             <SectionLabel>Business Justification</SectionLabel>
-            <InfoBox variant="outlined">
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                borderRadius: "8px",
+                bgcolor: "#fff",
+                borderColor: C.border,
+                fontSize: getResponsiveFont("sm"),
+                lineHeight: 1.5,
+              }}
+            >
               {request.businessJustification}
-            </InfoBox>
+            </Paper>
           </Box>
+
           {request.additionalNotes && (
             <Box>
               <SectionLabel>Additional Notes</SectionLabel>
-              <InfoBox variant="outlined">{request.additionalNotes}</InfoBox>
-            </Box>
-          )}
-          {request.reviewComments && (
-            <Box>
-              <SectionLabel>Review Comments</SectionLabel>
-              <InfoBox
-                variant="success"
+              <Paper
+                variant="outlined"
                 sx={{
-                  background: "#ecfdf5",
-                  borderColor: "#6ee7b7",
-                  color: "#065f46",
+                  p: 1.5,
+                  borderRadius: "8px",
+                  bgcolor: "#fff",
+                  borderColor: C.border,
+                  fontSize: getResponsiveFont("sm"),
+                  lineHeight: 1.5,
                 }}
               >
-                {request.reviewComments}
-              </InfoBox>
+                {request.additionalNotes}
+              </Paper>
             </Box>
           )}
+
           {request.rejectionReason && (
             <Box>
               <SectionLabel>Rejection Reason</SectionLabel>
-              <InfoBox
-                variant="danger"
+              <Paper
                 sx={{
-                  background: "#fef2f2",
-                  borderColor: "#fca5a5",
-                  color: "#991b1b",
+                  p: 1.5,
+                  borderRadius: "8px",
+                  bgcolor: alpha(C.error, 0.05),
+                  border: `1px solid ${alpha(C.error, 0.2)}`,
+                  fontSize: getResponsiveFont("sm"),
+                  color: C.error,
                 }}
               >
                 {request.rejectionReason}
-              </InfoBox>
+              </Paper>
             </Box>
           )}
-          {request.createdChecklistName && (
-            <Box>
-              <SectionLabel>Created Checklist</SectionLabel>
-              <InfoBox
-                variant="success"
-                sx={{
-                  background: "#ecfdf5",
-                  borderColor: "#6ee7b7",
-                  color: "#065f46",
-                }}
-              >
-                {request.createdChecklistName}
-              </InfoBox>
-            </Box>
-          )}
-        </Box>
+        </Stack>
       </DialogContent>
 
       <Divider />
-      <DialogActions sx={{ px: 3, py: 2, gap: 1.5 }}>
-        <OutlineButton variant="outlined" onClick={onClose}>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 1.5, gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          size="small"
+          sx={{
+            borderRadius: "8px",
+            fontSize: getResponsiveFont("sm"),
+            textTransform: "none",
+            py: 0.5,
+          }}
+        >
           Close
-        </OutlineButton>
+        </Button>
         {canReview && (
-          <PrimaryButton onClick={() => onReviewClick(request)}>
+          <Button
+            variant="contained"
+            onClick={() => onReviewClick(request)}
+            size="small"
+            sx={{
+              backgroundColor: C.primary,
+              borderRadius: "8px",
+              fontSize: getResponsiveFont("sm"),
+              textTransform: "none",
+              py: 0.5,
+              "&:hover": { backgroundColor: C.primaryMid },
+            }}
+          >
             Review Request
-          </PrimaryButton>
+          </Button>
         )}
       </DialogActions>
     </Dialog>
   );
-}
+};
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────
 export default function RequestChecklist() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const {
     submitRequest,
     getAllRequests,
     getRequestStats,
     reviewRequest,
-    loading,
+    loading: contextLoading,
     clearMessages,
   } = useRequestChecklist();
+
   const isSuperAdmin = user?.role === "super_admin";
 
   const [tabValue, setTabValue] = useState(0);
@@ -886,6 +1059,7 @@ export default function RequestChecklist() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -894,32 +1068,54 @@ export default function RequestChecklist() {
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDebouncedSearch(search);
       setPage(1);
     }, 500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [search]);
 
   const fetchStats = useCallback(async () => {
-    const r = await getRequestStats();
-    if (r.success && r.data?.counts) setStats(r.data.counts);
+    try {
+      const result = await getRequestStats();
+      if (result.success && result.data?.counts) {
+        setStats(result.data.counts);
+      }
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+    }
   }, [getRequestStats]);
 
   const fetchRequests = useCallback(async () => {
-    const filters = { page, limit };
-    if (debouncedSearch) filters.search = debouncedSearch;
-    if (tabValue === 1) filters.status = "pending";
-    if (tabValue === 2) filters.status = "under_review";
-    if (tabValue === 3) filters.status = "approved";
-    const r = await getAllRequests(filters);
-    if (r.success && r.data?.requests) {
-      setRequests(r.data.requests);
-      if (r.data.pagination)
-        setPagination({
-          total: r.data.pagination.total || 0,
-          totalPages: r.data.pagination.totalPages || 1,
-        });
+    setLoading(true);
+    try {
+      const filters = { page, limit };
+      if (debouncedSearch) filters.search = debouncedSearch;
+      if (tabValue === 1) filters.status = "pending";
+      if (tabValue === 2) filters.status = "under_review";
+      if (tabValue === 3) filters.status = "approved";
+
+      const result = await getAllRequests(filters);
+      if (result.success && result.data?.requests) {
+        setRequests(result.data.requests);
+        if (result.data.pagination) {
+          setPagination({
+            total: result.data.pagination.total || 0,
+            totalPages: result.data.pagination.totalPages || 1,
+          });
+        }
+      } else {
+        setRequests([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch requests:", err);
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch requests",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
     }
   }, [getAllRequests, page, limit, debouncedSearch, tabValue]);
 
@@ -930,57 +1126,68 @@ export default function RequestChecklist() {
 
   const handleSubmitRequest = async (formData) => {
     setSubmitLoading(true);
-    const r = await submitRequest(formData);
-    setSubmitLoading(false);
-    if (r.success) {
-      setSubmitDialogOpen(false);
+    try {
+      const result = await submitRequest(formData);
+      if (result.success) {
+        setSubmitDialogOpen(false);
+        setSnackbar({
+          open: true,
+          message: "Request submitted successfully!",
+          severity: "success",
+        });
+        fetchRequests();
+        fetchStats();
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.error || "Failed to submit request",
+          severity: "error",
+        });
+      }
+    } catch (err) {
       setSnackbar({
         open: true,
-        message: "Request submitted successfully!",
-        severity: "success",
-      });
-      fetchRequests();
-      fetchStats();
-    } else {
-      setSnackbar({
-        open: true,
-        message: r.error || "Failed to submit request",
+        message: "An error occurred",
         severity: "error",
       });
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
-  const handleReviewRequest = async (
-    action,
-    reviewComments,
-    createdChecklistId = null,
-    rejectionReason = null,
-  ) => {
+  const handleReviewRequest = async (action, rejectionReason = null) => {
     setReviewLoading(true);
-    const r = await reviewRequest(
-      selectedRequest._id,
-      action,
-      reviewComments,
-      createdChecklistId,
-      rejectionReason,
-    );
-    setReviewLoading(false);
-    if (r.success) {
-      setReviewDialogOpen(false);
-      setViewDialogOpen(false);
+    try {
+      const result = await reviewRequest(
+        selectedRequest._id,
+        action,
+        rejectionReason,
+      );
+      if (result.success) {
+        setReviewDialogOpen(false);
+        setViewDialogOpen(false);
+        setSnackbar({
+          open: true,
+          message: `Request ${action.replace("_", " ")} successfully!`,
+          severity: "success",
+        });
+        fetchRequests();
+        fetchStats();
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.error || "Failed to review request",
+          severity: "error",
+        });
+      }
+    } catch (err) {
       setSnackbar({
         open: true,
-        message: `Request ${action.replace("_", " ")} successfully!`,
-        severity: "success",
-      });
-      fetchRequests();
-      fetchStats();
-    } else {
-      setSnackbar({
-        open: true,
-        message: r.error || "Failed to review request",
+        message: "An error occurred",
         severity: "error",
       });
+    } finally {
+      setReviewLoading(false);
     }
   };
 
@@ -989,242 +1196,282 @@ export default function RequestChecklist() {
       label: "Total Requests",
       value: stats.total || 0,
       icon: <AssignmentIcon />,
-      iconBg: PRIMARY_LIGHT,
-      iconColor: PRIMARY,
+      iconBg: alpha(C.primary, 0.1),
+      iconColor: C.primary,
     },
     {
       label: "Pending",
       value: stats.pending || 0,
       icon: <PendingIcon />,
-      iconBg: "#fff8e1",
+      iconBg: alpha("#b45309", 0.1),
       iconColor: "#b45309",
     },
     {
       label: "Under Review",
       value: stats.under_review || 0,
       icon: <RateReviewIcon />,
-      iconBg: "#eff6ff",
+      iconBg: alpha("#1d4ed8", 0.1),
       iconColor: "#1d4ed8",
     },
     {
-      label: "High Priority",
-      value: (stats.pending || 0) + (stats.under_review || 0),
-      icon: <FlagIcon />,
-      iconBg: "#fff3e0",
-      iconColor: "#c2410c",
+      label: "Approved",
+      value: stats.approved || 0,
+      icon: <CheckCircleIcon />,
+      iconBg: alpha("#065f46", 0.1),
+      iconColor: "#065f46",
     },
   ];
 
-  const tabSx = {
-    "& .MuiTab-root": {
-      textTransform: "none",
-      fontSize: 13,
-      fontWeight: 500,
-      minHeight: 46,
-      color: "#64748b",
-    },
-    "& .MuiTab-root.Mui-selected": { color: PRIMARY, fontWeight: 700 },
-    "& .MuiTabs-indicator": {
-      backgroundColor: PRIMARY,
-      height: 3,
-      borderRadius: "3px 3px 0 0",
-    },
-  };
-
-  const thSx = {
-    fontWeight: 700,
-    fontSize: 11,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: ".5px",
-    py: 1.5,
-    bgcolor: "#f8fafc",
-  };
-
   return (
-    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, minHeight: "100vh" }}>
-      {/* ── Header ── */}
+    <Box
+      sx={{
+        p: { xs: 1.5, sm: 2.5, md: 3 },
+        minHeight: "100vh",
+        bgcolor: C.surface,
+      }}
+    >
+      {/* Loading Overlay */}
+      {(loading || contextLoading) && !submitLoading && !reviewLoading && (
+        <LinearProgress
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1300,
+            height: 2,
+          }}
+        />
+      )}
+
+      {/* Header */}
       <Box
         display="flex"
         flexWrap="wrap"
         justifyContent="space-between"
         alignItems="center"
         gap={2}
-        mb={3.5}
+        mb={2.5}
       >
         <Box>
           <Typography
             sx={{
-              fontSize: { xs: 18, sm: 22 },
+              fontSize: getResponsiveFont("xl"),
               fontWeight: 800,
-              color: PRIMARY,
-              letterSpacing: "-.3px",
+              color: C.primary,
             }}
           >
             Checklist Requests
           </Typography>
-          <Typography sx={{ fontSize: 13, color: "#64748b", mt: 0.25 }}>
+          <Typography
+            sx={{
+              fontSize: getResponsiveFont("sm"),
+              color: C.text.secondary,
+              mt: 0.25,
+            }}
+          >
             {isSuperAdmin
               ? "Manage and review checklist requests"
               : "Submit and track your checklist requests"}
           </Typography>
         </Box>
         {!isSuperAdmin && (
-          <PrimaryButton
-            startIcon={<AddIcon fontSize="small" />}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
             onClick={() => setSubmitDialogOpen(true)}
+            size="small"
+            sx={{
+              backgroundColor: C.primary,
+              borderRadius: "8px",
+              fontSize: getResponsiveFont("sm"),
+              textTransform: "none",
+              py: 0.5,
+              px: 2,
+              "&:hover": { backgroundColor: C.primaryMid },
+            }}
           >
             New Request
-          </PrimaryButton>
+          </Button>
         )}
       </Box>
 
-      {/* ── Stat Cards ── */}
-      <Grid container spacing={2} mb={3.5}>
-        {statCards.map((s, i) => (
-          <Grid item xs={6} sm={6} md={3} key={i}>
-            <StatCard elevation={0}>
-              <CardContent sx={{ p: "18px 20px !important" }}>
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                >
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#94a3b8",
-                        textTransform: "uppercase",
-                        letterSpacing: ".5px",
-                        mb: 0.75,
-                      }}
-                    >
-                      {s.label}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 20,
-                        fontWeight: 800,
-                        color: PRIMARY,
-                        lineHeight: 1,
-                      }}
-                    >
-                      {s.value}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: "12px",
-                      bgcolor: s.iconBg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: s.iconColor,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {React.cloneElement(s.icon, { sx: { fontSize: 22 } })}
-                  </Box>
-                </Box>
-              </CardContent>
-            </StatCard>
+      {/* Stat Cards */}
+      <Grid container spacing={1.5} mb={2.5}>
+        {statCards.map((stat, index) => (
+          <Grid item xs={6} sm={6} md={3} key={index}>
+            <StatCard {...stat} />
           </Grid>
         ))}
       </Grid>
 
-      {/* ── Controls: Tabs + Search ── */}
+      {/* Tabs and Search */}
       <Paper
         elevation={0}
         sx={{
-          border: `1px solid ${PRIMARY}15`,
-          borderRadius: "14px",
+          border: `1px solid ${alpha(C.primary, 0.08)}`,
+          borderRadius: "12px",
           mb: 2,
           overflow: "hidden",
         }}
       >
         <Tabs
           value={tabValue}
-          onChange={(_, v) => {
-            setTabValue(v);
+          onChange={(_, newValue) => {
+            setTabValue(newValue);
             setPage(1);
           }}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ ...tabSx, borderBottom: `1px solid ${PRIMARY}12`, px: 1 }}
+          variant={isMobile ? "fullWidth" : "standard"}
+          sx={{
+            borderBottom: `1px solid ${alpha(C.primary, 0.08)}`,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontSize: getResponsiveFont("sm"),
+              fontWeight: 500,
+              py: 1,
+              color: C.text.secondary,
+            },
+            "& .MuiTab-root.Mui-selected": {
+              color: C.primary,
+              fontWeight: 700,
+            },
+            "& .MuiTabs-indicator": {
+              backgroundColor: C.primary,
+              height: 2,
+              borderRadius: "2px",
+            },
+          }}
         >
-          {["All Requests", "Pending", "Under Review", "Approved"].map(
-            (label) => (
-              <Tab key={label} label={label} />
-            ),
-          )}
+          <Tab label="All" />
+          <Tab label="Pending" />
+          <Tab label="Under Review" />
+          <Tab label="Approved" />
         </Tabs>
-        <Box sx={{ px: 2, py: 1.5 }}>
+
+        <Box sx={{ p: 1.5 }}>
           <TextField
             fullWidth
-            size="small"
-            placeholder="Search by checklist name, category, or requester…"
+            placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            size="small"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: 17, color: "#94a3b8" }} />
+                  <SearchIcon sx={{ color: C.text.disabled, fontSize: 18 }} />
+                </InputAdornment>
+              ),
+              endAdornment: search && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearch("")}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
                 </InputAdornment>
               ),
             }}
             sx={{
               "& .MuiOutlinedInput-root": {
-                borderRadius: "10px",
-                fontSize: 13,
+                borderRadius: "8px",
+                fontSize: getResponsiveFont("sm"),
                 bgcolor: "#f8fafc",
-                "& fieldset": { borderColor: "#e2e8f0" },
-                "&.Mui-focused fieldset": { borderColor: PRIMARY },
               },
             }}
           />
         </Box>
       </Paper>
 
-      {/* ── Table ── */}
+      {/* Table */}
       <Paper
         elevation={0}
         sx={{
-          border: `1px solid ${PRIMARY}15`,
-          borderRadius: "14px",
+          border: `1px solid ${alpha(C.primary, 0.08)}`,
+          borderRadius: "12px",
           overflow: "hidden",
         }}
       >
-        <TableContainer>
-          <Table size="small" sx={{ minWidth: 700 }}>
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table sx={{ minWidth: 700 }}>
             <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>Checklist Request</TableCell>
-                <TableCell sx={thSx}>Customer</TableCell>
-                <TableCell sx={thSx}>Category</TableCell>
-                <TableCell sx={thSx}>Date</TableCell>
-                <TableCell sx={thSx}>Urgency</TableCell>
-                <TableCell sx={thSx}>Status</TableCell>
-                <TableCell sx={thSx}>Action</TableCell>
+              <TableRow sx={{ bgcolor: "#f8fafc" }}>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: getResponsiveFont("xs"),
+                    color: C.text.disabled,
+                    py: 1,
+                  }}
+                >
+                  Request
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: getResponsiveFont("xs"),
+                    color: C.text.disabled,
+                    py: 1,
+                  }}
+                >
+                  Requester
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: getResponsiveFont("xs"),
+                    color: C.text.disabled,
+                    py: 1,
+                  }}
+                >
+                  Category
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: getResponsiveFont("xs"),
+                    color: C.text.disabled,
+                    py: 1,
+                  }}
+                >
+                  Urgency
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: getResponsiveFont("xs"),
+                    color: C.text.disabled,
+                    py: 1,
+                  }}
+                >
+                  Status
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: getResponsiveFont("xs"),
+                    color: C.text.disabled,
+                    py: 1,
+                  }}
+                >
+                  Action
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading && requests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <CircularProgress size={28} sx={{ color: PRIMARY }} />
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <CircularProgress size={28} sx={{ color: C.primary }} />
                   </TableCell>
                 </TableRow>
               ) : requests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <Typography sx={{ fontSize: 13, color: "#94a3b8" }}>
-                      {debouncedSearch
-                        ? "No requests match your search"
-                        : "No requests found"}
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <Typography
+                      sx={{
+                        fontSize: getResponsiveFont("sm"),
+                        color: C.text.disabled,
+                      }}
+                    >
+                      {debouncedSearch ? "No matches" : "No requests"}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -1235,22 +1482,26 @@ export default function RequestChecklist() {
                     hover
                     sx={{
                       "&:hover": { bgcolor: "#f8fafc" },
-                      "& td": { borderColor: "#f1f5f9" },
+                      "& td": { py: 1 },
                     }}
                   >
                     <TableCell>
                       <Typography
-                        sx={{ fontWeight: 700, fontSize: 13, color: PRIMARY }}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: getResponsiveFont("sm"),
+                          color: C.primary,
+                        }}
                       >
                         {row.checklistName}
                       </Typography>
-                      <Typography
-                        sx={{ fontSize: 11, color: "#94a3b8", mt: 0.25 }}
-                      >
-                        By {row.requestedByName || row.requestedBy?.email}
-                      </Typography>
                     </TableCell>
-                    <TableCell sx={{ fontSize: 13, color: "#475569" }}>
+                    <TableCell
+                      sx={{
+                        fontSize: getResponsiveFont("sm"),
+                        color: C.text.secondary,
+                      }}
+                    >
                       {row.requestedByName || row.requestedBy?.email}
                     </TableCell>
                     <TableCell>
@@ -1258,27 +1509,13 @@ export default function RequestChecklist() {
                         label={row.category}
                         size="small"
                         sx={{
-                          bgcolor: PRIMARY_LIGHT,
-                          color: PRIMARY,
-                          fontWeight: 700,
-                          fontSize: 11,
-                          height: 24,
-                          borderRadius: "6px",
+                          bgcolor: alpha(C.primary, 0.08),
+                          color: C.primary,
+                          fontWeight: 600,
+                          fontSize: getResponsiveFont("xs"),
+                          height: 22,
                         }}
                       />
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontSize: 12,
-                        color: "#94a3b8",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {new Date(row.requestDate).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
                     </TableCell>
                     <TableCell>
                       <UrgencyChip level={row.urgencyLevel} />
@@ -1287,12 +1524,12 @@ export default function RequestChecklist() {
                       <StatusChip status={row.status} />
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="View Details" placement="left">
+                      <Tooltip title="View Details">
                         <Button
                           size="small"
                           startIcon={
                             <VisibilityIcon
-                              sx={{ fontSize: "15px !important" }}
+                              sx={{ fontSize: "14px !important" }}
                             />
                           }
                           onClick={() => {
@@ -1300,14 +1537,13 @@ export default function RequestChecklist() {
                             setViewDialogOpen(true);
                           }}
                           sx={{
-                            color: PRIMARY,
-                            bgcolor: PRIMARY_LIGHT,
-                            borderRadius: "8px",
-                            fontSize: 12,
-                            fontWeight: 600,
+                            color: C.primary,
+                            bgcolor: alpha(C.primary, 0.08),
+                            borderRadius: "6px",
+                            fontSize: getResponsiveFont("xs"),
                             textTransform: "none",
-                            px: 1.5,
-                            "&:hover": { bgcolor: "#cce9f3" },
+                            px: 1,
+                            minWidth: "auto",
                           }}
                         >
                           View
@@ -1322,32 +1558,28 @@ export default function RequestChecklist() {
         </TableContainer>
       </Paper>
 
-      {/* ── Pagination ── */}
+      {/* Pagination */}
       {pagination.totalPages > 1 && (
         <Box display="flex" justifyContent="flex-end" mt={2}>
           <Pagination
             count={pagination.totalPages}
             page={page}
-            onChange={(_, v) => setPage(v)}
+            onChange={(_, newPage) => setPage(newPage)}
             size="small"
             sx={{
               "& .MuiPaginationItem-root": {
-                borderRadius: "8px",
-                fontSize: 13,
+                fontSize: getResponsiveFont("sm"),
               },
               "& .MuiPaginationItem-root.Mui-selected": {
-                bgcolor: PRIMARY,
+                bgcolor: C.primary,
                 color: "#fff",
-                "&:hover": {
-                  bgcolor: PRIMARY_MID,
-                },
               },
             }}
           />
         </Box>
       )}
 
-      {/* ── Dialogs ── */}
+      {/* Dialogs */}
       <SubmitRequestDialog
         open={submitDialogOpen}
         onClose={() => setSubmitDialogOpen(false)}
@@ -1372,12 +1604,12 @@ export default function RequestChecklist() {
         loading={reviewLoading}
       />
 
-      {/* ── Snackbar ── */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={5000}
         onClose={() => {
-          setSnackbar((p) => ({ ...p, open: false }));
+          setSnackbar((prev) => ({ ...prev, open: false }));
           clearMessages();
         }}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -1385,10 +1617,10 @@ export default function RequestChecklist() {
         <Alert
           severity={snackbar.severity}
           onClose={() => {
-            setSnackbar((p) => ({ ...p, open: false }));
+            setSnackbar((prev) => ({ ...prev, open: false }));
             clearMessages();
           }}
-          sx={{ borderRadius: "12px", fontWeight: 500, fontSize: 13 }}
+          sx={{ borderRadius: "8px", fontSize: getResponsiveFont("sm") }}
         >
           {snackbar.message}
         </Alert>

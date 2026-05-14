@@ -175,7 +175,7 @@ const StatCard = ({
           />
         )}
 
-        <Box sx={{ position: "relative", zIndex: 1, height: "100%", width: "215px", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ position: "relative", zIndex: 1, height: "100%", width: "230px", display: "flex", flexDirection: "column" }}>
           {/* Icon + Trend Badge Row */}
           <Box
             sx={{
@@ -643,7 +643,7 @@ const RevenueBarChart = ({ data, loading, formatCurrency }) => {
               </Typography>
               <Box
                 sx={{
-                  width: "100%",
+                  width: "380px",
                   maxWidth: { xs: 28, sm: 32, md: 44 },
                   bgcolor: colors.primaryContainer,
                   height: `${heightPercent}%`,
@@ -727,7 +727,7 @@ const SubscriptionDistChart = ({ data, loading, formatCurrency }) => {
                 alignItems: "center",
                 justifyContent: "space-between",
                 mb: 0.5,
-                width:"490px",
+                width:"445px",
                 flexWrap: "wrap",
                 gap: 0.5,
               }}
@@ -1016,7 +1016,7 @@ const Dashboard = () => {
         icon: AddCircleIcon,
         title: "New Checklist",
         desc: "Create inspection form",
-        path: "/admin/checklists/custom-builder",
+        path: "/admin/checklists",
       });
     }
     if (user?.role === "super_admin") {
@@ -1031,7 +1031,7 @@ const Dashboard = () => {
       icon: AnalyticsIcon,
       title: "Reports",
       desc: "View analytics",
-      path: user?.role === "team" ? "/team/history" : "/admin/reports",
+      path: "/admin/reports",
     });
     return actions;
   }, [user?.role]);
@@ -1579,7 +1579,7 @@ const Dashboard = () => {
                     textTransform: "none",
                     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     height: "100%",
-                    width:"362px",
+                    width:"375px",
                     minHeight: { xs: 90, sm: 100, md: 110, lg: 120 },
                     "&:hover": {
                       transform: "translateY(-4px)",

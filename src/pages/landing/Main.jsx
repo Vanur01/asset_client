@@ -1,4 +1,4 @@
-// Main.jsx
+// Main.jsx - Updated with Dark Mode Support
 import React, { useState, useEffect } from "react";
 import { ThemeProvider, createTheme, CssBaseline, Box } from "@mui/material";
 import Navbar from "./Navbar";
@@ -8,13 +8,13 @@ import Features from "./Features";
 import UserRoles from "./Userroles";
 import Pricing from "./Pricing";
 import Testimonials from "./Testimonials";
-import CTA from "./Ctabanner";
 import Contact from "./Contact";
-import Footer from "./Footer";
+import ServicesSection from "./Services";
 
-// Create theme
-const theme = createTheme({
+// Create light theme
+const lightTheme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
       main: "#1a4a6b",
       light: "#2c6b94",
@@ -59,13 +59,63 @@ const theme = createTheme({
   },
 });
 
+// Create dark theme
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: "#3b82f6",
+      light: "#60a5fa",
+      dark: "#2563eb",
+      contrastText: "#ffffff",
+    },
+    secondary: {
+      main: "#8b5cf6",
+    },
+    background: {
+      default: "#0f172a",
+      paper: "#1e293b",
+    },
+    text: {
+      primary: "#f1f5f9",
+      secondary: "#94a3b8",
+    },
+  },
+  typography: {
+    fontFamily: '"Inter", "sans-serif"',
+    h1: {
+      fontWeight: 800,
+      letterSpacing: "-0.02em",
+    },
+    h2: {
+      fontWeight: 700,
+      letterSpacing: "-0.02em",
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: "none",
+          fontWeight: 600,
+        },
+      },
+    },
+  },
+});
+
 function Main() {
   const [activeSection, setActiveSection] = useState("home");
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const sections = [
     { id: "home", label: "Home" },
     { id: "analytics", label: "Analytics" },
     { id: "features", label: "Features" },
+    { id: "services", label: "Services" },
     { id: "roles", label: "Solutions" },
     { id: "pricing", label: "Pricing" },
     { id: "contact", label: "Contact" },
@@ -108,24 +158,28 @@ function Main() {
     }
   };
 
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
       <CssBaseline />
-      <Box sx={{ bgcolor: "background.default" }}>
+      <Box sx={{ bgcolor: "background.default", minHeight: "100vh" }}>
         <Navbar
-          sections={sections}
           activeSection={activeSection}
           scrollToSection={scrollToSection}
+          toggleTheme={toggleTheme}
+          isDarkMode={isDarkMode}
         />
         <Hero scrollToSection={scrollToSection} />
         <Analytics />
         <Features />
+        <ServicesSection />
         <UserRoles />
         <Pricing />
         <Testimonials />
-        <CTA />
         <Contact />
-        <Footer />
       </Box>
     </ThemeProvider>
   );

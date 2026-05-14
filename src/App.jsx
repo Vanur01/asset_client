@@ -1,3 +1,4 @@
+// App.jsx - Fixed Reports Route and Provider Structure with Contact Inquiry
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -15,7 +16,8 @@ import { ChecklistBuilderProvider } from "./context/ChecklistBuilderContext";
 import { RequestChecklistProvider } from "./context/RequestChecklistContext";
 import { AssignmentProvider } from "./context/AssignmentContext";
 import { AssetRequestProvider } from "./context/AssetRequestContext";
-import TeamAssignmentProvider from "./context/TeamAssignmentcontext"; 
+import TeamAssignmentProvider from "./context/TeamAssignmentcontext";
+import { ContactInquiryProvider } from "./context/InquiryContext";
 
 // Auth Pages
 import Login from "./components/Login";
@@ -53,6 +55,9 @@ import AssetRequests from "./pages/AssetRequest";
 import CreateAssetRequest from "./pages/CreateAssetRequest";
 import TaskDetail from "./pages/TaskDetail";
 
+// Contact Inquiry Page
+import ContactInquiries from "./pages/ContactInquiries";
+
 // Landing Pages
 import Main from "./pages/landing/Main";
 import ForgotPassword from "./components/ForgotPassword";
@@ -71,6 +76,24 @@ const CombinedProviderWrapper = ({ children }) => (
       </AssetProvider>
     </TeamProvider>
   </ClientProvider>
+);
+
+// Report Provider Wrapper (Specifically for Reports page)
+const ReportProviderWrapper = ({ children }) => (
+  <ReportProvider>
+    <AssetProvider>
+      <AssignmentProvider>{children}</AssignmentProvider>
+    </AssetProvider>
+  </ReportProvider>
+);
+
+// Contact Inquiry Provider Wrapper
+const ContactInquiryProviderWrapper = ({ children }) => (
+  <ContactInquiryProvider>
+    <CombinedProviderWrapper>
+      {children}
+    </CombinedProviderWrapper>
+  </ContactInquiryProvider>
 );
 
 // Asset Provider Wrapper
@@ -175,6 +198,34 @@ export default function App() {
                   <DashboardProviderWrapper>
                     <Dashboard />
                   </DashboardProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Reports Route - FIXED */}
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin", "team"]}>
+                <DashboardLayout>
+                  <ReportProviderWrapper>
+                    <ReportsPage />
+                  </ReportProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Contact Inquiry Management Route - Super Admin & Admin */}
+          <Route
+            path="/admin/contact-inquiries"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+                <DashboardLayout>
+                  <ContactInquiryProviderWrapper>
+                    <ContactInquiries />
+                  </ContactInquiryProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -431,19 +482,6 @@ export default function App() {
             }
           />
 
-          <Route
-            path="/admin/reports"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "team"]}>
-                <DashboardLayout>
-                  <CombinedProviderWrapper>
-                    <ReportsPage />
-                  </CombinedProviderWrapper>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
           {/* Asset Request Routes */}
           <Route
             path="/admin/asset-requests"
@@ -579,6 +617,20 @@ export default function App() {
                   <AssetProviderWrapper>
                     <AssetManagement />
                   </AssetProviderWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Team Reports Route - Added for team access */}
+          <Route
+            path="/team/reports"
+            element={
+              <ProtectedRoute allowedRoles={["team"]}>
+                <DashboardLayout>
+                  <ReportProviderWrapper>
+                    <ReportsPage />
+                  </ReportProviderWrapper>
                 </DashboardLayout>
               </ProtectedRoute>
             }

@@ -182,7 +182,7 @@ function StatCard({ label, value, icon: Icon, color, loading }) {
   }
 
   return (
-    <Card elevation={0} sx={{ borderRadius: 2, height: "100%", width: "272px" }}>
+    <Card elevation={0} sx={{ borderRadius: 2, height: "100%", width: "283px" }}>
       <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>

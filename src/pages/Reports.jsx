@@ -318,69 +318,6 @@ function StatCard({ icon, label, value, sub, bg, loading, error }) {
 }
 
 // ─────────────────────────────────────────────
-// Report Type Selector
-// ─────────────────────────────────────────────
-function ReportTypeSelector({ value, onChange, isAdmin }) {
-  const theme = useMuiTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  const reportTypes = useMemo(() => {
-    const types = [
-      { id: "all", label: "All", icon: <AssessmentIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
-      { id: "clients", label: "Clients", icon: <BusinessIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
-      { id: "inspections", label: "Inspections", icon: <AssignmentIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
-      { id: "financial", label: "Financial", icon: <AttachMoneyIcon sx={{ fontSize: { xs: 14, sm: 16 } }} /> },
-    ];
-    
-    if (isAdmin) {
-      types.push(
-        { id: "assets", label: "Assets", icon: <InventoryIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />, adminOnly: true },
-        { id: "team", label: "Team", icon: <GroupsIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />, adminOnly: true },
-        { id: "compliance", label: "Compliance", icon: <VerifiedIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />, adminOnly: true },
-      );
-    }
-    
-    return types;
-  }, [isAdmin]);
-
-  return (
-    <ToggleButtonGroup
-      value={value}
-      exclusive
-      onChange={(e, val) => val && onChange(val)}
-      size="small"
-      sx={{ 
-        flexWrap: "wrap", 
-        gap: 0.5,
-        "& .MuiToggleButton-root": {
-          px: { xs: 1, sm: 1.5 },
-          py: 0.5,
-          fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
-          borderRadius: "8px !important",
-          border: `1px solid ${colors.border} !important`,
-          "&.Mui-selected": {
-            bgcolor: alpha(colors.primary, 0.08),
-            color: colors.primary,
-            borderColor: `${colors.primary} !important`,
-          },
-        },
-      }}
-    >
-      {reportTypes.map((type) => (
-        <ToggleButton key={type.id} value={type.id}>
-          {type.icon}
-          {!isMobile && (
-            <Typography sx={{ ml: 0.5, fontSize: "inherit" }}>
-              {type.label}
-            </Typography>
-          )}
-        </ToggleButton>
-      ))}
-    </ToggleButtonGroup>
-  );
-}
-
-// ─────────────────────────────────────────────
 // Main Reports Page Component
 // ─────────────────────────────────────────────
 export default function ReportsPage() {
@@ -759,19 +696,6 @@ export default function ReportsPage() {
         ))}
       </Box>
 
-      {/* Report Type Selector */}
-      <Paper 
-        sx={{ 
-          mb: { xs: 2, sm: 2.5 }, 
-          p: { xs: 1, sm: 1.5 },
-          borderRadius: 2, 
-          bgcolor: colors.surface,
-          border: `1px solid ${colors.border}`,
-        }}
-      >
-        <ReportTypeSelector value={reportType} onChange={setReportType} isAdmin={isAdmin} />
-      </Paper>
-
       {/* Tabs */}
       <Paper 
         sx={{ 
@@ -802,7 +726,6 @@ export default function ReportsPage() {
           }}
         >
           <Tab label="Overview" />
-          <Tab label="Revenue" />
           <Tab label="Clients" />
           <Tab label="Performance" />
         </Tabs>
@@ -919,67 +842,8 @@ export default function ReportsPage() {
           </Grid>
         )}
 
-        {/* Revenue Tab */}
-        {tabValue === 1 && (
-          <Card sx={{ border: `1px solid ${colors.border}` }}>
-            <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={700}
-                sx={{ 
-                  color: colors.textPrimary, 
-                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, 
-                  mb: { xs: 1.5, sm: 2 } 
-                }}
-              >
-                Revenue Insights
-              </Typography>
-              <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-                <Grid item xs={12} sm={4}>
-                  <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: alpha(colors.primary, 0.04), borderRadius: 2 }}>
-                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                      Monthly Recurring Revenue
-                    </Typography>
-                    <Typography variant="h6" fontWeight={700} sx={{ color: colors.primary, mt: 0.5 }}>
-                      ${(analyticsData?.revenueTrend?.current || 0).toLocaleString()}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: alpha(colors.success, 0.04), borderRadius: 2 }}>
-                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                      Growth Rate
-                    </Typography>
-                    <Typography 
-                      variant="h6" 
-                      fontWeight={700} 
-                      sx={{ 
-                        color: (analyticsData?.revenueTrend?.growth || 0) > 0 ? colors.success : colors.error,
-                        mt: 0.5 
-                      }}
-                    >
-                      {(analyticsData?.revenueTrend?.growth || 0) > 0 ? "+" : ""}
-                      {analyticsData?.revenueTrend?.growth || 0}%
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: alpha(colors.purple, 0.04), borderRadius: 2 }}>
-                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                      Projected Revenue
-                    </Typography>
-                    <Typography variant="h6" fontWeight={700} sx={{ color: colors.purple, mt: 0.5 }}>
-                      ${(analyticsData?.revenueTrend?.projected || 0).toLocaleString()}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Clients Tab */}
-        {tabValue === 2 && (
+        {tabValue === 1 && (
           <Card sx={{ border: `1px solid ${colors.border}` }}>
             <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
               <Typography
@@ -1023,7 +887,7 @@ export default function ReportsPage() {
         )}
 
         {/* Performance Tab */}
-        {tabValue === 3 && (
+        {tabValue === 2 && (
           <Card sx={{ border: `1px solid ${colors.border}` }}>
             <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
               <Typography

@@ -25,15 +25,18 @@ import LoginIcon from "@mui/icons-material/Login";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 
-const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkMode }) => {
+const Navbar = ({
+  activeSection,
+  scrollToSection,
+  toggleTheme,
+  isDarkMode,
+}) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isSmallMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,18 +47,21 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
   }, []);
 
   const handleNavClick = (sectionId) => {
-    scrollToSection(sectionId);
+    if (scrollToSection) {
+      scrollToSection(sectionId);
+    }
     setDrawerOpen(false);
   };
 
   const handleLogoClick = () => {
-    navigate('/');
+    navigate("/");
     setDrawerOpen(false);
   };
 
   // Helper for theme-aware colors
   const getPrimaryColor = () => theme.palette.primary.main;
-  const getPrimaryGradient = () => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`;
+  const getPrimaryGradient = () =>
+    `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`;
   const getTextColor = () => theme.palette.text.primary;
   const getSecondaryTextColor = () => theme.palette.text.secondary;
   const getBackgroundColor = () => theme.palette.background.default;
@@ -65,6 +71,7 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
     { id: "home", label: "Home" },
     { id: "analytics", label: "Analytics" },
     { id: "features", label: "Features" },
+    { id: "services", label: "Services" },
     { id: "roles", label: "Solutions" },
     { id: "pricing", label: "Pricing" },
     { id: "contact", label: "Contact" },
@@ -74,7 +81,7 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
   const logoVariants = {
     initial: { opacity: 0, x: -20 },
     animate: { opacity: 1, x: 0 },
-    tap: { scale: 0.95 }
+    tap: { scale: 0.95 },
   };
 
   const navItemVariants = {
@@ -82,8 +89,8 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
     animate: (i) => ({
       opacity: 1,
       y: 0,
-      transition: { delay: i * 0.05, duration: 0.3 }
-    })
+      transition: { delay: i * 0.05, duration: 0.3 },
+    }),
   };
 
   const drawerItemVariants = {
@@ -91,8 +98,8 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
     animate: (i) => ({
       opacity: 1,
       x: 0,
-      transition: { delay: i * 0.05, duration: 0.3 }
-    })
+      transition: { delay: i * 0.05, duration: 0.3 },
+    }),
   };
 
   return (
@@ -101,43 +108,41 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
         position="fixed"
         elevation={0}
         sx={{
-          bgcolor: scrolled 
-            ? alpha(getBackgroundColor(), 0.95) 
-            : "transparent",
+          bgcolor: scrolled ? alpha(getBackgroundColor(), 0.95) : "transparent",
           backdropFilter: scrolled ? "blur(20px)" : "none",
           borderBottom: scrolled
             ? `1px solid ${alpha(theme.palette.divider, 0.1)}`
             : "none",
           transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-          height: { 
+          height: {
             xs: 56,
             sm: 60,
             md: 64,
-            lg: 70 
+            lg: 70,
           },
           justifyContent: "center",
-          boxShadow: scrolled 
-            ? `0 4px 20px ${alpha(theme.palette.common.black, 0.03)}` 
+          boxShadow: scrolled
+            ? `0 4px 20px ${alpha(theme.palette.common.black, 0.03)}`
             : "none",
         }}
       >
-        <Container 
-          maxWidth="xl" 
+        <Container
+          maxWidth="xl"
           sx={{
-            px: { 
+            px: {
               xs: 1.5,
               sm: 2,
               md: 3,
               lg: 4,
-              xl: 6 
+              xl: 6,
             },
           }}
         >
           <Toolbar
             disableGutters
-            sx={{ 
-              justifyContent: "space-between", 
-              py: 0, 
+            sx={{
+              justifyContent: "space-between",
+              py: 0,
               minHeight: "auto",
               height: "100%",
               position: "relative",
@@ -168,18 +173,22 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                     width: { xs: 28, sm: 32, md: 36, lg: 38 },
                     height: { xs: 28, sm: 32, md: 36, lg: 38 },
                     background: getPrimaryGradient(),
-                    borderRadius: { xs: "0.625rem", sm: "0.75rem", md: "0.875rem" },
+                    borderRadius: {
+                      xs: "0.625rem",
+                      sm: "0.75rem",
+                      md: "0.875rem",
+                    },
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     mr: { xs: 1, sm: 1.5 },
                     transition: "all 0.3s ease",
-                    "&:hover": { 
+                    "&:hover": {
                       transform: "scale(1.05)",
                       boxShadow: `0 6px 16px ${alpha(getPrimaryColor(), 0.2)}`,
                     },
-                    boxShadow: scrolled 
-                      ? `0 2px 8px ${alpha(getPrimaryColor(), 0.1)}` 
+                    boxShadow: scrolled
+                      ? `0 2px 8px ${alpha(getPrimaryColor(), 0.1)}`
                       : `0 4px 12px ${alpha(getPrimaryColor(), 0.15)}`,
                   }}
                 >
@@ -187,7 +196,12 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                     sx={{
                       color: "white",
                       fontWeight: 700,
-                      fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem", lg: "1.1rem" },
+                      fontSize: {
+                        xs: "0.8rem",
+                        sm: "0.9rem",
+                        md: "1rem",
+                        lg: "1.1rem",
+                      },
                       fontFamily: '"Inter", sans-serif',
                       letterSpacing: "-0.02em",
                     }}
@@ -205,7 +219,12 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                       backgroundClip: "text",
                       WebkitBackgroundClip: "text",
                       color: "transparent",
-                      fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem", lg: "1.2rem" },
+                      fontSize: {
+                        xs: "0.9rem",
+                        sm: "1rem",
+                        md: "1.1rem",
+                        lg: "1.2rem",
+                      },
                       lineHeight: 1.2,
                     }}
                   >
@@ -259,8 +278,10 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                 spacing={{ md: 0.5, lg: 1, xl: 1.5 }}
                 alignItems="center"
                 sx={{
-                  bgcolor: scrolled ? alpha(getPaperBackground(), 0.5) : "transparent",
-                  borderRadius: 100,
+                  bgcolor: scrolled
+                    ? alpha(getPaperBackground(), 0.5)
+                    : "transparent",
+                  borderRadius: 10,
                   p: 0.5,
                 }}
               >
@@ -275,30 +296,40 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                     <Button
                       onClick={() => handleNavClick(item.id)}
                       sx={{
-                        color: activeSection === item.id ? getPrimaryColor() : getSecondaryTextColor(),
+                        color:
+                          activeSection === item.id
+                            ? getPrimaryColor()
+                            : getSecondaryTextColor(),
                         fontWeight: activeSection === item.id ? 600 : 500,
-                        fontSize: { md: "0.75rem", lg: "0.85rem", xl: "0.9rem" },
+                        fontSize: {
+                          md: "0.75rem",
+                          lg: "0.85rem",
+                          xl: "0.9rem",
+                        },
                         textTransform: "none",
                         px: { md: 1.5, lg: 2, xl: 2.5 },
                         py: 0.75,
-                        borderRadius: 100,
+                        borderRadius: 10,
                         transition: "all 0.2s ease",
                         "&:hover": {
                           backgroundColor: alpha(getPrimaryColor(), 0.06),
                           color: getPrimaryColor(),
                         },
                         position: "relative",
-                        "&::after": activeSection === item.id ? {
-                          content: '""',
-                          position: "absolute",
-                          bottom: 2,
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          width: "16px",
-                          height: "2px",
-                          background: getPrimaryGradient(),
-                          borderRadius: "2px",
-                        } : {},
+                        "&::after":
+                          activeSection === item.id
+                            ? {
+                                content: '""',
+                                position: "absolute",
+                                bottom: 2,
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                width: "16px",
+                                height: "2px",
+                                background: getPrimaryGradient(),
+                                borderRadius: "2px",
+                              }
+                            : {},
                       }}
                     >
                       {item.label}
@@ -320,29 +351,13 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                 spacing={{ xs: 0.5, sm: 1, md: 1.5 }}
                 alignItems="center"
               >
-                {/* Theme Toggle Button */}
-                <IconButton
-                  onClick={toggleTheme}
-                  size="small"
-                  sx={{
-                    color: getPrimaryColor(),
-                    "&:hover": {
-                      backgroundColor: alpha(getPrimaryColor(), 0.06),
-                    },
-                    display: { xs: "flex", md: "flex" },
-                  }}
-                >
-                  {isDarkMode ? (
-                    <LightModeIcon sx={{ fontSize: { xs: 18, sm: 20, md: 22 } }} />
-                  ) : (
-                    <DarkModeIcon sx={{ fontSize: { xs: 18, sm: 20, md: 22 } }} />
-                  )}
-                </IconButton>
 
-                <Button 
-                  onClick={() => navigate('/login')}
+                <Button
+                  onClick={() => navigate("/login")}
                   variant="text"
-                  startIcon={<LoginIcon sx={{ fontSize: { xs: 16, sm: 17, md: 18 } }} />}
+                  startIcon={
+                    <LoginIcon sx={{ fontSize: { xs: 16, sm: 17, md: 18 } }} />
+                  }
                   sx={{
                     display: { xs: "none", md: "flex" },
                     color: getPrimaryColor(),
@@ -367,7 +382,7 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
               sx={{
                 display: { xs: "flex", md: "none" },
                 color: getPrimaryColor(),
-                "&:hover": { 
+                "&:hover": {
                   bgcolor: alpha(getPrimaryColor(), 0.06),
                 },
               }}
@@ -400,7 +415,11 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "tween", duration: 0.3 }}
-              style={{ height: "100%", display: "flex", flexDirection: "column" }}
+              style={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+              }}
             >
               {/* Drawer Header */}
               <Box
@@ -415,8 +434,8 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                   justifyContent="space-between"
                   alignItems="center"
                 >
-                  <Box 
-                    display="flex" 
+                  <Box
+                    display="flex"
                     alignItems="center"
                     onClick={handleLogoClick}
                     sx={{ cursor: "pointer" }}
@@ -434,10 +453,10 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                       }}
                     >
                       <Typography
-                        sx={{ 
-                          color: "white", 
-                          fontWeight: 700, 
-                          fontSize: { xs: "0.9rem", sm: "1rem" }
+                        sx={{
+                          color: "white",
+                          fontWeight: 700,
+                          fontSize: { xs: "0.9rem", sm: "1rem" },
                         }}
                       >
                         AF
@@ -466,10 +485,10 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                   </Box>
                   <IconButton
                     onClick={() => setDrawerOpen(false)}
-                    sx={{ 
+                    sx={{
                       color: "white",
                       bgcolor: "rgba(255,255,255,0.1)",
-                      "&:hover": { 
+                      "&:hover": {
                         bgcolor: "rgba(255,255,255,0.2)",
                       },
                     }}
@@ -494,21 +513,22 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                         <ListItemButton
                           onClick={() => handleNavClick(item.id)}
                           sx={{
-                            borderRadius: 1.5,
                             mb: 0.5,
                             py: { xs: 1, sm: 1.2 },
-                            backgroundColor: activeSection === item.id ? alpha(getPrimaryColor(), 0.08) : "transparent",
                             "&:hover": {
                               backgroundColor: alpha(getPrimaryColor(), 0.05),
                             },
                           }}
                         >
-                          <ListItemText 
+                          <ListItemText
                             primary={item.label}
                             primaryTypographyProps={{
                               fontWeight: activeSection === item.id ? 600 : 500,
                               fontSize: { xs: "0.85rem", sm: "0.9rem" },
-                              color: activeSection === item.id ? getPrimaryColor() : getTextColor(),
+                              color:
+                                activeSection === item.id
+                                  ? getPrimaryColor()
+                                  : getTextColor(),
                             }}
                           />
                           {activeSection === item.id && (
@@ -528,7 +548,7 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                 </List>
 
                 <Divider sx={{ my: { xs: 2, sm: 2.5 } }} />
-                
+
                 {/* Mobile CTA Section */}
                 <Stack spacing={1.5}>
                   {/* Theme Toggle for Mobile */}
@@ -538,7 +558,9 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                     }}
                     variant="outlined"
                     fullWidth
-                    startIcon={isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+                    startIcon={
+                      isDarkMode ? <LightModeIcon /> : <DarkModeIcon />
+                    }
                     sx={{
                       borderColor: alpha(getPrimaryColor(), 0.3),
                       color: getPrimaryColor(),
@@ -557,9 +579,9 @@ const Navbar = ({ sections, activeSection, scrollToSection, toggleTheme, isDarkM
                     {isDarkMode ? "Light Mode" : "Dark Mode"}
                   </Button>
 
-                  <Button 
+                  <Button
                     onClick={() => {
-                      navigate('/login');
+                      navigate("/login");
                       setDrawerOpen(false);
                     }}
                     variant="contained"

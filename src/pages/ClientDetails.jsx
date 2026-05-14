@@ -938,15 +938,15 @@ export default function ClientDetails() {
   const getPlanPrice = useCallback(() => {
     switch (client?.membershipPlan) {
       case "free":
-        return "$0";
+        return "0";
       case "standard":
-        return "$49";
+        return "49";
       case "premium":
-        return "$99";
+        return "99";
       case "enterprise":
-        return "$299";
+        return "299";
       default:
-        return "$0";
+        return "0";
     }
   }, [client?.membershipPlan]);
 
@@ -1526,30 +1526,6 @@ export default function ClientDetails() {
               flexDirection: { xs: "column", sm: "row" },
             }}
           >
-            <ModuleCard
-              icon={<InventoryIcon sx={{ fontSize: 18, color: C.primary }} />}
-              iconBg={alpha(C.primary, 0.1)}
-              title="Assets"
-              description="Manage assets"
-              countLabel="Total Assets"
-              count={assetsCount}
-            />
-            <ModuleCard
-              icon={<ListAltIcon sx={{ fontSize: 18, color: C.primary }} />}
-              iconBg={alpha(C.primary, 0.1)}
-              title="Checklists"
-              description="View forms"
-              countLabel="Total Forms"
-              count={activeChecklistCount}
-            />
-            <ModuleCard
-              icon={<ReceiptIcon sx={{ fontSize: 18, color: C.primary }} />}
-              iconBg={alpha(C.primary, 0.1)}
-              title="Billing"
-              description="View history"
-              countLabel="Invoices"
-              count={billingHistoryCount}
-            />
           </Box>
         </Stack>
       )}

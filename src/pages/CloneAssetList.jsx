@@ -144,27 +144,6 @@ const AssetCard = ({ asset, onClone }) => {
           <InfoRow label="Category:" value={asset.assetCategory} />
           <InfoRow label="Last Inspection:" value={lastInspection} />
         </Stack>
-
-        {/* Divider + Clone Button */}
-        <Divider sx={{ mt: 2.5, mb: 2 }} />
-        <Button
-          fullWidth
-          variant="outlined"
-          onClick={() => onClone(asset)}
-          sx={{
-            borderRadius: "10px",
-            border: "1px solid #e0e0e0",
-            color: "#1a1a2e",
-            bgcolor: "#fff",
-            textTransform: "none",
-            fontWeight: 600,
-            fontSize: 14,
-            py: 1.2,
-            "&:hover": { bgcolor: "#f5f5f5", borderColor: "#bdbdbd" },
-          }}
-        >
-          Clone Asset
-        </Button>
       </CardContent>
     </Card>
   );
@@ -245,7 +224,7 @@ export default function CloneAssets() {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "#f7f8fc", p: { xs: 2, md: 4 } }}>
+    <Box sx={{ minHeight: "100vh", p: { xs: 2, md: 4 } }}>
       {/* ── Header ── */}
       <Stack direction="row" alignItems="center" spacing={1.5} mb={4}>
         <IconButton
@@ -358,52 +337,6 @@ export default function CloneAssets() {
           <Typography fontSize={15}>No assets found matching your search.</Typography>
         </Box>
       )}
-
-      {/* ── Clone Confirmation Dialog ── */}
-      <Dialog
-        open={cloneDialogOpen}
-        onClose={() => !cloning && setCloneDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: 3, minWidth: 360 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 1 }}>
-          Confirm Clone
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ fontSize: 14 }}>
-            Are you sure you want to clone{" "}
-            <strong>"{selectedAsset?.assetName}"</strong>? A new asset will be
-            created with similar properties.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button
-            onClick={() => setCloneDialogOpen(false)}
-            disabled={cloning}
-            sx={{ borderRadius: 2, textTransform: "none" }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCloneConfirm}
-            variant="contained"
-            disabled={cloning}
-            sx={{
-              bgcolor: "#1a3a4a",
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 600,
-              minWidth: 100,
-              "&:hover": { bgcolor: "#0f2836" },
-            }}
-          >
-            {cloning ? (
-              <CircularProgress size={18} sx={{ color: "#fff" }} />
-            ) : (
-              "Clone"
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* ── Snackbar ── */}
       <Snackbar

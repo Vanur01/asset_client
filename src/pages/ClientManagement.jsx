@@ -258,7 +258,7 @@ const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          width: isMobile ? "100%" : "225px",
+          width: isMobile ? "100%" : "235px",
         }}
       >
         <Typography
@@ -340,7 +340,7 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
           border: "1px solid",
           borderColor: C.border,
           bgcolor: C.card,
-          width: isMobile ? "260px" : "360px",
+          width: isMobile ? "260px" : "377px",
           position: "relative",
           opacity: isActive ? 1 : 0.75,
           transition: "all 0.2s",

@@ -364,7 +364,7 @@ export default function TeamManagement() {
               borderRadius: 2,
               textTransform: "none",
               fontWeight: 600,
-              fontSize: "0.9rem",
+              fontSize: "0.8rem",
               px: 2.5,
               py: 1,
             }}
