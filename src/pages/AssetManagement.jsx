@@ -1,4 +1,5 @@
-// AssetManagement.jsx - Fully Responsive with consistent design
+// AssetManagement.jsx - Unified version for both Admin and Team with fixed navigation
+
 import { useState, useEffect, useCallback } from "react";
 import {
   Box,
@@ -37,6 +38,7 @@ import {
   LinearProgress,
   useMediaQuery,
   useTheme,
+  Fade,
 } from "@mui/material";
 import {
   Search,
@@ -56,14 +58,15 @@ import {
   ClearAll,
   FileDownload,
   RateReview,
-  ArrowBack,
+  Block,
+  Info,
 } from "@mui/icons-material";
 import { useAsset } from "../context/AssetContext";
 import { useAuth } from "../context/AuthContexts";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 
-// ─── Consistent Palette ───────────────────────────────────────────────────
+// Consistent Palette
 const C = {
   primary: "#0d4a5c",
   primaryDark: "#0a3a49",
@@ -76,10 +79,12 @@ const C = {
   error: "#d32f2f",
   warning: "#f59e0b",
   warningBg: "#fef3c7",
+  info: "#0284c7",
+  infoBg: "#e0f2fe",
   text: { primary: "#1e293b", secondary: "#64748b", disabled: "#94a3b8" },
 };
 
-// ─── Status Configuration ─────────────────────────────────────────────────
+// Status Configuration
 const statusConfig = {
   Active: {
     bg: C.successBg,
@@ -111,6 +116,11 @@ const statusConfig = {
     color: C.error,
     icon: <Warning sx={{ fontSize: 12 }} />,
   },
+  "Pending Approval": {
+    bg: "#fef3c7",
+    color: "#d97706",
+    icon: <Schedule sx={{ fontSize: 12 }} />,
+  },
 };
 
 const StatusChip = ({ status }) => {
@@ -137,152 +147,214 @@ const StatusChip = ({ status }) => {
   );
 };
 
-// ─── Asset Card Component ─────────────────────────────────────────────────
-const AssetCard = ({ asset, onView, onClone }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      border: `1px solid ${C.border}`,
-      borderRadius: 3,
-      p: 2.5,
-      height: "100%",
-      bgcolor: C.card,
-      width:"365px",
-      transition: "all 0.2s ease-in-out",
-      cursor: "pointer",
-      "&:hover": {
-        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-        transform: "translateY(-2px)",
-      },
-    }}
-    onClick={() => onView(asset)}
-  >
-    <Stack
-      direction="row"
-      justifyContent="space-between"
-      alignItems="flex-start"
-      mb={1}
+// Asset Card Component
+const AssetCard = ({ asset, onView, onClone, isAdmin }) => {
+  const canClone = !asset.isClone && asset.canBeCloned !== false;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        border: `1px solid ${C.border}`,
+        borderRadius: 3,
+        p: 2.5,
+        height: "100%",
+        width: "378px",
+        bgcolor: C.card,
+        transition: "all 0.2s ease-in-out",
+        cursor: "pointer",
+        opacity: asset.isClone ? 0.85 : 1,
+        position: "relative",
+        "&:hover": {
+          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          transform: "translateY(-2px)",
+        },
+      }}
+      onClick={() => onView(asset)}
     >
-      <Typography
-        fontWeight={700}
-        fontSize="0.95rem"
-        color={C.text.primary}
-        sx={{ flex: 1, mr: 1 }}
-      >
-        {asset.assetName}
-      </Typography>
-      <StatusChip status={asset.status} />
-    </Stack>
-
-    <Typography fontSize="0.7rem" color={C.text.disabled} mb={1.5}>
-      ID: {asset.assetId}
-    </Typography>
-
-    <Stack direction="row" alignItems="center" spacing={0.5} mb={2}>
-      <LocationOn sx={{ fontSize: 14, color: C.text.disabled }} />
-      <Typography fontSize="0.75rem" color={C.text.secondary} noWrap>
-        {asset.currentLocation || "No location specified"}
-      </Typography>
-    </Stack>
-
-    <Divider sx={{ mb: 2, borderColor: C.border }} />
-
-    <Stack spacing={1}>
-      <Stack direction="row" justifyContent="space-between">
-        <Typography fontSize="0.7rem" color={C.text.disabled}>
-          Category:
-        </Typography>
-        <Typography fontSize="0.75rem" fontWeight={600} color={C.text.primary}>
-          {asset.assetCategory}
-        </Typography>
-      </Stack>
-      <Stack direction="row" justifyContent="space-between">
-        <Typography fontSize="0.7rem" color={C.text.disabled}>
-          Condition:
-        </Typography>
-        <Typography fontSize="0.75rem" fontWeight={600} color={C.text.primary}>
-          {asset.assetCondition || "N/A"}
-        </Typography>
-      </Stack>
-      <Stack direction="row" justifyContent="space-between">
-        <Typography fontSize="0.7rem" color={C.text.disabled}>
-          Purchase Cost:
-        </Typography>
-        <Typography fontSize="0.75rem" fontWeight={600} color={C.primary}>
-          {asset.purchaseCost
-            ? `$${asset.purchaseCost.toLocaleString()}`
-            : "N/A"}
-        </Typography>
-      </Stack>
-      {asset.healthScore && (
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <Typography fontSize="0.7rem" color={C.text.disabled}>
-            Health Score:
-          </Typography>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <LinearProgress
-              variant="determinate"
-              value={asset.healthScore}
-              sx={{ width: 60, height: 4, borderRadius: 2 }}
-              color={
-                asset.healthScore > 70
-                  ? "success"
-                  : asset.healthScore > 40
-                    ? "warning"
-                    : "error"
-              }
-            />
-            <Typography fontSize="0.75rem" fontWeight={600}>
-              {asset.healthScore}%
-            </Typography>
-          </Box>
-        </Stack>
+      {/* Clone Badge */}
+      {asset.isClone && (
+        <Chip
+          label="Clone"
+          size="small"
+          icon={<ContentCopy sx={{ fontSize: 12 }} />}
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            bgcolor: C.infoBg,
+            color: C.info,
+            fontSize: "0.6rem",
+            height: 20,
+            fontWeight: 600,
+          }}
+        />
       )}
-    </Stack>
 
-    <Stack
-      direction="row"
-      spacing={1}
-      sx={{ mt: 2, pt: 1.5, borderTop: `1px solid ${C.border}` }}
-    >
-      <Tooltip title="Clone Asset">
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClone(asset);
-          }}
-          sx={{ bgcolor: C.surface, "&:hover": { bgcolor: C.border } }}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        mb={1}
+        pr={asset.isClone ? 6 : 0}
+      >
+        <Typography
+          fontWeight={700}
+          fontSize="0.95rem"
+          color={C.text.primary}
+          sx={{ flex: 1, mr: 1 }}
         >
-          <ContentCopy sx={{ fontSize: "0.9rem", color: C.text.secondary }} />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="View Details">
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onView(asset);
-          }}
-          sx={{ bgcolor: C.surface, "&:hover": { bgcolor: C.border } }}
+          {asset.assetName}
+        </Typography>
+        <StatusChip status={asset.status} />
+      </Stack>
+
+      <Typography fontSize="0.7rem" color={C.text.disabled} mb={1.5}>
+        ID: {asset.assetId}
+      </Typography>
+
+      <Stack direction="row" alignItems="center" spacing={0.5} mb={2}>
+        <LocationOn sx={{ fontSize: 14, color: C.text.disabled }} />
+        <Typography fontSize="0.75rem" color={C.text.secondary} noWrap>
+          {asset.currentLocation || "No location specified"}
+        </Typography>
+      </Stack>
+
+      <Divider sx={{ mb: 2, borderColor: C.border }} />
+
+      <Stack spacing={1}>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography fontSize="0.7rem" color={C.text.disabled}>
+            Category:
+          </Typography>
+          <Typography
+            fontSize="0.75rem"
+            fontWeight={600}
+            color={C.text.primary}
+          >
+            {asset.assetCategory}
+          </Typography>
+        </Stack>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography fontSize="0.7rem" color={C.text.disabled}>
+            Condition:
+          </Typography>
+          <Typography
+            fontSize="0.75rem"
+            fontWeight={600}
+            color={C.text.primary}
+          >
+            {asset.assetCondition || "N/A"}
+          </Typography>
+        </Stack>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography fontSize="0.7rem" color={C.text.disabled}>
+            Purchase Cost:
+          </Typography>
+          <Typography fontSize="0.75rem" fontWeight={600} color={C.primary}>
+            {asset.purchaseCost
+              ? `$${asset.purchaseCost.toLocaleString()}`
+              : "N/A"}
+          </Typography>
+        </Stack>
+        {asset.healthScore && (
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography fontSize="0.7rem" color={C.text.disabled}>
+              Health Score:
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={asset.healthScore}
+                sx={{ width: 60, height: 4, borderRadius: 2 }}
+                color={
+                  asset.healthScore > 70
+                    ? "success"
+                    : asset.healthScore > 40
+                      ? "warning"
+                      : "error"
+                }
+              />
+              <Typography fontSize="0.75rem" fontWeight={600}>
+                {asset.healthScore}%
+              </Typography>
+            </Box>
+          </Stack>
+        )}
+        {asset.isClone && asset.clonedFrom && (
+          <Typography
+            fontSize="0.65rem"
+            color={C.text.disabled}
+            sx={{ mt: 0.5 }}
+          >
+            Cloned from:{" "}
+            {typeof asset.clonedFrom === "object"
+              ? asset.clonedFrom.assetName
+              : asset.clonedFrom}
+          </Typography>
+        )}
+      </Stack>
+
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ mt: 2, pt: 1.5, borderTop: `1px solid ${C.border}` }}
+      >
+        <Tooltip
+          title={
+            canClone
+              ? "Clone Asset"
+              : "Cannot clone - This asset is already a clone"
+          }
         >
-          <Visibility sx={{ fontSize: "0.9rem", color: C.text.secondary }} />
-        </IconButton>
-      </Tooltip>
-    </Stack>
-  </Paper>
-);
+          <span>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canClone) onClone(asset);
+              }}
+              disabled={!canClone}
+              sx={{
+                bgcolor: canClone ? C.surface : "#f5f5f5",
+                opacity: canClone ? 1 : 0.5,
+              }}
+            >
+              <ContentCopy
+                sx={{
+                  fontSize: "0.9rem",
+                  color: canClone ? C.text.secondary : C.text.disabled,
+                }}
+              />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="View Details">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(asset);
+            }}
+            sx={{ bgcolor: C.surface, "&:hover": { bgcolor: C.border } }}
+          >
+            <Visibility sx={{ fontSize: "0.9rem", color: C.text.secondary }} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Paper>
+  );
+};
 
 export default function AssetManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.down("md"));
 
   const [viewMode, setViewMode] = useState("grid");
   const [search, setSearch] = useState("");
@@ -296,31 +368,21 @@ export default function AssetManagement() {
   });
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [cloneName, setCloneName] = useState("");
+  const [cloneAssetId, setCloneAssetId] = useState("");
+  const [cloneTagNumber, setCloneTagNumber] = useState("");
+  const [cloning, setCloning] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 5 : 10);
   const [orderBy, setOrderBy] = useState("createdAt");
   const [order, setOrder] = useState("desc");
 
-  const { assets, pagination, getAllAssets, cloneAsset } = useAsset();
+  const { assets, pagination, loading, getAllAssets, cloneAsset } = useAsset();
+  const userRole = user?.role;
+  const isAdminUser = userRole === "admin" || userRole === "super_admin";
+  const isTeamUser = userRole === "team";
 
-  const handleAssetRequests = () => {
-    const userRole = user?.role;
-    if (userRole === "admin") {
-      navigate("/admin/asset-requests");
-    } else if (userRole === "team") {
-      navigate("/admin/my-requests");
-    } else {
-      navigate("/admin/asset-requests");
-    }
-  };
-
-  useEffect(() => {
-    fetchAssets();
-  }, [page, rowsPerPage, orderBy, order, category, status, condition]);
-
-  const fetchAssets = async () => {
-    setLoading(true);
+  const fetchAssets = useCallback(async () => {
     try {
       const filters = {
         page: page + 1,
@@ -336,13 +398,25 @@ export default function AssetManagement() {
     } catch (error) {
       setSnackbar({
         open: true,
-        message: "Failed to fetch assets",
+        message: error.message || "Failed to fetch assets",
         severity: "error",
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [
+    getAllAssets,
+    page,
+    rowsPerPage,
+    orderBy,
+    order,
+    category,
+    status,
+    condition,
+    search,
+  ]);
+
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
 
   const handleSearch = () => {
     setPage(0);
@@ -353,88 +427,122 @@ export default function AssetManagement() {
     if (e.key === "Enter") handleSearch();
   };
 
+  // FIXED: Navigation functions with correct paths
+  const handleViewAsset = (asset) => {
+    navigate(`/admin/assets/view/${asset._id}`);
+  };
+
+  const handleAddAsset = () => {
+    navigate("/admin/assets/add");
+  };
+
+  const handleAssetRequests = () => {
+    navigate("/admin/asset-requests");
+  };
+
+  const handleCloneClick = (asset) => {
+    if (asset.isClone) {
+      setSnackbar({
+        open: true,
+        message: "Cannot clone an asset that is already a clone",
+        severity: "warning",
+      });
+      return;
+    }
+    setSelectedAsset(asset);
+    setCloneName(`${asset.assetName} (Clone)`);
+    setCloneAssetId(`AST-CLONE-${Date.now()}`);
+    setCloneTagNumber(`TAG-CLONE-${Date.now()}`);
+    setCloneDialogOpen(true);
+  };
+
   const handleCloneAsset = async () => {
     if (!selectedAsset) return;
-    setLoading(true);
+    if (selectedAsset.isClone) {
+      setSnackbar({
+        open: true,
+        message: "Cannot clone an asset that is already a clone",
+        severity: "error",
+      });
+      setCloneDialogOpen(false);
+      return;
+    }
+
+    setCloning(true);
     try {
       const cloneData = {
-        assetName: `${selectedAsset.assetName} (Clone)`,
-        description: selectedAsset.description,
-        currentLocation: selectedAsset.currentLocation,
+        assetName: cloneName.trim(),
+        assetId: cloneAssetId.trim() || undefined,
+        tagNumber: cloneTagNumber.trim() || undefined,
         status: "Active",
+        description:
+          selectedAsset.description || `Clone of ${selectedAsset.assetName}`,
+        currentLocation: selectedAsset.currentLocation,
       };
       const result = await cloneAsset(selectedAsset._id, cloneData);
-      if (result && result.success) {
+      if (result && (result.success !== false || result.data)) {
         setSnackbar({
           open: true,
-          message: "Asset cloned successfully",
+          message: `"${selectedAsset.assetName}" cloned successfully!`,
           severity: "success",
         });
-        await fetchAssets();
         setCloneDialogOpen(false);
         setSelectedAsset(null);
+        setCloneName("");
+        setCloneAssetId("");
+        setCloneTagNumber("");
+        await fetchAssets();
       } else {
         throw new Error(result?.message || "Failed to clone asset");
       }
     } catch (error) {
       setSnackbar({
         open: true,
-        message: error.message || "Failed to clone asset",
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to clone asset",
         severity: "error",
       });
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const openCloneDialog = (asset) => {
-    setSelectedAsset(asset);
-    setCloneDialogOpen(true);
-  };
-
-  const handleViewAsset = (asset) => {
-    const userRole = user?.role;
-    if (userRole === "team") {
-      navigate(`/team/assets/view/${asset._id}`);
-    } else {
-      navigate(`/admin/assets/view/${asset._id}`);
-    }
-  };
-
-  const handleAddAsset = () => {
-    const userRole = user?.role;
-    if (userRole === "team") {
-      navigate("/team/assets/add");
-    } else {
-      navigate("/admin/assets/add");
+      setCloning(false);
     }
   };
 
   const handleExportToExcel = () => {
-    const exportData = assets.map((asset) => ({
-      "Asset ID": asset.assetId,
-      "Asset Name": asset.assetName,
-      Category: asset.assetCategory,
-      Status: asset.status,
-      Condition: asset.assetCondition,
-      Location: asset.currentLocation,
-      "Serial Number": asset.serialNumber,
-      "Purchase Cost": asset.purchaseCost,
-      "Health Score": asset.healthScore,
-      "Created At": new Date(asset.createdAt).toLocaleDateString(),
-    }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Assets");
-    XLSX.writeFile(
-      wb,
-      `assets_export_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
-    setSnackbar({
-      open: true,
-      message: "Export completed successfully",
-      severity: "success",
-    });
+    try {
+      const exportData = assets.map((asset) => ({
+        "Asset ID": asset.assetId,
+        "Asset Name": asset.assetName,
+        Category: asset.assetCategory,
+        Status: asset.status,
+        Condition: asset.assetCondition,
+        Location: asset.currentLocation,
+        "Serial Number": asset.serialNumber,
+        "Purchase Cost": asset.purchaseCost,
+        "Health Score": asset.healthScore,
+        "Is Clone": asset.isClone ? "Yes" : "No",
+        "Created At": new Date(asset.createdAt).toLocaleDateString(),
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Assets");
+      XLSX.writeFile(
+        wb,
+        `assets_export_${new Date().toISOString().split("T")[0]}.xlsx`,
+      );
+      setSnackbar({
+        open: true,
+        message: "Export completed successfully",
+        severity: "success",
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: "Failed to export assets",
+        severity: "error",
+      });
+    }
   };
 
   const handleSort = (property) => {
@@ -450,17 +558,6 @@ export default function AssetManagement() {
     setSearch("");
     setPage(0);
     setTimeout(() => fetchAssets(), 100);
-  };
-
-  const userRole = user?.role;
-  const isTeamUser = userRole === "team";
-  const isAdminUser = userRole === "admin" || userRole === "super_admin";
-
-  // Responsive grid sizing
-  const getGridSize = () => {
-    if (isMobile) return 12;
-    if (isTablet) return 6;
-    return 3;
   };
 
   return (
@@ -486,58 +583,79 @@ export default function AssetManagement() {
             total assets
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          flexWrap="wrap"
+          sx={{ gap: { xs: 1, sm: 1.5 } }}
+        >
           <Button
             variant="contained"
-            startIcon={<ContentCopy sx={{ fontSize: "1rem" }} />}
-            onClick={() =>
-              navigate(
-                isAdminUser ? "/admin/assets/clone" : "/team/assets/clone",
-              )
-            }
+            startIcon={<ContentCopy />}
+            onClick={() => navigate("/admin/assets/clone")}
             sx={{
               bgcolor: C.primary,
-              fontSize: "0.75rem",
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
               textTransform: "none",
               borderRadius: 2,
               py: 0.8,
             }}
           >
-            {!isMobile && "Clone Asset"}
+            {!isMobile ? "Clone Asset" : "Clone"}
           </Button>
-          {(isAdminUser || isTeamUser) && (
-            <Button
-              variant="outlined"
-              startIcon={<RateReview sx={{ fontSize: "1rem" }} />}
-              onClick={handleAssetRequests}
-              sx={{
-                borderColor: C.primary,
-                color: C.primary,
-                fontSize: "0.75rem",
-                textTransform: "none",
-                borderRadius: 2,
-                py: 0.8,
-              }}
-            >
-              {!isMobile && "Requests"}
-            </Button>
-          )}
+          <Button
+            variant="outlined"
+            startIcon={<RateReview />}
+            onClick={handleAssetRequests}
+            sx={{
+              borderColor: C.primary,
+              color: C.primary,
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
+              textTransform: "none",
+              borderRadius: 2,
+              py: 0.8,
+            }}
+          >
+            {!isMobile ? "Asset Requests" : "Requests"}
+          </Button>
           <Button
             variant="contained"
-            startIcon={<Add sx={{ fontSize: "1rem" }} />}
+            startIcon={<Add />}
             onClick={handleAddAsset}
             sx={{
               bgcolor: C.primary,
-              fontSize: "0.75rem",
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
               textTransform: "none",
               borderRadius: 2,
               py: 0.8,
             }}
           >
-            {!isMobile && "Add Asset"}
+            {!isMobile ? "Add New Asset" : "Add Asset"}
           </Button>
         </Stack>
       </Stack>
+
+      {/* Info Banner */}
+      <Fade in={true}>
+        <Paper
+          elevation={0}
+          sx={{
+            bgcolor: C.infoBg,
+            borderRadius: 2,
+            p: 1.5,
+            mb: 2,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <Info sx={{ fontSize: 18, color: C.info }} />
+          <Typography fontSize="0.75rem" color={C.info}>
+            Note: Only original assets can be cloned. Cloned assets cannot be
+            cloned again.
+          </Typography>
+        </Paper>
+      </Fade>
 
       {/* Search & Filter Bar */}
       <Paper
@@ -576,14 +694,13 @@ export default function AssetManagement() {
                   </IconButton>
                 </InputAdornment>
               ),
-              sx: { fontSize: "0.75rem" },
             }}
           />
           <Button
             variant="contained"
             onClick={handleSearch}
             size="small"
-            sx={{ bgcolor: C.primary, minWidth: 80, fontSize: "0.75rem" }}
+            sx={{ bgcolor: C.primary, minWidth: 80 }}
           >
             Search
           </Button>
@@ -646,7 +763,6 @@ export default function AssetManagement() {
               size="small"
               onClick={clearFilters}
               startIcon={<ClearAll />}
-              sx={{ fontSize: "0.7rem" }}
             >
               Clear
             </Button>
@@ -665,32 +781,26 @@ export default function AssetManagement() {
           </Tooltip>
 
           <Stack direction="row" spacing={0.5}>
-            <Tooltip title="Grid View">
-              <IconButton
-                size="small"
-                onClick={() => setViewMode("grid")}
-                sx={{
-                  bgcolor: viewMode === "grid" ? C.primary : "transparent",
-                  color: viewMode === "grid" ? "#fff" : C.text.secondary,
-                  borderRadius: 2,
-                }}
-              >
-                <GridView sx={{ fontSize: "1rem" }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="List View">
-              <IconButton
-                size="small"
-                onClick={() => setViewMode("list")}
-                sx={{
-                  bgcolor: viewMode === "list" ? C.primary : "transparent",
-                  color: viewMode === "list" ? "#fff" : C.text.secondary,
-                  borderRadius: 2,
-                }}
-              >
-                <ViewList sx={{ fontSize: "1rem" }} />
-              </IconButton>
-            </Tooltip>
+            <IconButton
+              size="small"
+              onClick={() => setViewMode("grid")}
+              sx={{
+                bgcolor: viewMode === "grid" ? C.primary : "transparent",
+                color: viewMode === "grid" ? "#fff" : C.text.secondary,
+              }}
+            >
+              <GridView sx={{ fontSize: "1rem" }} />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setViewMode("list")}
+              sx={{
+                bgcolor: viewMode === "list" ? C.primary : "transparent",
+                color: viewMode === "list" ? "#fff" : C.text.secondary,
+              }}
+            >
+              <ViewList sx={{ fontSize: "1rem" }} />
+            </IconButton>
           </Stack>
         </Stack>
       </Paper>
@@ -719,14 +829,15 @@ export default function AssetManagement() {
                 <AssetCard
                   asset={asset}
                   onView={handleViewAsset}
-                  onClone={openCloneDialog}
+                  onClone={handleCloneClick}
+                  isAdmin={isAdminUser}
                 />
               </Grid>
             ))}
           </Grid>
           {assets.length === 0 && (
             <Box textAlign="center" py={8}>
-              <Typography color={C.text.disabled} fontSize="0.85rem">
+              <Typography color={C.text.disabled}>
                 No assets found matching your filters.
               </Typography>
               <Button onClick={clearFilters} sx={{ mt: 2, color: C.primary }}>
@@ -751,13 +862,7 @@ export default function AssetManagement() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      bgcolor: C.surface,
-                    }}
-                  >
+                  <TableCell>
                     <TableSortLabel
                       active={orderBy === "assetName"}
                       direction={orderBy === "assetName" ? order : "asc"}
@@ -766,153 +871,132 @@ export default function AssetManagement() {
                       Asset Name
                     </TableSortLabel>
                   </TableCell>
-                  {!isMobile && (
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: "0.75rem",
-                        bgcolor: C.surface,
-                      }}
-                    >
-                      Asset ID
-                    </TableCell>
-                  )}
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      bgcolor: C.surface,
-                    }}
-                  >
-                    Category
-                  </TableCell>
-                  {!isMobile && (
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: "0.75rem",
-                        bgcolor: C.surface,
-                      }}
-                    >
-                      Location
-                    </TableCell>
-                  )}
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      bgcolor: C.surface,
-                    }}
-                  >
-                    Status
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      bgcolor: C.surface,
-                    }}
-                  >
-                    Health
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      bgcolor: C.surface,
-                    }}
-                    align="center"
-                  >
-                    Actions
-                  </TableCell>
+                  {!isMobile && <TableCell>Asset ID</TableCell>}
+                  <TableCell>Category</TableCell>
+                  {!isMobile && <TableCell>Location</TableCell>}
+                  <TableCell>Status</TableCell>
+                  <TableCell>Health</TableCell>
+                  <TableCell>Clone</TableCell>
+                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {assets.map((asset) => (
-                  <TableRow
-                    hover
-                    key={asset._id}
-                    sx={{ cursor: "pointer" }}
-                    onClick={() => handleViewAsset(asset)}
-                  >
-                    <TableCell>
-                      <Typography
-                        fontWeight={600}
-                        fontSize="0.8rem"
-                        color={C.text.primary}
-                      >
-                        {asset.assetName}
-                      </Typography>
-                      {isMobile && (
-                        <Typography fontSize="0.65rem" color={C.text.disabled}>
-                          {asset.assetId}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {!isMobile && (
-                      <TableCell sx={{ fontSize: "0.75rem" }}>
-                        {asset.assetId}
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <Chip
-                        label={asset.assetCategory}
-                        size="small"
-                        sx={{ fontSize: "0.65rem", height: 22 }}
-                      />
-                    </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={0.5}
-                        >
-                          <LocationOn
-                            sx={{ fontSize: 12, color: C.text.disabled }}
-                          />
-                          <Typography
-                            fontSize="0.7rem"
-                            noWrap
-                            sx={{ maxWidth: 120 }}
-                          >
-                            {asset.currentLocation || "N/A"}
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <StatusChip status={asset.status} />
-                    </TableCell>
-                    <TableCell>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-                      >
-                        <LinearProgress
-                          variant="determinate"
-                          value={asset.healthScore || 0}
-                          sx={{ width: 40, height: 3, borderRadius: 2 }}
-                        />
-                        <Typography fontSize="0.7rem">
-                          {asset.healthScore || 0}%
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell
-                      align="center"
-                      onClick={(e) => e.stopPropagation()}
+                {assets.map((asset) => {
+                  const canClone =
+                    !asset.isClone && asset.canBeCloned !== false;
+                  return (
+                    <TableRow
+                      hover
+                      key={asset._id}
+                      sx={{ cursor: "pointer" }}
+                      onClick={() => handleViewAsset(asset)}
                     >
-                      <Tooltip title="Clone">
-                        <IconButton
+                      <TableCell>
+                        <Typography fontWeight={600} fontSize="0.8rem">
+                          {asset.assetName}
+                        </Typography>
+                        {asset.isClone && (
+                          <Chip
+                            label="Clone"
+                            size="small"
+                            sx={{ fontSize: "0.6rem", height: 18, mt: 0.5 }}
+                          />
+                        )}
+                      </TableCell>
+                      {!isMobile && <TableCell>{asset.assetId}</TableCell>}
+                      <TableCell>
+                        <Chip
+                          label={asset.assetCategory}
                           size="small"
-                          onClick={() => openCloneDialog(asset)}
+                          sx={{ fontSize: "0.65rem", height: 22 }}
+                        />
+                      </TableCell>
+                      {!isMobile && (
+                        <TableCell>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.5}
+                          >
+                            <LocationOn
+                              sx={{ fontSize: 12, color: C.text.disabled }}
+                            />
+                            <Typography fontSize="0.7rem" noWrap>
+                              {asset.currentLocation || "N/A"}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <StatusChip status={asset.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
                         >
-                          <ContentCopy sx={{ fontSize: "0.9rem" }} />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <LinearProgress
+                            variant="determinate"
+                            value={asset.healthScore || 0}
+                            sx={{ width: 40, height: 3 }}
+                          />
+                          <Typography fontSize="0.7rem">
+                            {asset.healthScore || 0}%
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        {asset.isClone ? (
+                          <Chip
+                            icon={<Block />}
+                            label="Cannot Clone"
+                            size="small"
+                            sx={{ fontSize: "0.65rem", height: 22 }}
+                          />
+                        ) : (
+                          <Chip
+                            icon={<ContentCopy />}
+                            label="Cloneable"
+                            size="small"
+                            sx={{ bgcolor: C.successBg, color: C.success }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell
+                        align="center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Tooltip
+                          title={
+                            canClone
+                              ? "Clone Asset"
+                              : "Cannot clone - Already a clone"
+                          }
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                canClone && handleCloneClick(asset)
+                              }
+                              disabled={!canClone}
+                            >
+                              <ContentCopy
+                                sx={{
+                                  fontSize: "0.9rem",
+                                  color: canClone ? C.primary : C.text.disabled,
+                                }}
+                              />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
@@ -946,36 +1030,66 @@ export default function AssetManagement() {
       {/* Clone Dialog */}
       <Dialog
         open={cloneDialogOpen}
-        onClose={() => setCloneDialogOpen(false)}
-        maxWidth="xs"
+        onClose={() => !cloning && setCloneDialogOpen(false)}
+        maxWidth="sm"
         fullWidth
       >
-        <DialogTitle
-          sx={{ fontSize: "1rem", fontWeight: 700, color: C.text.primary }}
-        >
-          Confirm Clone
+        <DialogTitle sx={{ fontWeight: 700, color: C.text.primary }}>
+          Clone Asset
         </DialogTitle>
         <DialogContent>
           <DialogContentText
-            sx={{ fontSize: "0.8rem", color: C.text.secondary }}
+            sx={{ fontSize: "0.8rem", color: C.text.secondary, mb: 2 }}
           >
             Are you sure you want to clone "{selectedAsset?.assetName}"? A new
             asset will be created with similar properties.
           </DialogContentText>
+          <TextField
+            fullWidth
+            label="Clone Asset Name *"
+            value={cloneName}
+            onChange={(e) => setCloneName(e.target.value)}
+            size="small"
+            sx={{ mb: 2 }}
+            required
+            error={!cloneName.trim()}
+            helperText={!cloneName.trim() ? "Asset name is required" : ""}
+          />
+          <TextField
+            fullWidth
+            label="Clone Asset ID (Optional)"
+            value={cloneAssetId}
+            onChange={(e) => setCloneAssetId(e.target.value)}
+            size="small"
+            sx={{ mb: 2 }}
+            placeholder="Auto-generated if left empty"
+          />
+          <TextField
+            fullWidth
+            label="Clone Tag Number (Optional)"
+            value={cloneTagNumber}
+            onChange={(e) => setCloneTagNumber(e.target.value)}
+            size="small"
+            sx={{ mb: 1 }}
+            placeholder="Auto-generated if left empty"
+          />
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="caption">
+              After cloning, the original asset cannot be cloned again.
+            </Typography>
+          </Alert>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={() => setCloneDialogOpen(false)}
-            sx={{ fontSize: "0.75rem" }}
-          >
+          <Button onClick={() => setCloneDialogOpen(false)} disabled={cloning}>
             Cancel
           </Button>
           <Button
             onClick={handleCloneAsset}
             variant="contained"
-            sx={{ bgcolor: C.primary, fontSize: "0.75rem" }}
+            disabled={cloning || !cloneName.trim()}
+            sx={{ bgcolor: C.primary }}
           >
-            Clone
+            {cloning ? <CircularProgress size={20} /> : "Confirm Clone"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -990,7 +1104,7 @@ export default function AssetManagement() {
         <Alert
           severity={snackbar.severity}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
-          sx={{ fontSize: "0.75rem", borderRadius: 2 }}
+          sx={{ borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>

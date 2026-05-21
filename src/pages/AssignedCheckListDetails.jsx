@@ -1,4 +1,3 @@
-// pages/AssignmentDetails.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -30,46 +29,24 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Rating,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip as MuiChip,
 } from "@mui/material";
 import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
 import { useAuth } from "../context/AuthContexts";
-import { useAssignment } from "../context/AssignmentContext";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditIcon from "@mui/icons-material/Edit";
-import CloseIcon from "@mui/icons-material/Close";
-import ImageIcon from "@mui/icons-material/Image";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import CheckBoxIcon from "@mui/icons-material/CheckBox";
-import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import CloseIcon from "@mui/icons-material/Close";
 
 // Theme
 const TEAL = "#1B4D5C";
@@ -112,20 +89,13 @@ const theme = createTheme({
 // Status Config
 const STATUS_CONFIG = {
   pending: { label: "Pending", color: "#d97706", bg: "#fef3c7" },
-  inProgress: { label: "In Progress", color: "#2563eb", bg: "#dbeafe" },
+  in_progress: { label: "In Progress", color: "#2563eb", bg: "#dbeafe" },
   completed: { label: "Completed", color: "#059669", bg: "#d1fae5" },
   submitted: { label: "Submitted", color: "#7c3aed", bg: "#ede9fe" },
   overdue: { label: "Overdue", color: "#dc2626", bg: "#fee2e2" },
   approved: { label: "Approved", color: "#059669", bg: "#d1fae5" },
   rejected: { label: "Rejected", color: "#dc2626", bg: "#fee2e2" },
   pending_review: { label: "Pending Review", color: "#d97706", bg: "#fef3c7" },
-};
-
-const PRIORITY_COLORS = {
-  low: "#10b981",
-  medium: "#f59e0b",
-  high: "#ef4444",
-  critical: "#dc2626",
 };
 
 function StatusChip({ status }) {
@@ -146,249 +116,25 @@ function StatusChip({ status }) {
   );
 }
 
-function PriorityChip({ priority }) {
-  const color = PRIORITY_COLORS[priority?.toLowerCase()] || "#6b7280";
-  return (
-    <Chip
-      label={priority?.toUpperCase() || "MEDIUM"}
-      size="small"
-      sx={{
-        background: `${color}15`,
-        color: color,
-        fontWeight: 500,
-        fontSize: "0.7rem",
-        height: 24,
-        borderRadius: "16px",
-      }}
-    />
-  );
-}
-
-// Submission Details Dialog Component
-function SubmissionDetailsDialog({ open, onClose, submission, checklist }) {
-  const [submissionData, setSubmissionData] = useState(null);
-
-  useEffect(() => {
-    if (submission) {
-      setSubmissionData(submission);
-    }
-  }, [submission]);
-
-  if (!submissionData) return null;
-
-  const renderFieldValue = (field, value) => {
-    if (!value)
-      return (
-        <Typography variant="body2" sx={{ color: "#9ca3af" }}>
-          Not provided
-        </Typography>
-      );
-
-    switch (field.fieldType) {
-      case "checkbox":
-        return (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {field.checkboxItems?.map((item, idx) => (
-              <Chip
-                key={idx}
-                label={item}
-                size="small"
-                icon={
-                  value.includes(item) ? (
-                    <CheckBoxIcon />
-                  ) : (
-                    <CheckBoxOutlineBlankIcon />
-                  )
-                }
-                sx={{
-                  backgroundColor: value.includes(item) ? "#d1fae5" : "#f3f4f6",
-                  color: value.includes(item) ? "#059669" : "#6b7280",
-                }}
-              />
-            ))}
-          </Box>
-        );
-      case "rating":
-        return (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Rating value={value} readOnly precision={0.5} />
-            <Typography variant="body2">{value}/5</Typography>
-          </Box>
-        );
-      case "image_upload":
-        return (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<ImageIcon />}
-            onClick={() => window.open(value, "_blank")}
-          >
-            View Image
-          </Button>
-        );
-      case "signature":
-        return (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<ImageIcon />}
-            onClick={() => window.open(value, "_blank")}
-          >
-            View Signature
-          </Button>
-        );
-      default:
-        return <Typography variant="body2">{value}</Typography>;
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <Typography variant="h6">Submission Details</Typography>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2, bgcolor: "#f8fafc" }}>
-              <Typography
-                variant="subtitle2"
-                sx={{ color: TEAL, fontWeight: 600, mb: 1 }}
-              >
-                Submitted By: {submissionData.primaryMember?.email || "N/A"}
-              </Typography>
-              <Typography variant="body2" sx={{ color: "#6b7280" }}>
-                Submitted At:{" "}
-                {new Date(submissionData.submittedAt).toLocaleString()}
-              </Typography>
-              <Typography variant="body2" sx={{ color: "#6b7280" }}>
-                Overall Rating: {submissionData.overallRating || "Not rated"}/5
-              </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-              Inspection Notes
-            </Typography>
-            <Paper sx={{ p: 2, bgcolor: "#f8fafc" }}>
-              <Typography variant="body2">
-                {submissionData.inspectorNotes || "No notes provided"}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-              Additional Notes
-            </Typography>
-            <Paper sx={{ p: 2, bgcolor: "#f8fafc" }}>
-              <Typography variant="body2">
-                {submissionData.additionalNotes || "No additional notes"}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          {submissionData.attachments?.length > 0 && (
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Attachments
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                {submissionData.attachments.map((file, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outlined"
-                    size="small"
-                    startIcon={<PictureAsPdfIcon />}
-                    onClick={() => window.open(file.url, "_blank")}
-                  >
-                    {file.name}
-                  </Button>
-                ))}
-              </Box>
-            </Grid>
-          )}
-
-          {submissionData.uploadedPhotos?.length > 0 && (
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Photos
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                {submissionData.uploadedPhotos.map((photo, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outlined"
-                    size="small"
-                    startIcon={<ImageIcon />}
-                    onClick={() => window.open(photo, "_blank")}
-                  >
-                    View Photo {idx + 1}
-                  </Button>
-                ))}
-              </Box>
-            </Grid>
-          )}
-
-          {submissionData.signaturePath && (
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Signature
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<ImageIcon />}
-                onClick={() =>
-                  window.open(submissionData.signaturePath, "_blank")
-                }
-              >
-                View Signature
-              </Button>
-            </Grid>
-          )}
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-        {submissionData.status === "submitted" && (
-          <Button variant="contained" sx={{ bgcolor: TEAL }}>
-            Review Submission
-          </Button>
-        )}
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// Main Component
 export default function AssignmentDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { authRequest } = useAuth();
-  const { getAssignmentById, getChecklistAnalytics } = useAssignment();
-
   const [loading, setLoading] = useState(true);
   const [assignment, setAssignment] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [assignees, setAssignees] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
+  
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [submissionToDelete, setSubmissionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -397,13 +143,14 @@ export default function AssignmentDetails() {
       // Fetch assignment details
       const assignmentResponse = await authRequest("GET", `/assignments/${id}`);
       if (assignmentResponse.success) {
-        setAssignment(assignmentResponse);
+        const assignmentData = assignmentResponse._doc || assignmentResponse;
+        setAssignment(assignmentData);
       }
 
       // Fetch submissions for this checklist
       const checklistId =
-        assignmentResponse?.checklist?._id ||
-        assignmentResponse?._doc?.checklist?._id;
+        assignmentResponse?._doc?.checklist?._id ||
+        assignmentResponse?.checklist?._id;
       if (checklistId) {
         const submissionsResponse = await authRequest(
           "GET",
@@ -413,16 +160,22 @@ export default function AssignmentDetails() {
           setSubmissions(submissionsResponse.submissions || []);
         }
 
-        const assigneesResponse = await authRequest(
-          "GET",
-          `/assignments/checklist/${checklistId}/assignees`,
-        );
-        if (assigneesResponse.success) {
-          const assigneesList = Object.values(assigneesResponse).filter(
-            (item) => item.user,
-          );
-          setAssignees(assigneesList);
+        // Get unique assignees from submissions
+        const uniqueAssignees = new Map();
+        if (submissionsResponse.submissions) {
+          submissionsResponse.submissions.forEach((sub) => {
+            sub.assignedToTeamMembers?.forEach((member) => {
+              if (!uniqueAssignees.has(member.userId?._id || member.userId)) {
+                uniqueAssignees.set(member.userId?._id || member.userId, {
+                  user: member.userId,
+                  status: member.status,
+                  completedAt: member.completedAt,
+                });
+              }
+            });
+          });
         }
+        setAssignees(Array.from(uniqueAssignees.values()));
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -440,6 +193,53 @@ export default function AssignmentDetails() {
     fetchData();
   }, [fetchData]);
 
+  // Delete submission handler
+  const handleDeleteClick = (submission) => {
+    setSubmissionToDelete(submission);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!submissionToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const response = await authRequest("DELETE", `/assignments/${submissionToDelete._id}/submission`);
+      
+      if (response && response.success) {
+        setSnackbar({
+          open: true,
+          message: "Submission deleted successfully",
+          severity: "success",
+        });
+        // Refresh the data
+        await fetchData();
+      } else {
+        setSnackbar({
+          open: true,
+          message: response?.message || "Failed to delete submission",
+          severity: "error",
+        });
+      }
+    } catch (err) {
+      console.error("Error deleting submission:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Failed to delete submission",
+        severity: "error",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setSubmissionToDelete(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setSubmissionToDelete(null);
+  };
+
   // Export submissions to CSV
   const exportToCSV = () => {
     if (submissions.length === 0) {
@@ -451,7 +251,6 @@ export default function AssignmentDetails() {
       return;
     }
 
-    // Define CSV headers
     const headers = [
       "Submitted By",
       "Email",
@@ -461,15 +260,11 @@ export default function AssignmentDetails() {
       "Overall Rating",
       "Inspector Notes",
       "Additional Notes",
-      "Has Attachments",
-      "Has Photos",
-      "Has Signature",
     ];
 
-    // Prepare data rows
     const rows = submissions.map((submission) => [
-      submission.primaryMember?.email?.split("@")[0] || "N/A",
-      submission.primaryMember?.email || "N/A",
+      submission.assignedToTeamMembers?.[0]?.name?.split("@")[0] || "N/A",
+      submission.assignedToTeamMembers?.[0]?.userId?.email || "N/A",
       submission.submittedAt
         ? new Date(submission.submittedAt).toLocaleString()
         : "Not submitted",
@@ -477,30 +272,23 @@ export default function AssignmentDetails() {
       submission.completionRate || 0,
       submission.overallRating || "Not rated",
       `"${(submission.inspectorNotes || "").replace(/"/g, '""')}"`,
-      `"${(submission.additionalNotes || "").replace(/"/g, '""')}"`,
-      submission.attachments?.length > 0 ? "Yes" : "No",
-      submission.uploadedPhotos?.length > 0 ? "Yes" : "No",
-      submission.signaturePath ? "Yes" : "No",
+      `"${(submission.notes || "").replace(/"/g, '""')}"`,
     ]);
 
-    // Combine headers and rows
     const csvContent = [
       headers.join(","),
       ...rows.map((row) => row.join(",")),
     ].join("\n");
 
-    // Add BOM for UTF-8 encoding
     const blob = new Blob(["\uFEFF" + csvContent], {
       type: "text/csv;charset=utf-8;",
     });
-
-    // Create download link
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `submissions_${checklistData?.name || "checklist"}_${new Date().toISOString().split("T")[0]}.csv`,
+      `submissions_${assignment?.checklistName || "checklist"}_${new Date().toISOString().split("T")[0]}.csv`,
     );
     document.body.appendChild(link);
     link.click();
@@ -514,20 +302,31 @@ export default function AssignmentDetails() {
     });
   };
 
-  const assignmentData = assignment?._doc || assignment;
+  const assignmentData = assignment;
   const checklistData = assignmentData?.checklist;
-  const customerData = assignmentData?.customerId;
-  const assetData = assignmentData?.assetId;
 
   // Calculate completion rate
   const completionRate =
-    submissions.length > 0
+    submissions.length > 0 && assignees.length > 0
       ? (submissions.filter(
-          (s) => s.status === "submitted" || s.status === "approved",
+          (s) =>
+            s.status === "submitted" ||
+            s.status === "approved" ||
+            s.submissionStatus === "approved",
         ).length /
           assignees.length) *
         100
       : 0;
+
+  const daysRemaining = assignmentData?.dueDate
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(assignmentData.dueDate) - new Date()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      )
+    : 0;
 
   const statCards = [
     {
@@ -552,72 +351,12 @@ export default function AssignmentDetails() {
       icon: <AccessTimeIcon sx={{ color: "#fff", fontSize: 22 }} />,
       iconBg: "#e65100",
       label: "Days Remaining",
-      value: Math.max(
-        0,
-        Math.ceil(
-          (new Date(assignmentData?.dueDate) - new Date()) /
-            (1000 * 60 * 60 * 24),
-        ),
-      ),
+      value: daysRemaining,
     },
   ];
 
   const handleViewSubmission = (submission) => {
-    // Navigate to submission details page instead of opening dialog
-    navigate(
-      `/admin/assignment-submit-details/${submission._id || submission.id}`,
-    );
-  };
-
-  const handleExportSubmission = (submission) => {
-    // Export single submission as CSV
-    const headers = ["Field", "Value"];
-
-    const rows = [
-      ["Submitted By", submission.primaryMember?.email || "N/A"],
-      [
-        "Submitted Date",
-        submission.submittedAt
-          ? new Date(submission.submittedAt).toLocaleString()
-          : "Not submitted",
-      ],
-      ["Status", submission.submissionStatus || submission.status || "N/A"],
-      ["Completion Rate (%)", submission.completionRate || 0],
-      ["Overall Rating", submission.overallRating || "Not rated"],
-      ["Inspector Notes", submission.inspectorNotes || "N/A"],
-      ["Additional Notes", submission.additionalNotes || "N/A"],
-      ["Has Attachments", submission.attachments?.length > 0 ? "Yes" : "No"],
-      ["Has Photos", submission.uploadedPhotos?.length > 0 ? "Yes" : "No"],
-      ["Has Signature", submission.signaturePath ? "Yes" : "No"],
-    ];
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(
-        (row) => `"${row[0]}","${String(row[1]).replace(/"/g, '""')}"`,
-      ),
-    ].join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `submission_${submission.primaryMember?.email?.split("@")[0] || "user"}_${new Date().toISOString().split("T")[0]}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    setSnackbar({
-      open: true,
-      message: "Submission exported successfully",
-      severity: "success",
-    });
+    navigate(`/admin/assignment-submit-details/${submission._id}`);
   };
 
   if (loading) {
@@ -674,16 +413,23 @@ export default function AssignmentDetails() {
               }}
             >
               <Typography variant="h6" sx={{ fontWeight: 700, color: TEAL }}>
-                {checklistData?.name || "Assignment Details"}
+                {checklistData?.name ||
+                  assignmentData?.checklistName ||
+                  "Assignment Details"}
               </Typography>
-              <StatusChip status={assignmentData?.status} />
-              <PriorityChip priority={assignmentData?.priority} />
+              <StatusChip
+                status={
+                  assignmentData?.submissionStatus || assignmentData?.status
+                }
+              />
             </Box>
             <Typography
               sx={{ color: "#666", fontSize: "0.82rem", maxWidth: 600 }}
             >
-              {checklistData?.sections?.length || 0} sections •{" "}
-              {checklistData?.totalFields || 0} fields
+              Due Date:{" "}
+              {assignmentData?.dueDate
+                ? new Date(assignmentData.dueDate).toLocaleDateString()
+                : "Not set"}
             </Typography>
           </Box>
           <Box sx={{ display: "flex", gap: 1 }}>
@@ -709,8 +455,8 @@ export default function AssignmentDetails() {
                 elevation={0}
                 sx={{
                   border: "1px solid #e8e8e8",
-                  borderRadius: 1,
-                  width: "272px",
+                  width: "282px",
+                  borderRadius: 2,
                 }}
               >
                 <CardContent
@@ -756,7 +502,7 @@ export default function AssignmentDetails() {
         {/* Overall Progress */}
         <Card
           elevation={0}
-          sx={{ border: "1px solid #e8e8e8", borderRadius: 1, mb: 3 }}
+          sx={{ border: "1px solid #e8e8e8", borderRadius: 2, mb: 3 }}
         >
           <CardContent>
             <Box
@@ -792,7 +538,6 @@ export default function AssignmentDetails() {
             TabIndicatorProps={{ style: { backgroundColor: TEAL } }}
           >
             <Tab label="Submissions" />
-            <Tab label="Checklist Structure" />
             <Tab label="Assignees" />
           </Tabs>
         </Box>
@@ -851,14 +596,15 @@ export default function AssignmentDetails() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      submissions.map((submission, i) => (
-                        <TableRow key={i} hover>
+                      submissions.map((submission) => (
+                        <TableRow key={submission._id} hover>
                           <TableCell>
                             <Typography
                               sx={{ fontWeight: 500, fontSize: "0.85rem" }}
                             >
-                              {submission.primaryMember?.email?.split("@")[0] ||
-                                "N/A"}
+                              {submission.assignedToTeamMembers?.[0]?.name?.split(
+                                "@",
+                              )[0] || "N/A"}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -917,40 +663,26 @@ export default function AssignmentDetails() {
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <Rating
-                              value={submission.overallRating || 0}
-                              readOnly
-                              size="small"
-                            />
+                            {submission.overallRating || "—"}
                           </TableCell>
                           <TableCell align="center">
-                            <Box
-                              sx={{
-                                display: "flex",
-                                gap: 0.5,
-                                justifyContent: "center",
-                              }}
-                            >
+                            <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
                               <Tooltip title="View Details">
                                 <IconButton
                                   size="small"
-                                  onClick={() =>
-                                    handleViewSubmission(submission)
-                                  }
+                                  onClick={() => handleViewSubmission(submission)}
                                   sx={{ color: TEAL }}
                                 >
                                   <VisibilityOutlinedIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Export">
+                              <Tooltip title="Delete Submission">
                                 <IconButton
                                   size="small"
-                                  onClick={() =>
-                                    handleExportSubmission(submission)
-                                  }
-                                  sx={{ color: "#555" }}
+                                  onClick={() => handleDeleteClick(submission)}
+                                  sx={{ color: "#dc2626" }}
                                 >
-                                  <FileDownloadOutlinedIcon fontSize="small" />
+                                  <DeleteOutlineIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             </Box>
@@ -965,134 +697,8 @@ export default function AssignmentDetails() {
           </Card>
         )}
 
-        {/* Checklist Structure Tab */}
-        {activeTab === 1 && (
-          <Card
-            elevation={0}
-            sx={{ border: "1px solid #e8e8e8", borderRadius: 2 }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              {checklistData?.sections?.map((section, idx) => (
-                <Accordion
-                  key={idx}
-                  defaultExpanded={idx === 0}
-                  sx={{
-                    mb: 2,
-                    border: "1px solid #e8e8e8",
-                    borderRadius: 2,
-                    "&:before": { display: "none" },
-                  }}
-                >
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box>
-                      <Typography sx={{ fontWeight: 700, color: TEAL }}>
-                        {section.sectionTitle}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: "#888" }}>
-                        {section.sectionDescription}
-                      </Typography>
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box
-                      sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-                    >
-                      {section.fields?.map((field, fIdx) => (
-                        <Paper
-                          key={fIdx}
-                          sx={{
-                            p: 2,
-                            bgcolor: "#f8fafc",
-                            border: "1px solid #e8edf2",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                              mb: 1,
-                            }}
-                          >
-                            <Box>
-                              <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 600 }}
-                              >
-                                {field.label}
-                                {field.isRequired && (
-                                  <span style={{ color: "#dc2626" }}> *</span>
-                                )}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{ color: "#888" }}
-                              >
-                                Type: {field.fieldType}
-                              </Typography>
-                            </Box>
-                            <Chip
-                              label={field.isRequired ? "Required" : "Optional"}
-                              size="small"
-                              sx={{
-                                height: 20,
-                                fontSize: "0.65rem",
-                                bgcolor: field.isRequired
-                                  ? "#fee2e2"
-                                  : "#e5e7eb",
-                              }}
-                            />
-                          </Box>
-                          {field.options?.length > 0 && (
-                            <Box
-                              sx={{
-                                mt: 1,
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 0.5,
-                              }}
-                            >
-                              {field.options.map((opt, oIdx) => (
-                                <Chip
-                                  key={oIdx}
-                                  label={opt}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              ))}
-                            </Box>
-                          )}
-                          {field.checkboxItems?.length > 0 && (
-                            <Box
-                              sx={{
-                                mt: 1,
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 0.5,
-                              }}
-                            >
-                              {field.checkboxItems.map((item, cIdx) => (
-                                <Chip
-                                  key={cIdx}
-                                  label={item}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              ))}
-                            </Box>
-                          )}
-                        </Paper>
-                      ))}
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Assignees Tab */}
-        {activeTab === 2 && (
+        {activeTab === 1 && (
           <Card
             elevation={0}
             sx={{ border: "1px solid #e8e8e8", borderRadius: 2 }}
@@ -1120,16 +726,14 @@ export default function AssignmentDetails() {
                 ) : (
                   assignees.map((assignee, idx) => {
                     const user = assignee.user;
-                    const hasSubmitted = assignee.assignments?.some(
-                      (a) => a.submittedAt,
-                    );
+                    const hasSubmitted = assignee.status === "completed";
                     return (
                       <Grid item xs={12} sm={6} md={4} key={idx}>
                         <Paper
                           elevation={0}
                           sx={{
                             border: "1px solid #e8e8e8",
-                            borderRadius: 1,
+                            borderRadius: 2,
                             p: 1.5,
                             display: "flex",
                             alignItems: "center",
@@ -1163,16 +767,10 @@ export default function AssignmentDetails() {
                               >
                                 {user?.email}
                               </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{ color: "#888" }}
-                              >
-                                Role: {assignee.role || "Team Member"}
-                              </Typography>
                             </Box>
                           </Box>
                           {hasSubmitted ? (
-                            <CheckCircleOutlineIcon
+                            <CheckCircleIcon
                               sx={{ fontSize: 22, color: "#2e7d32", ml: 1 }}
                             />
                           ) : (
@@ -1189,6 +787,76 @@ export default function AssignmentDetails() {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={handleDeleteCancel}
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              maxWidth: 450,
+              width: "100%",
+            },
+          }}
+        >
+          <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1 }}>
+            <WarningAmberIcon sx={{ color: "#dc2626", fontSize: 28 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Delete Submission
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ color: "#64748b" }}>
+              Are you sure you want to delete the submission from{" "}
+              <strong style={{ color: "#0d4a5c" }}>
+                "{submissionToDelete?.assignedToTeamMembers?.[0]?.name?.split("@")[0] || "Unknown"}"
+              </strong>?
+              <br />
+              <br />
+              This action cannot be undone and will remove:
+            </DialogContentText>
+            <Box sx={{ mt: 2, ml: 2 }}>
+              <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1, color: "#64748b", mb: 1 }}>
+                <CloseIcon sx={{ fontSize: 14, color: "#dc2626" }} /> All response data
+              </Typography>
+              <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1, color: "#64748b", mb: 1 }}>
+                <CloseIcon sx={{ fontSize: 14, color: "#dc2626" }} /> Uploaded photos and attachments
+              </Typography>
+              <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1, color: "#64748b" }}>
+                <CloseIcon sx={{ fontSize: 14, color: "#dc2626" }} /> The entire submission record
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, pt: 0, gap: 1.5 }}>
+            <Button
+              onClick={handleDeleteCancel}
+              disabled={deleting}
+              sx={{
+                textTransform: "none",
+                color: "#64748b",
+                borderColor: "#e2e8f0",
+              }}
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              sx={{
+                textTransform: "none",
+                bgcolor: "#dc2626",
+                color: "#fff",
+                "&:hover": { bgcolor: "#b91c1c" },
+              }}
+              variant="contained"
+              startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />}
+            >
+              {deleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Snackbar */}
         <Snackbar

@@ -1,5 +1,5 @@
-// AddNewAsset.jsx (Optimized with Role-Based Access)
-import { useState, useRef, useCallback, useMemo } from "react";
+// AddNewAsset.jsx (Updated with Assigned Users Section)
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -26,6 +26,7 @@ import {
   Avatar,
   LinearProgress,
   AlertTitle,
+  Autocomplete,
 } from "@mui/material";
 import {
   ArrowBack,
@@ -43,10 +44,14 @@ import {
   CloudUpload,
   Image,
   DeleteSweep,
+  Person,
+  PersonAdd,
+  Group,
 } from "@mui/icons-material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useAsset } from "../context/AssetContext";
 import { useAuth } from "../context/AuthContexts";
+import { useTeam } from "../context/TeamContext";
 import { useNavigate } from "react-router-dom";
 
 const theme = createTheme({
@@ -162,16 +167,16 @@ const CBRow = ({ labels, values = {}, onChange, name, disabled }) => (
 
 export default function AddNewAsset() {
   const { user } = useAuth();
-  const { createAsset, canWriteAssets } = useAsset();
+  const { createAsset, loading } = useAsset();
+  const { teamMembers, fetchTeamMembers } = useTeam();
   const navigate = useNavigate();
 
   // Check if user has write permission (Admin only)
   const isAdmin = user?.role === "admin";
   const isTeam = user?.role === "team";
-  const canEdit = isAdmin || isTeam; // Only Admin can create/edit assets
+  const canEdit = isAdmin || isTeam;
 
   const [assetCategory, setAssetCategory] = useState("Equipment");
-  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -190,6 +195,11 @@ export default function AddNewAsset() {
       stateProvince: "",
       postalCode: "",
       country: "",
+    },
+    assignedUsers: {
+      primaryUser: null,
+      secondaryUser: null,
+      custodian: null,
     },
     status: "Active",
     assetCondition: "Normal",
@@ -251,9 +261,33 @@ export default function AddNewAsset() {
     camcInspection: { enabled: false, schedule: "Monthly" },
   });
 
+  // Fetch team members on mount for assignment dropdowns
+  useEffect(() => {
+    if (isAdmin) {
+      fetchTeamMembers({ limit: 100 });
+    }
+  }, [isAdmin, fetchTeamMembers]);
+
+  // Transform team members for Autocomplete options
+  const teamOptions = teamMembers.map((member) => ({
+    id: member._id,
+    label: `${member.name || member.firstName + " " + member.lastName} (${member.email})`,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+  }));
+
   const handleInputChange = (field, value) => {
     if (!canEdit) return;
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAssignedUserChange = (field, value) => {
+    if (!canEdit) return;
+    setFormData((prev) => ({
+      ...prev,
+      assignedUsers: { ...prev.assignedUsers, [field]: value?.id || null },
+    }));
   };
 
   const handleAddressChange = (field, value) => {
@@ -310,7 +344,6 @@ export default function AddNewAsset() {
       return;
     }
 
-    setLoading(true);
     try {
       // Prepare submission data
       const submissionData = {
@@ -319,6 +352,7 @@ export default function AddNewAsset() {
         serialNumber: formData.serialNumber,
         currentLocation: formData.currentLocation,
         customPhysicalAddress: formData.customPhysicalAddress,
+        assignedUsers: formData.assignedUsers,
         status: formData.status,
         assetCondition: formData.assetCondition,
         assetCategory,
@@ -403,8 +437,6 @@ export default function AddNewAsset() {
           "Failed to create asset",
         severity: "error",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -444,8 +476,7 @@ export default function AddNewAsset() {
             py: 1.5,
             display: "flex",
             alignItems: "center",
-            width: "1130px",
-            marginLeft: "28px",
+            width: "100%",
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: 2,
@@ -512,7 +543,7 @@ export default function AddNewAsset() {
               </Stack>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sx={{ width: "270px" }}>
+                <Grid item xs={12} sx={{width:"300px"}}>
                   <FilterLabel required>Asset Name</FilterLabel>
                   <TextField
                     fullWidth
@@ -526,7 +557,7 @@ export default function AddNewAsset() {
                     required
                   />
                 </Grid>
-                <Grid item xs={12} sx={{ width: "270px" }}>
+                <Grid item xs={12} sx={{width:"300px"}}>
                   <FilterLabel>Description</FilterLabel>
                   <TextField
                     fullWidth
@@ -541,7 +572,7 @@ export default function AddNewAsset() {
                     rows={2}
                   />
                 </Grid>
-                <Grid item xs={12} sx={{ width: "270px" }}>
+                <Grid item xs={12} sx={{width:"300px"}}>
                   <FilterLabel>Serial Number</FilterLabel>
                   <TextField
                     fullWidth
@@ -554,7 +585,7 @@ export default function AddNewAsset() {
                     disabled={!canEdit}
                   />
                 </Grid>
-                <Grid item xs={12} sx={{ width: "270px" }}>
+                <Grid item xs={12} sx={{width:"300px"}}>
                   <FilterLabel required>Asset Category</FilterLabel>
                   <FormControl fullWidth size="small">
                     <Select
@@ -580,6 +611,129 @@ export default function AddNewAsset() {
                   Category selected: {assetCategory}
                 </Typography>
               </Box>
+            </Paper>
+
+            {/* Assigned Users Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: "1px solid #e8eaed",
+                borderRadius: 3,
+                p: 3,
+                mb: 2.5,
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} mb={2.5}>
+                <Person fontSize="small" sx={{ color: "#1a5c6b" }} />
+                <Typography fontWeight={700} fontSize={14} color="#1a1a2e">
+                  Assigned Users
+                </Typography>
+              </Stack>
+
+              <FilterLabel>Primary User</FilterLabel>
+              <Autocomplete
+                fullWidth
+                size="small"
+                options={teamOptions}
+                value={
+                  teamOptions.find(
+                    (opt) => opt.id === formData.assignedUsers.primaryUser,
+                  ) || null
+                }
+                onChange={(_, newValue) =>
+                  handleAssignedUserChange("primaryUser", newValue)
+                }
+                isOptionEqualToValue={(option, value) =>
+                  option.id === value?.id
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select primary user"
+                    disabled={!canEdit}
+                    sx={{ mb: 2 }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+                        {option.label.charAt(0)}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>
+                          {option.label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.role || "Team Member"}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </li>
+                )}
+              />
+
+              <FilterLabel>Secondary User</FilterLabel>
+              <Autocomplete
+                fullWidth
+                size="small"
+                options={teamOptions}
+                value={
+                  teamOptions.find(
+                    (opt) => opt.id === formData.assignedUsers.secondaryUser,
+                  ) || null
+                }
+                onChange={(_, newValue) =>
+                  handleAssignedUserChange("secondaryUser", newValue)
+                }
+                isOptionEqualToValue={(option, value) =>
+                  option.id === value?.id
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select secondary user"
+                    disabled={!canEdit}
+                    sx={{ mb: 2 }}
+                  />
+                )}
+              />
+
+              <FilterLabel>Custodian</FilterLabel>
+              <Autocomplete
+                fullWidth
+                size="small"
+                options={teamOptions}
+                value={
+                  teamOptions.find(
+                    (opt) => opt.id === formData.assignedUsers.custodian,
+                  ) || null
+                }
+                onChange={(_, newValue) =>
+                  handleAssignedUserChange("custodian", newValue)
+                }
+                isOptionEqualToValue={(option, value) =>
+                  option.id === value?.id
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select custodian"
+                    disabled={!canEdit}
+                  />
+                )}
+              />
+
+              {teamMembers.length === 0 && isAdmin && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 1, display: "block" }}
+                >
+                  No team members found. Add team members first in Team
+                  Management.
+                </Typography>
+              )}
             </Paper>
 
             {/* Primary Filters */}
@@ -657,7 +811,7 @@ export default function AddNewAsset() {
                 sx={{ mb: 2 }}
               />
 
-              <FilterLabel>Purchase Cost </FilterLabel>
+              <FilterLabel>Purchase Cost ($)</FilterLabel>
               <TextField
                 fullWidth
                 size="small"
@@ -670,7 +824,7 @@ export default function AddNewAsset() {
                 disabled={!canEdit}
                 InputProps={{
                   startAdornment: (
-                    <InputAdornment position="start"></InputAdornment>
+                    <InputAdornment position="start">$</InputAdornment>
                   ),
                 }}
                 sx={{ mb: 2 }}
@@ -723,6 +877,89 @@ export default function AddNewAsset() {
                 multiline
                 rows={2}
               />
+            </Paper>
+
+            {/* Address Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: "1px solid #e8eaed",
+                borderRadius: 3,
+                p: 3,
+                mb: 2.5,
+              }}
+            >
+              <Typography fontWeight={700} fontSize={13} mb={2} color="#1a1a2e">
+                Physical Address
+              </Typography>
+
+              <FilterLabel>Street Address</FilterLabel>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Enter street address"
+                value={formData.customPhysicalAddress.streetAddress}
+                onChange={(e) =>
+                  handleAddressChange("streetAddress", e.target.value)
+                }
+                disabled={!canEdit}
+                sx={{ mb: 2 }}
+              />
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <FilterLabel>City</FilterLabel>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="City"
+                    value={formData.customPhysicalAddress.city}
+                    onChange={(e) =>
+                      handleAddressChange("city", e.target.value)
+                    }
+                    disabled={!canEdit}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FilterLabel>State/Province</FilterLabel>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="State/Province"
+                    value={formData.customPhysicalAddress.stateProvince}
+                    onChange={(e) =>
+                      handleAddressChange("stateProvince", e.target.value)
+                    }
+                    disabled={!canEdit}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FilterLabel>Postal Code</FilterLabel>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Postal Code"
+                    value={formData.customPhysicalAddress.postalCode}
+                    onChange={(e) =>
+                      handleAddressChange("postalCode", e.target.value)
+                    }
+                    disabled={!canEdit}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FilterLabel>Country</FilterLabel>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Country"
+                    value={formData.customPhysicalAddress.country}
+                    onChange={(e) =>
+                      handleAddressChange("country", e.target.value)
+                    }
+                    disabled={!canEdit}
+                  />
+                </Grid>
+              </Grid>
             </Paper>
           </Box>
 

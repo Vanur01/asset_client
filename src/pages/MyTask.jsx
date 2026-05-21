@@ -45,7 +45,7 @@ export const theme = createTheme({
   shape: { borderRadius: 12 },
   typography: {
     fontFamily: "'DM Sans','Segoe UI',sans-serif",
-    body2: { fontSize: "0.82rem" },
+    body2: { fontSize: "0.75rem" },
   },
   components: {
     MuiCard: {
@@ -53,13 +53,13 @@ export const theme = createTheme({
         root: {
           boxShadow: "0 1px 4px rgba(0,0,0,.06)",
           border: "1.5px solid #e9eaec",
-          borderRadius: 16,
+          borderRadius: 14,
         },
       },
     },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: { borderRadius: 10, background: "#fff", fontSize: "0.82rem" },
+        root: { borderRadius: 10, background: "#fff", fontSize: "0.75rem" },
         notchedOutline: { borderColor: "#e5e7eb" },
       },
     },
@@ -73,7 +73,7 @@ const LEGEND = [
   { color: "#f97316", label: "Medium Priority" },
   { color: "#3b82f6", label: "Low Priority" },
   { color: "#22c55e", label: "In Progress" },
-  { color: "#9ca3af", label: "Pending" },
+  { color: "#9ca3af", label: "Overdue" },
 ];
 
 const DAY_HEADERS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -99,10 +99,10 @@ const Badge = ({ bg, color, children, ml = 0, small = false }) => (
       background: bg,
       color,
       borderRadius: "20px",
-      px: small ? 1 : 1.4,
-      py: small ? 0.3 : 0.4,
-      fontSize: small ? "0.67rem" : "0.71rem",
-      fontWeight: 700,
+      px: small ? 0.8 : 1.2,
+      py: small ? 0.2 : 0.35,
+      fontSize: small ? "0.62rem" : "0.68rem",
+      fontWeight: 600,
       display: "inline-block",
       whiteSpace: "nowrap",
       ml,
@@ -113,12 +113,12 @@ const Badge = ({ bg, color, children, ml = 0, small = false }) => (
 );
 
 const MetaRow = ({ Icon, text }) => (
-  <Box display="flex" alignItems="center" gap={0.9}>
-    <Icon sx={{ fontSize: 13, color: "#6b7280", flexShrink: 0 }} />
+  <Box display="flex" alignItems="center" gap={0.8}>
+    <Icon sx={{ fontSize: 12, color: "#6b7280", flexShrink: 0 }} />
     <Typography
       variant="body2"
       color="text.secondary"
-      sx={{ fontSize: "0.8rem" }}
+      sx={{ fontSize: "0.72rem" }}
     >
       {text}
     </Typography>
@@ -132,8 +132,8 @@ const Header = ({ view, setView, onRefresh, loading }) => (
       display: "flex",
       justifyContent: "space-between",
       alignItems: "flex-start",
-      px: { xs: 2, md: 4 },
-      pt: 3,
+      px: { xs: 2, md: 3 },
+      pt: 2.5,
       pb: 0.5,
     }}
   >
@@ -141,13 +141,17 @@ const Header = ({ view, setView, onRefresh, loading }) => (
       <Typography
         sx={{
           fontWeight: 700,
-          fontSize: { xs: "1.1rem", md: "1.35rem" },
+          fontSize: { xs: "1rem", md: "1.2rem" },
           color: "#0d3d52",
         }}
       >
         My Tasks
       </Typography>
-      <Typography variant="body2" color="text.secondary" mt={0.2}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ fontSize: "0.7rem" }}
+      >
         Your assigned inspection tasks
       </Typography>
     </Box>
@@ -159,33 +163,33 @@ const Header = ({ view, setView, onRefresh, loading }) => (
         sx={{
           border: "1.5px solid #e5e7eb",
           borderRadius: "8px",
-          width: 34,
-          height: 34,
+          width: 32,
+          height: 32,
           color: "#6b7280",
         }}
       >
-        <RefreshIcon sx={{ fontSize: 18 }} />
+        <RefreshIcon sx={{ fontSize: 16 }} />
       </IconButton>
       <Box
         sx={{
           display: "flex",
           border: "1.5px solid #e5e7eb",
-          borderRadius: "12px",
+          borderRadius: "10px",
           background: "#fff",
-          p: "4px",
+          p: "3px",
           gap: "2px",
         }}
       >
         {[
           {
             val: "list",
-            icon: <ViewListIcon sx={{ fontSize: 15 }} />,
-            label: "List View",
+            icon: <ViewListIcon sx={{ fontSize: 14 }} />,
+            label: "List",
           },
           {
             val: "calendar",
-            icon: <CalendarMonthIcon sx={{ fontSize: 15 }} />,
-            label: "Calendar View",
+            icon: <CalendarMonthIcon sx={{ fontSize: 14 }} />,
+            label: "Calendar",
           },
         ].map(({ val, icon, label }) => (
           <Button
@@ -195,17 +199,16 @@ const Header = ({ view, setView, onRefresh, loading }) => (
             sx={{
               textTransform: "none",
               fontWeight: 500,
-              fontSize: { xs: "0.75rem", md: "0.82rem" },
-              borderRadius: "9px",
-              px: { xs: 1, md: 1.8 },
-              py: 0.85,
+              fontSize: "0.7rem",
+              borderRadius: "8px",
+              px: { xs: 1, md: 1.5 },
+              py: 0.6,
               minWidth: 0,
               border: "none",
               color: view === val ? "#111827" : "#6b7280",
               background: view === val ? "#fff" : "transparent",
-              boxShadow: view === val ? "0 1px 5px rgba(0,0,0,.10)" : "none",
+              boxShadow: view === val ? "0 1px 3px rgba(0,0,0,.08)" : "none",
               "&:hover": { background: view === val ? "#fff" : "#f9fafb" },
-              display: { xs: val === "calendar" ? "none" : "flex", sm: "flex" },
             }}
           >
             {label}
@@ -222,28 +225,27 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
   const [priority, setPriority] = useState(filters.priority || "");
   const [date, setDate] = useState("");
 
-  const apply = (newStatus, newPriority) => {
+  const apply = (newStatus, newPriority) =>
     onFilter({ status: newStatus, priority: newPriority });
-  };
 
   return (
     <Box
       sx={{
-        mx: { xs: 2, md: 4 },
-        mb: 2.5,
-        mt: 1.5,
+        mx: { xs: 2, md: 3 },
+        mb: 2,
+        mt: 1,
         border: "1.5px solid #e9eaec",
-        borderRadius: "14px",
+        borderRadius: "12px",
         background: "#fff",
-        px: 2,
-        py: 1.5,
+        px: 1.5,
+        py: 1,
         display: "flex",
-        gap: 1.5,
+        gap: 1,
         alignItems: "center",
         flexWrap: "wrap",
       }}
     >
-      <FormControl size="small" sx={{ minWidth: 130 }}>
+      <FormControl size="small" sx={{ minWidth: 120 }}>
         <Select
           value={status}
           onChange={(e) => {
@@ -251,11 +253,7 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
             apply(e.target.value, priority);
           }}
           displayEmpty
-          sx={{
-            fontSize: "0.82rem",
-            borderRadius: "10px",
-            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e5e7eb" },
-          }}
+          sx={{ fontSize: "0.75rem", borderRadius: "8px" }}
         >
           <MenuItem value="">All Tasks</MenuItem>
           {[
@@ -271,7 +269,7 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
             <MenuItem
               key={s}
               value={s}
-              sx={{ fontSize: "0.82rem", textTransform: "capitalize" }}
+              sx={{ fontSize: "0.75rem", textTransform: "capitalize" }}
             >
               {s.replace("_", " ")}
             </MenuItem>
@@ -279,7 +277,7 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: 130 }}>
+      <FormControl size="small" sx={{ minWidth: 110 }}>
         <Select
           value={priority}
           onChange={(e) => {
@@ -287,18 +285,14 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
             apply(status, e.target.value);
           }}
           displayEmpty
-          sx={{
-            fontSize: "0.82rem",
-            borderRadius: "10px",
-            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e5e7eb" },
-          }}
+          sx={{ fontSize: "0.75rem", borderRadius: "8px" }}
         >
           <MenuItem value="">Priority</MenuItem>
-          {["high", "medium", "low", "critical"].map((p) => (
+          {["critical", "high", "medium", "low"].map((p) => (
             <MenuItem
               key={p}
               value={p}
-              sx={{ fontSize: "0.82rem", textTransform: "capitalize" }}
+              sx={{ fontSize: "0.75rem", textTransform: "capitalize" }}
             >
               {p}
             </MenuItem>
@@ -313,31 +307,30 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
         onChange={(e) => setDate(e.target.value)}
         sx={{
           "& .MuiOutlinedInput-root": {
-            borderRadius: "10px",
-            fontSize: "0.82rem",
+            borderRadius: "8px",
+            fontSize: "0.75rem",
           },
-          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e5e7eb" },
         }}
       />
 
       {showMore && (
         <Button
-          startIcon={<FilterListIcon sx={{ fontSize: 15 }} />}
+          startIcon={<FilterListIcon sx={{ fontSize: 13 }} />}
           onClick={() => apply(status, priority)}
           sx={{
             textTransform: "none",
             fontWeight: 500,
-            fontSize: "0.82rem",
+            fontSize: "0.72rem",
             color: "#111827",
             border: "1.5px solid #e5e7eb",
-            borderRadius: "10px",
-            px: 2,
-            py: 0.85,
+            borderRadius: "8px",
+            px: 1.5,
+            py: 0.6,
             background: "#fff",
             "&:hover": { background: "#f9fafb" },
           }}
         >
-          Apply Filters
+          Apply
         </Button>
       )}
     </Box>
@@ -347,27 +340,27 @@ const FiltersBar = ({ showMore = true, onFilter, filters }) => {
 /* ═══════════════════════════ STAT CARDS ════════════════════════════════════ */
 const StatCard = ({ label, value, loading }) => (
   <Card sx={{ flex: 1, minWidth: { xs: "calc(50% - 8px)", sm: 0 } }}>
-    <CardContent sx={{ px: "18px !important", py: "16px !important" }}>
+    <CardContent sx={{ px: "14px !important", py: "12px !important" }}>
       <Typography
         variant="body2"
         color="text.secondary"
-        mb={0.8}
-        sx={{ fontSize: "0.78rem" }}
+        mb={0.5}
+        sx={{ fontSize: "0.7rem" }}
       >
         {label}
       </Typography>
       {loading ? (
-        <Skeleton width={40} height={36} />
+        <Skeleton width={36} height={32} />
       ) : (
         <Typography
           sx={{
-            fontSize: { xs: "1.5rem", md: "1.85rem" },
+            fontSize: { xs: "1.3rem", md: "1.6rem" },
             fontWeight: 700,
             color: "#111827",
             lineHeight: 1,
           }}
         >
-          {value}
+          {value ?? 0}
         </Typography>
       )}
     </CardContent>
@@ -376,10 +369,10 @@ const StatCard = ({ label, value, loading }) => (
 
 /* ═══════════════════════════ TASK CARD ═════════════════════════════════════ */
 const TaskCard = ({ task, onStart }) => (
-  <Card sx={{ height: "100%", borderRadius: "18px" }}>
+  <Card sx={{ height: "100%", borderRadius: "16px", width: "360px" }}>
     <CardContent
       sx={{
-        p: "20px !important",
+        p: "14px !important",
         height: "100%",
         display: "flex",
         flexDirection: "column",
@@ -389,7 +382,7 @@ const TaskCard = ({ task, onStart }) => (
         display="flex"
         justifyContent="space-between"
         alignItems="flex-start"
-        mb={1.6}
+        mb={1}
         gap={1}
         flexWrap="wrap"
       >
@@ -397,35 +390,17 @@ const TaskCard = ({ task, onStart }) => (
           {task.priority}
         </Badge>
         <Badge bg={task.statusBg} color={task.statusColor}>
-          {task.status}
+          {task.status}{" "}
         </Badge>
       </Box>
 
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="flex-start"
-        mb={1.6}
-        gap={1}
+      <Typography
+        sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827", mb: 1 }}
       >
-        <Typography
-          sx={{
-            fontWeight: 700,
-            fontSize: "0.98rem",
-            color: "#111827",
-            flex: 1,
-          }}
-        >
-          {task.title}
-        </Typography>
-        {task.critical && (
-          <Badge bg="#ef4444" color="#fff" small>
-            Critical
-          </Badge>
-        )}
-      </Box>
+        {task.title}
+      </Typography>
 
-      <Stack gap={0.8} mb={2.5}>
+      <Stack gap={0.6} mb={1.5}>
         <MetaRow Icon={DescriptionOutlinedIcon} text={task.type} />
         <MetaRow Icon={LocationOnOutlinedIcon} text={task.location} />
         <MetaRow Icon={BusinessIcon} text={task.customerName} />
@@ -433,62 +408,48 @@ const TaskCard = ({ task, onStart }) => (
       </Stack>
 
       {task.isDraft && (
-        <Box mb={1.5}>
-          <Badge bg="#fef3c7" color="#92400e">
+        <Box mb={1}>
+          <Badge bg="#fef3c7" color="#92400e" small>
             Draft saved
           </Badge>
         </Box>
       )}
 
-      <Box mt="auto">
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<PlayArrowIcon sx={{ fontSize: 14 }} />}
-          onClick={() => onStart(task)}
-          sx={{
-            background: "linear-gradient(135deg,#0d3d52 0%,#1a5a78 100%)",
-            color: "#fff",
-            textTransform: "none",
-            fontWeight: 600,
-            fontSize: "0.85rem",
-            borderRadius: "10px",
-            py: 1.2,
-            boxShadow: "0 2px 8px rgba(13,61,82,.28)",
-            "&:hover": { boxShadow: "0 4px 14px rgba(13,61,82,.38)" },
-          }}
-        >
-          {task.btn}
-          {task.dot && (
-            <Box
-              sx={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: "#ef4444",
-                ml: 0.5,
-              }}
-            />
-          )}
-        </Button>
-      </Box>
+      <Button
+        fullWidth
+        variant="contained"
+        startIcon={<PlayArrowIcon sx={{ fontSize: 12 }} />}
+        onClick={() => onStart(task)}
+        sx={{
+          background: "linear-gradient(135deg,#0d3d52 0%,#1a5a78 100%)",
+          color: "#fff",
+          textTransform: "none",
+          fontWeight: 600,
+          fontSize: "0.72rem",
+          borderRadius: "8px",
+          py: 0.8,
+          boxShadow: "0 1px 4px rgba(13,61,82,.2)",
+          mt: "auto",
+        }}
+      >
+        {task.btn}
+      </Button>
     </CardContent>
   </Card>
 );
 
-/* ═══════════════════════ TASK CARD SKELETON ════════════════════════════════ */
 const TaskCardSkeleton = () => (
-  <Card sx={{ height: "100%", borderRadius: "18px" }}>
-    <CardContent sx={{ p: "20px !important" }}>
-      <Box display="flex" justifyContent="space-between" mb={2}>
-        <Skeleton width={100} height={24} sx={{ borderRadius: "20px" }} />
-        <Skeleton width={80} height={24} sx={{ borderRadius: "20px" }} />
+  <Card sx={{ height: "100%", borderRadius: "16px" }}>
+    <CardContent sx={{ p: "14px !important" }}>
+      <Box display="flex" justifyContent="space-between" mb={1.5}>
+        <Skeleton width={80} height={20} sx={{ borderRadius: "12px" }} />
+        <Skeleton width={70} height={20} sx={{ borderRadius: "12px" }} />
       </Box>
-      <Skeleton width="70%" height={28} sx={{ mb: 1.5 }} />
-      <Skeleton width="90%" height={18} sx={{ mb: 0.8 }} />
-      <Skeleton width="75%" height={18} sx={{ mb: 0.8 }} />
-      <Skeleton width="60%" height={18} sx={{ mb: 3 }} />
-      <Skeleton width="100%" height={44} sx={{ borderRadius: "10px" }} />
+      <Skeleton width="70%" height={22} sx={{ mb: 1.2 }} />
+      <Skeleton width="85%" height={14} sx={{ mb: 0.6 }} />
+      <Skeleton width="75%" height={14} sx={{ mb: 0.6 }} />
+      <Skeleton width="65%" height={14} sx={{ mb: 2 }} />
+      <Skeleton width="100%" height={36} sx={{ borderRadius: "8px" }} />
     </CardContent>
   </Card>
 );
@@ -532,7 +493,7 @@ const DayModal = ({ open, day, month, year, tasks, onClose, onStart }) => (
     open={open}
     onClose={onClose}
     PaperProps={{
-      sx: { borderRadius: "20px", maxWidth: 560, width: "100%", m: 2 },
+      sx: { borderRadius: "18px", maxWidth: 520, width: "100%", m: 2 },
     }}
   >
     <DialogContent sx={{ p: 0 }}>
@@ -541,48 +502,43 @@ const DayModal = ({ open, day, month, year, tasks, onClose, onStart }) => (
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          px: 3,
-          py: 2.2,
+          px: 2.5,
+          py: 1.8,
           borderBottom: "1px solid #f3f4f6",
         }}
       >
-        <Box display="flex" alignItems="center" gap={1.5}>
+        <Box display="flex" alignItems="center" gap={1}>
           <Box
             sx={{
               background: "#0d3d52",
-              borderRadius: "10px",
-              width: 38,
-              height: 38,
+              borderRadius: "8px",
+              width: 32,
+              height: 32,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <CalendarMonthIcon sx={{ color: "#fff", fontSize: 20 }} />
+            <CalendarMonthIcon sx={{ color: "#fff", fontSize: 16 }} />
           </Box>
-          <Box>
-            <Typography
-              sx={{ fontWeight: 700, fontSize: "1rem", color: "#111827" }}
-            >
-              {day} {MONTHS[month]} {year}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {tasks.length} task{tasks.length !== 1 ? "s" : ""} scheduled
-            </Typography>
-          </Box>
+          <Typography
+            sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}
+          >
+            {day} {MONTHS[month]} {year}
+          </Typography>
         </Box>
         <IconButton onClick={onClose} size="small" sx={{ color: "#6b7280" }}>
-          <CloseIcon sx={{ fontSize: 20 }} />
+          <CloseIcon sx={{ fontSize: 18 }} />
         </IconButton>
       </Box>
 
       <Box
         sx={{
-          p: 3,
+          p: 2.5,
           display: "flex",
           flexDirection: "column",
-          gap: 2,
-          maxHeight: "70vh",
+          gap: 1.5,
+          maxHeight: "65vh",
           overflowY: "auto",
         }}
       >
@@ -590,56 +546,54 @@ const DayModal = ({ open, day, month, year, tasks, onClose, onStart }) => (
           <Card
             key={t.id}
             sx={{
-              borderRadius: "14px",
+              borderRadius: "12px",
               border: "1.5px solid #e9eaec",
               boxShadow: "none",
-              overflow: "hidden",
             }}
           >
             <Box display="flex">
-              <Box sx={{ width: 4, background: t.priorityBg, flexShrink: 0 }} />
-              <CardContent sx={{ p: "16px 18px !important", flex: 1 }}>
-                <Box display="flex" alignItems="flex-start" gap={1} mb={0.5}>
-                  <Typography sx={{ fontSize: 16 }}>📋</Typography>
-                  <Box flex={1}>
-                    <Typography
-                      sx={{
-                        fontWeight: 700,
-                        fontSize: "0.95rem",
-                        color: "#111827",
-                      }}
-                    >
-                      {t.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" mt={0.3}>
-                      {t.assetName}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Stack gap={0.6} mb={1.5} mt={1}>
+              <Box
+                sx={{
+                  width: 3,
+                  background: t.priorityBg,
+                  flexShrink: 0,
+                  borderRadius: "12px 0 0 12px",
+                }}
+              />
+              <CardContent sx={{ p: "12px 14px !important", flex: 1 }}>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "0.8rem",
+                    color: "#111827",
+                    mb: 0.2,
+                  }}
+                >
+                  {t.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ fontSize: "0.65rem", mb: 0.8 }}
+                >
+                  {t.assetName}
+                </Typography>
+                <Stack gap={0.4} mb={1}>
                   <MetaRow Icon={DescriptionOutlinedIcon} text={t.type} />
                   <MetaRow Icon={LocationOnOutlinedIcon} text={t.location} />
                 </Stack>
-
-                <Box display="flex" gap={1} mb={1.8} flexWrap="wrap">
+                <Box display="flex" gap={0.8} mb={1.2} flexWrap="wrap">
                   <Badge bg={t.priorityBg} color={t.priorityColor} small>
                     {t.priority}
                   </Badge>
                   <Badge bg={t.statusBg} color={t.statusColor} small>
-                    {t.status}
+                    {t.status}{" "}
                   </Badge>
-                  {t.critical && (
-                    <Badge bg="#fee2e2" color="#dc2626" small>
-                      Critical Asset
-                    </Badge>
-                  )}
                 </Box>
-
                 <Button
                   fullWidth
                   variant="contained"
-                  startIcon={<PlayArrowIcon sx={{ fontSize: 13 }} />}
+                  startIcon={<PlayArrowIcon sx={{ fontSize: 11 }} />}
                   onClick={() => {
                     onClose();
                     onStart(t);
@@ -650,9 +604,9 @@ const DayModal = ({ open, day, month, year, tasks, onClose, onStart }) => (
                     color: "#fff",
                     textTransform: "none",
                     fontWeight: 600,
-                    fontSize: "0.83rem",
-                    borderRadius: "10px",
-                    py: 1,
+                    fontSize: "0.7rem",
+                    borderRadius: "8px",
+                    py: 0.7,
                   }}
                 >
                   {t.btn}
@@ -662,7 +616,12 @@ const DayModal = ({ open, day, month, year, tasks, onClose, onStart }) => (
           </Card>
         ))}
         {tasks.length === 0 && (
-          <Typography color="text.secondary" textAlign="center" py={3}>
+          <Typography
+            color="text.secondary"
+            textAlign="center"
+            py={2}
+            sx={{ fontSize: "0.75rem" }}
+          >
             No tasks on this day
           </Typography>
         )}
@@ -690,21 +649,21 @@ const ListView = ({ view, setView, onStart }) => {
       <Header
         view={view}
         setView={setView}
-        onRefresh={() => fetchAssignments({}, true)}
+        onRefresh={() => fetchAssignments({})}
         loading={loading}
       />
       <FiltersBar showMore filters={filters} onFilter={applyFilters} />
 
       {error && (
-        <Box px={4} mb={2}>
-          <Alert severity="error" onClose={() => {}}>
+        <Box px={3} mb={1.5}>
+          <Alert severity="error" sx={{ fontSize: "0.75rem" }}>
             {error}
           </Alert>
         </Box>
       )}
 
-      <Box px={{ xs: 2, md: 4 }} mb={3}>
-        <Stack direction="row" gap={2} flexWrap="wrap">
+      <Box px={{ xs: 2, md: 3 }} mb={2.5}>
+        <Stack direction="row" gap={1.5} flexWrap="wrap">
           <StatCard
             label="Total Tasks"
             value={stats?.total}
@@ -720,8 +679,8 @@ const ListView = ({ view, setView, onStart }) => {
         </Stack>
       </Box>
 
-      <Box px={{ xs: 2, md: 4 }}>
-        <Grid container spacing={2.5}>
+      <Box px={{ xs: 2, md: 3 }}>
+        <Grid container spacing={2}>
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <Grid item xs={12} sm={6} md={4} key={i}>
@@ -736,11 +695,11 @@ const ListView = ({ view, setView, onStart }) => {
             ))
           ) : (
             <Grid item xs={12}>
-              <Box textAlign="center" py={8} color="text.secondary">
-                <Typography variant="h6" mb={1}>
+              <Box textAlign="center" py={6} color="text.secondary">
+                <Typography variant="h6" sx={{ fontSize: "0.9rem", mb: 0.5 }}>
                   No assignments found
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" sx={{ fontSize: "0.7rem" }}>
                   Try changing your filters or check back later.
                 </Typography>
               </Box>
@@ -748,14 +707,16 @@ const ListView = ({ view, setView, onStart }) => {
           )}
         </Grid>
 
+        {/* FIX: use normalised totalPages from context */}
         {pagination.totalPages > 1 && (
-          <Box display="flex" justifyContent="center" mt={4} pb={4}>
+          <Box display="flex" justifyContent="center" mt={3} pb={3}>
             <Pagination
               count={pagination.totalPages}
               page={pagination.page}
               onChange={(_, p) => changePage(p)}
               color="primary"
               shape="rounded"
+              size="small"
             />
           </Box>
         )}
@@ -771,7 +732,6 @@ const CalendarView = ({ view, setView, onStart }) => {
   const now = new Date();
   const [curYear, setCurYear] = useState(now.getFullYear());
   const [curMonth, setCurMonth] = useState(now.getMonth());
-  const [calSub, setCalSub] = useState("Month");
   const [modalDay, setModalDay] = useState(null);
 
   const weeks = buildCalendarWeeks(curYear, curMonth);
@@ -787,18 +747,13 @@ const CalendarView = ({ view, setView, onStart }) => {
     if (curMonth === 0) {
       setCurYear((y) => y - 1);
       setCurMonth(11);
-    } else {
-      setCurMonth((m) => m - 1);
-    }
+    } else setCurMonth((m) => m - 1);
   };
-
   const nextMonth = () => {
     if (curMonth === 11) {
       setCurYear((y) => y + 1);
       setCurMonth(0);
-    } else {
-      setCurMonth((m) => m + 1);
-    }
+    } else setCurMonth((m) => m + 1);
   };
 
   const modalTasks = modalDay
@@ -810,12 +765,12 @@ const CalendarView = ({ view, setView, onStart }) => {
       <Header
         view={view}
         setView={setView}
-        onRefresh={() => fetchAssignments({}, true)}
+        onRefresh={() => fetchAssignments({})}
         loading={loading}
       />
       <FiltersBar showMore={false} filters={filters} onFilter={applyFilters} />
 
-      <Box px={{ xs: 2, md: 4 }} pb={4}>
+      <Box px={{ xs: 2, md: 3 }} pb={3}>
         <Box
           display="flex"
           alignItems="center"
@@ -824,25 +779,24 @@ const CalendarView = ({ view, setView, onStart }) => {
           flexWrap="wrap"
           gap={1}
         >
-          <Box display="flex" alignItems="center" gap={1.5}>
+          <Box display="flex" alignItems="center" gap={1}>
             <IconButton
               size="small"
               onClick={prevMonth}
               sx={{
                 border: "1.5px solid #e5e7eb",
-                borderRadius: "8px",
-                width: 32,
-                height: 32,
-                color: "#6b7280",
+                borderRadius: "6px",
+                width: 28,
+                height: 28,
               }}
             >
-              <ChevronLeftIcon sx={{ fontSize: 18 }} />
+              <ChevronLeftIcon sx={{ fontSize: 16 }} />
             </IconButton>
             <Typography
               sx={{
                 fontWeight: 700,
-                fontSize: "1.05rem",
-                minWidth: { xs: 140, md: 160 },
+                fontSize: "0.85rem",
+                minWidth: 120,
                 textAlign: "center",
               }}
             >
@@ -853,215 +807,125 @@ const CalendarView = ({ view, setView, onStart }) => {
               onClick={nextMonth}
               sx={{
                 border: "1.5px solid #e5e7eb",
-                borderRadius: "8px",
-                width: 32,
-                height: 32,
-                color: "#6b7280",
+                borderRadius: "6px",
+                width: 28,
+                height: 28,
               }}
             >
-              <ChevronRightIcon sx={{ fontSize: 18 }} />
+              <ChevronRightIcon sx={{ fontSize: 16 }} />
             </IconButton>
-          </Box>
-
-          <Box
-            sx={{
-              display: "flex",
-              border: "1.5px solid #e5e7eb",
-              borderRadius: "10px",
-              overflow: "hidden",
-              background: "#fff",
-            }}
-          >
-            {["Month", "Week", "Day"].map((v) => (
-              <Button
-                key={v}
-                onClick={() => setCalSub(v)}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 500,
-                  fontSize: "0.82rem",
-                  px: { xs: 1.5, md: 2.2 },
-                  py: 0.8,
-                  borderRadius: 0,
-                  minWidth: 0,
-                  color: calSub === v ? "#111827" : "#6b7280",
-                  background: calSub === v ? "#f3f4f6" : "transparent",
-                  borderRight: v !== "Day" ? "1.5px solid #e5e7eb" : "none",
-                  "&:hover": { background: "#f9fafb" },
-                }}
-              >
-                {v}
-              </Button>
-            ))}
           </Box>
         </Box>
 
         <Box
           sx={{
             border: "1.5px solid #e5e7eb",
-            borderRadius: "14px",
+            borderRadius: "12px",
             overflow: "hidden",
             background: "#fff",
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "repeat(7,1fr)",
-              md: "repeat(7,1fr) 160px",
-            },
           }}
         >
-          {DAY_HEADERS.map((d) => (
-            <Box
-              key={d}
-              sx={{
-                py: 1.2,
-                textAlign: "center",
-                fontSize: "0.68rem",
-                fontWeight: 600,
-                color: "#6b7280",
-                borderBottom: "1.5px solid #e9eaec",
-                background: "#fafafa",
-                letterSpacing: "0.04em",
-              }}
-            >
-              {d}
-            </Box>
-          ))}
-
-          <Box
-            sx={{
-              display: { xs: "none", md: "block" },
-              py: 1.2,
-              px: 2,
-              textAlign: "right",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              color: "#6b7280",
-              borderBottom: "1.5px solid #e9eaec",
-              borderLeft: "1.5px solid #e9eaec",
-              background: "#fafafa",
-            }}
-          >
-            Legend
-          </Box>
-
-          {weeks.map((week, wi) =>
-            week.map(({ d, o, today }, ci) => {
-              const dots = !o && dotsByDay[d];
-              const isClick = !o && dots && dots.length > 0;
-              return (
-                <Tooltip
-                  key={`${wi}-${ci}`}
-                  title={isClick ? `${dots.length} task(s)` : ""}
-                  arrow
-                >
-                  <Box
-                    onClick={() => isClick && setModalDay(d)}
-                    sx={{
-                      minHeight: { xs: 60, md: 88 },
-                      p: 1,
-                      border: "0.5px solid #e9eaec",
-                      background: o ? "#f8f9fa" : "#fff",
-                      outline: today ? "2px solid #0d3d52" : "none",
-                      outlineOffset: "-2px",
-                      cursor: isClick ? "pointer" : "default",
-                      transition: "background .15s",
-                      "&:hover": isClick ? { background: "#f0f9ff" } : {},
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: "0.78rem",
-                        color: o ? "#c4c4c4" : today ? "#0d3d52" : "#374151",
-                        fontWeight: today ? 700 : 400,
-                        mb: 0.6,
-                        lineHeight: 1,
-                      }}
-                    >
-                      {d}
-                    </Typography>
-                    {dots && (
-                      <Box display="flex" gap="3px" flexWrap="wrap">
-                        {dots.slice(0, 3).map((dot, i) => (
-                          <Box
-                            key={i}
-                            sx={{
-                              width: 7,
-                              height: 7,
-                              borderRadius: "50%",
-                              background: dot.color,
-                            }}
-                          />
-                        ))}
-                        {dots.length > 3 && (
-                          <Typography
-                            sx={{
-                              fontSize: "0.6rem",
-                              color: "#6b7280",
-                              lineHeight: "7px",
-                            }}
-                          >
-                            +{dots.length - 3}
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </Box>
-                </Tooltip>
-              );
-            }),
-          )}
-
-          <Box
-            sx={{
-              display: { xs: "none", md: "flex" },
-              gridColumn: "8",
-              gridRow: `2/${weeks.length + 2}`,
-              borderLeft: "1.5px solid #e9eaec",
-              p: 2,
-              flexDirection: "column",
-              gap: 1.4,
-            }}
-          >
-            {LEGEND.map(({ color, label }) => (
-              <Box key={label} display="flex" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: color,
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography sx={{ fontSize: "0.72rem", color: "#374151" }}>
-                  {label}
-                </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
+            {DAY_HEADERS.map((d) => (
+              <Box
+                key={d}
+                sx={{
+                  py: 0.8,
+                  textAlign: "center",
+                  fontSize: "0.6rem",
+                  fontWeight: 600,
+                  color: "#6b7280",
+                  borderBottom: "1.5px solid #e9eaec",
+                  background: "#fafafa",
+                }}
+              >
+                {d}
               </Box>
             ))}
+          </Box>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
+            {weeks.flatMap((week, wi) =>
+              week.map(({ d, o, today }, ci) => {
+                const dots = !o && dotsByDay[d];
+                const isClick = !o && dots && dots.length > 0;
+                return (
+                  <Tooltip
+                    key={`${wi}-${ci}`}
+                    title={isClick ? `${dots.length} task(s)` : ""}
+                    arrow
+                  >
+                    <Box
+                      onClick={() => isClick && setModalDay(d)}
+                      sx={{
+                        minHeight: { xs: 56, md: 72 },
+                        p: 0.8,
+                        border: "0.5px solid #e9eaec",
+                        background: o ? "#f8f9fa" : "#fff",
+                        outline: today ? "1.5px solid #0d3d52" : "none",
+                        outlineOffset: "-1px",
+                        cursor: isClick ? "pointer" : "default",
+                        "&:hover": isClick ? { background: "#f0f9ff" } : {},
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: "0.7rem",
+                          color: o ? "#c4c4c4" : today ? "#0d3d52" : "#374151",
+                          fontWeight: today ? 600 : 400,
+                          mb: 0.4,
+                        }}
+                      >
+                        {d}
+                      </Typography>
+                      {dots && (
+                        <Box display="flex" gap="2px" flexWrap="wrap">
+                          {dots.slice(0, 3).map((dot, i) => (
+                            <Box
+                              key={i}
+                              sx={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: dot.color,
+                              }}
+                            />
+                          ))}
+                          {dots.length > 3 && (
+                            <Typography
+                              sx={{
+                                fontSize: "0.55rem",
+                                color: "#6b7280",
+                                lineHeight: "6px",
+                              }}
+                            >
+                              +{dots.length - 3}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  </Tooltip>
+                );
+              }),
+            )}
           </Box>
         </Box>
 
         <Box
-          sx={{
-            display: { xs: "flex", md: "none" },
-            flexWrap: "wrap",
-            gap: 1.5,
-            mt: 2,
-            px: 0.5,
-          }}
+          sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1.5, px: 0.5 }}
         >
           {LEGEND.map(({ color, label }) => (
-            <Box key={label} display="flex" alignItems="center" gap={0.7}>
+            <Box key={label} display="flex" alignItems="center" gap={0.5}>
               <Box
                 sx={{
-                  width: 8,
-                  height: 8,
+                  width: 7,
+                  height: 7,
                   borderRadius: "50%",
                   background: color,
-                  flexShrink: 0,
                 }}
               />
-              <Typography sx={{ fontSize: "0.7rem", color: "#374151" }}>
+              <Typography sx={{ fontSize: "0.8rem", color: "#374151", ml: 1 }}>
                 {label}
               </Typography>
             </Box>
@@ -1088,9 +952,7 @@ export default function MyTasks() {
   const [view, setView] = useState("list");
 
   const handleStart = useCallback(
-    (task) => {
-      navigate(`/task-details/${task.id}`, { state: { task } });
-    },
+    (task) => navigate(`/task-details/${task.id}`, { state: { task } }),
     [navigate],
   );
 

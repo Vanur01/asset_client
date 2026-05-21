@@ -1,5 +1,4 @@
-// pages/InspectionReportPage.jsx
-import React, { useRef , useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Box,
   Typography,
@@ -14,12 +13,9 @@ import {
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import html2pdf from "html2pdf.js";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 // Icons
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
@@ -27,8 +23,6 @@ import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import StarOutlineIcon from "@mui/icons-material/StarOutline";
 import StarIcon from "@mui/icons-material/Star";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -48,22 +42,21 @@ const C = {
 // ─── Styled Components ─────────────────────────────────────────────────────────
 const PageWrap = styled(Box)({
   minHeight: "100vh",
-  fontFamily: '"DM Sans", "Segoe UI", sans-serif',
+  fontFamily: '"DM Sans", "Segoe UI", sans-serif'
 });
 
 const TopBar = styled(Box)({
   background: C.white,
-  width:"1130px",
-  marginLeft:"32px",
   borderBottom: `1px solid ${C.border}`,
   padding: "12px 24px",
   display: "flex",
+  width:"1150px",
+  marginLeft:"40px",
   alignItems: "center",
   justifyContent: "space-between",
   position: "sticky",
   top: 0,
   zIndex: 100,
-  borderRadius:"10px",
   boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
   flexWrap: "wrap",
   gap: "12px",
@@ -136,6 +129,7 @@ const SummaryBox = styled(Box)({
   alignItems: "center",
   gap: 8,
   flex: 1,
+  minWidth: "100px",
 });
 
 const CheckRow = styled(Box)(({ failed }) => ({
@@ -162,14 +156,17 @@ const CheckHeader = styled(Box)({
 });
 
 const ResultChip = ({ result }) => {
-  const isYes = result === "Yes";
+  const isYes = result === "Yes" || result === true;
+  const isNo = result === "No" || result === false;
+  const displayText = isYes ? "Yes" : isNo ? "No" : result === "N/A" ? "N/A" : result;
+  
   return (
     <Chip
-      label={result}
+      label={displayText}
       size="small"
       sx={{
-        bgcolor: isYes ? C.greenIcon : C.red,
-        color: C.white,
+        bgcolor: isYes ? C.greenIcon : isNo ? C.red : alpha(C.ghost, 0.3),
+        color: isYes || isNo ? C.white : C.ink,
         fontWeight: 700,
         fontSize: "0.7rem",
         height: 24,
@@ -184,9 +181,9 @@ const StarRating = ({ rating, max = 5 }) => (
   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 1, flexWrap: "wrap" }}>
     {Array.from({ length: max }).map((_, i) =>
       i < rating ? (
-        <StarIcon key={i} sx={{ fontSize: "1.4rem", color: C.ink }} />
+        <StarIcon key={i} sx={{ fontSize: "1.4rem", color: C.navy }} />
       ) : (
-        <StarOutlineIcon key={i} sx={{ fontSize: "1.4rem", color: C.ink }} />
+        <StarOutlineIcon key={i} sx={{ fontSize: "1.4rem", color: C.navy }} />
       ),
     )}
     <Typography sx={{ ml: 0.5, fontSize: "0.85rem", fontWeight: 600, color: C.ink }}>
@@ -201,34 +198,39 @@ const InspectionReportPage = ({ report, onBack, token }) => {
   const [exporting, setExporting] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Transform report data
+  // Transform report data based on actual API response structure
   const d = {
     id: report._id || 'N/A',
-    asset: report.assetName || 'N/A',
-    formType: report.checklist?.name || 'Inspection Form',
-    status: report.submissionStatus || report.status,
-    score: report.overallRating ? (report.overallRating * 20) : null,
+    asset: report.assets?.[0]?.assetName || report.assetName || 'N/A',
+    formType: report.checklistName || report.checklist?.name || 'Inspection Form',
+    status: report.submissionStatus || report.status || 'submitted',
+    score: report.completionRate || (report.overallRating ? Math.round(report.overallRating * 20) : null),
     scoreLabel: report.overallRating >= 4 ? 'Excellent' : report.overallRating >= 3 ? 'Good' : 'Needs Improvement',
-    itemsPassed: report.responses?.filter(r => r.answer === 'Yes' || r.value === true).length || 0,
-    itemsFailed: report.responses?.filter(r => r.answer === 'No' || r.value === false).length || 0,
-    notApplicable: report.responses?.filter(r => r.answer === 'N/A').length || 0,
-    assetName: report.assetName || 'N/A',
-    location: report.assetDetails?.location || 'N/A',
-    category: report.assetDetails?.category || 'General',
+    itemsPassed: report.responses?.filter(r => r.value === 'Yes' || r.value === true || r.answer === 'Yes').length || 0,
+    itemsFailed: report.responses?.filter(r => r.value === 'No' || r.value === false || r.answer === 'No').length || 0,
+    notApplicable: report.responses?.filter(r => r.value === 'N/A' || r.answer === 'N/A').length || 0,
+    assetName: report.assets?.[0]?.assetName || report.assetName || 'N/A',
+    location: report.assets?.[0]?.assetLocation || report.location || 'N/A',
+    category: report.assets?.[0]?.assetCategory || report.category || 'General',
     lastInspection: report.previousInspectionDate || 'N/A',
-    inspectorName: report.primaryMember?.name || 'Unknown',
+    inspectorName: report.assignedToTeamMembers?.[0]?.name || 
+                   report.assignedBy?.name || 
+                   report.inspectorName || 
+                   'Unknown',
     overallCondition: report.overallRating >= 4 ? 'Excellent' : report.overallRating >= 3 ? 'Good' : 'Fair',
     submittedDate: report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : 'N/A',
     rating: report.overallRating || 0,
     inspectorNotes: report.inspectorNotes || 'No additional notes',
-    adminNotes: report.adminNotes || 'No admin notes',
+    adminNotes: report.adminNotes || report.reviewComments || 'No admin notes',
     checklist: {
-      title: report.checklist?.name || 'Inspection Checklist',
-      passed: report.responses?.filter(r => r.answer === 'Yes' || r.value === true).length || 0,
+      title: report.checklistName || report.checklist?.name || 'Inspection Checklist',
+      passed: report.responses?.filter(r => r.value === 'Yes' || r.value === true || r.answer === 'Yes').length || 0,
       total: report.responses?.length || 0,
-      items: report.responses?.map(r => ({
-        label: r.questionText || r.question || 'Question',
-        result: r.answer === 'Yes' || r.value === true ? 'Yes' : r.answer === 'No' || r.value === false ? 'No' : 'N/A',
+      items: report.responses?.map((r, idx) => ({
+        label: r.label || r.questionText || r.question || `Item ${idx + 1}`,
+        result: r.value === 'Yes' || r.value === true || r.answer === 'Yes' ? 'Yes' : 
+                r.value === 'No' || r.value === false || r.answer === 'No' ? 'No' : 
+                r.value === 'N/A' || r.answer === 'N/A' ? 'N/A' : 'N/A',
         note: r.notes || r.comments || null,
       })) || [],
     },
@@ -241,7 +243,9 @@ const InspectionReportPage = ({ report, onBack, token }) => {
     setExporting(true);
     try {
       const element = reportRef.current;
-      if (!element) return;
+      if (!element) {
+        throw new Error("Report content not found");
+      }
 
       const opt = {
         margin: [0.5, 0.5, 0.5, 0.5],
@@ -262,7 +266,7 @@ const InspectionReportPage = ({ report, onBack, token }) => {
       console.error('Error generating PDF:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to generate PDF',
+        message: 'Failed to generate PDF: ' + error.message,
         severity: 'error'
       });
     } finally {
@@ -305,10 +309,15 @@ const InspectionReportPage = ({ report, onBack, token }) => {
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
           <Chip
-            label={d.status === 'pending_review' ? 'Under Review' : d.status}
+            label={d.status === 'pending_review' ? 'Under Review' : 
+                   d.status === 'approved' ? 'Approved' :
+                   d.status === 'rejected' ? 'Needs Revision' : 
+                   d.status}
             size="small"
             sx={{
-              bgcolor: d.status === 'approved' || d.status === 'reviewed' ? C.green : C.red,
+              bgcolor: d.status === 'approved' ? C.green : 
+                       d.status === 'pending_review' ? C.amber :
+                       d.status === 'rejected' ? C.red : C.muted,
               color: C.white,
               fontWeight: 700,
               fontSize: "0.72rem",
@@ -539,58 +548,60 @@ const InspectionReportPage = ({ report, onBack, token }) => {
           </SectionCard>
 
           {/* ── Inspection Checklist ─────────────────────────────────────────── */}
-          <SectionCard>
-            <SectionTitle>{d.checklist.title}</SectionTitle>
-            <Box
-              sx={{
-                mx: { xs: 2, sm: 3 },
-                mb: 3,
-                borderRadius: 2.5,
-                border: `1px solid ${C.border}`,
-                overflow: "hidden",
-              }}
-            >
-              <CheckHeader>
-                <Typography
-                  sx={{ fontSize: "0.82rem", fontWeight: 700, color: C.ink }}
-                >
-                  Checklist Items
-                </Typography>
-                <Typography sx={{ fontSize: "0.72rem", color: C.muted }}>
-                  {d.checklist.passed}/{d.checklist.total} passed
-                </Typography>
-              </CheckHeader>
-              {d.checklist.items.map((item, i) => (
-                <CheckRow key={i} failed={item.result === "No"}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography
-                      sx={{ fontSize: "0.82rem", color: C.ink, fontWeight: 500 }}
-                    >
-                      {item.label}
-                    </Typography>
-                    {item.note && (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.5,
-                          mt: 0.3,
-                        }}
+          {d.checklist.total > 0 && (
+            <SectionCard>
+              <SectionTitle>{d.checklist.title}</SectionTitle>
+              <Box
+                sx={{
+                  mx: { xs: 2, sm: 3 },
+                  mb: 3,
+                  borderRadius: 2.5,
+                  border: `1px solid ${C.border}`,
+                  overflow: "hidden",
+                }}
+              >
+                <CheckHeader>
+                  <Typography
+                    sx={{ fontSize: "0.82rem", fontWeight: 700, color: C.ink }}
+                  >
+                    Checklist Items
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: C.muted }}>
+                    {d.checklist.passed}/{d.checklist.total} passed
+                  </Typography>
+                </CheckHeader>
+                {d.checklist.items.map((item, i) => (
+                  <CheckRow key={i} failed={item.result === "No"}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography
+                        sx={{ fontSize: "0.82rem", color: C.ink, fontWeight: 500 }}
                       >
-                        <InfoOutlinedIcon
-                          sx={{ fontSize: "0.75rem", color: C.muted }}
-                        />
-                        <Typography sx={{ fontSize: "0.7rem", color: C.muted }}>
-                          Note: {item.note}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                  <ResultChip result={item.result} />
-                </CheckRow>
-              ))}
-            </Box>
-          </SectionCard>
+                        {item.label}
+                      </Typography>
+                      {item.note && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            mt: 0.3,
+                          }}
+                        >
+                          <InfoOutlinedIcon
+                            sx={{ fontSize: "0.75rem", color: C.muted }}
+                          />
+                          <Typography sx={{ fontSize: "0.7rem", color: C.muted }}>
+                            Note: {item.note}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                    <ResultChip result={item.result} />
+                  </CheckRow>
+                ))}
+              </Box>
+            </SectionCard>
+          )}
 
           {/* ── Inspector Notes ───────────────────────────────────────── */}
           <SectionCard>
@@ -603,7 +614,7 @@ const InspectionReportPage = ({ report, onBack, token }) => {
           </SectionCard>
 
           {/* ── Admin Notes (if any) ───────────────────────────────────────── */}
-          {d.adminNotes !== 'No admin notes' && (
+          {d.adminNotes !== 'No admin notes' && d.adminNotes !== 'No admin notes' && (
             <SectionCard>
               <SectionTitle>Admin Review Notes</SectionTitle>
               <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
@@ -615,12 +626,14 @@ const InspectionReportPage = ({ report, onBack, token }) => {
           )}
 
           {/* ── Performance Rating ───────────────────────────────────────── */}
-          <SectionCard>
-            <SectionTitle>Performance Rating</SectionTitle>
-            <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
-              <StarRating rating={d.rating} />
-            </Box>
-          </SectionCard>
+          {d.rating > 0 && (
+            <SectionCard>
+              <SectionTitle>Performance Rating</SectionTitle>
+              <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
+                <StarRating rating={d.rating} />
+              </Box>
+            </SectionCard>
+          )}
 
           {/* Footer - Print Only */}
           <Box sx={{ textAlign: 'center', mt: 4, pt: 2, borderTop: `1px solid ${C.border}`, display: { xs: 'none', print: 'block' } }}>
@@ -640,7 +653,7 @@ const InspectionReportPage = ({ report, onBack, token }) => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

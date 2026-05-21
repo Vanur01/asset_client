@@ -51,6 +51,11 @@ import {
   Category,
   VerifiedUser,
   Image as ImageIcon,
+  CloudUpload,
+  PhotoCamera,
+  DeleteOutline,
+  Star,
+  StarBorder,
 } from "@mui/icons-material";
 
 // ── Styled Components ──────────────────────────────────────────────────────────
@@ -60,12 +65,30 @@ const StatusChip = styled(Chip)(({ statusvalue }) => ({
   fontWeight: 600,
   fontSize: "12px",
   padding: "2px 4px",
-  ...(statusvalue === "Active" && { backgroundColor: "#e8f5e9", color: "#2e7d32" }),
-  ...(statusvalue === "operational" && { backgroundColor: "#e8f5e9", color: "#2e7d32" }),
-  ...(statusvalue === "In Maintenance" && { backgroundColor: "#fff3e0", color: "#ed6c02" }),
-  ...(statusvalue === "Retired" && { backgroundColor: "#ffebee", color: "#d32f2f" }),
-  ...(statusvalue === "In Transit" && { backgroundColor: "#e3f2fd", color: "#0288d1" }),
-  ...(statusvalue === "Reserved" && { backgroundColor: "#f3e5f5", color: "#7b1fa2" }),
+  ...(statusvalue === "Active" && {
+    backgroundColor: "#e8f5e9",
+    color: "#2e7d32",
+  }),
+  ...(statusvalue === "operational" && {
+    backgroundColor: "#e8f5e9",
+    color: "#2e7d32",
+  }),
+  ...(statusvalue === "In Maintenance" && {
+    backgroundColor: "#fff3e0",
+    color: "#ed6c02",
+  }),
+  ...(statusvalue === "Retired" && {
+    backgroundColor: "#ffebee",
+    color: "#d32f2f",
+  }),
+  ...(statusvalue === "In Transit" && {
+    backgroundColor: "#e3f2fd",
+    color: "#0288d1",
+  }),
+  ...(statusvalue === "Reserved" && {
+    backgroundColor: "#f3e5f5",
+    color: "#7b1fa2",
+  }),
 }));
 
 const CriticalChip = styled(Chip)(() => ({
@@ -159,7 +182,11 @@ const AssetSelectItem = ({ asset, selected, onToggle }) => (
         </Typography>
         <Stack direction="row" spacing={1} mt={0.5}>
           {asset.assetCategory && (
-            <Chip label={asset.assetCategory} size="small" sx={{ height: 18, fontSize: 10 }} />
+            <Chip
+              label={asset.assetCategory}
+              size="small"
+              sx={{ height: 18, fontSize: 10 }}
+            />
           )}
           {asset.currentLocation && (
             <Typography variant="caption" color="text.secondary">
@@ -187,12 +214,34 @@ const AssetSelectItem = ({ asset, selected, onToggle }) => (
   </Paper>
 );
 
+// ── Image Upload Styled Component ──────────────────────────────────────────────
+
+const VisuallyHiddenInput = styled("input")({
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  height: 1,
+  overflow: "hidden",
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  whiteSpace: "nowrap",
+  width: 1,
+});
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function AssetView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getAssetById, deleteAsset, linkChildAssets, getAllAssets } = useAsset();
+  const {
+    getAssetById,
+    deleteAsset,
+    linkChildAssets,
+    getAllAssets,
+    uploadAssetImages,
+    deleteAssetImage,
+    setPrimaryImage,
+  } = useAsset();
 
   const [asset, setAsset] = useState(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -206,7 +255,18 @@ export default function AssetView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [linking, setLinking] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+  // Image upload states
+  const [imageUploadDialogOpen, setImageUploadDialogOpen] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState([]);
+  const [deletingImage, setDeletingImage] = useState(false);
 
   useEffect(() => {
     fetchAssetDetails();
@@ -220,8 +280,8 @@ export default function AssetView() {
         (a) =>
           a.assetName?.toLowerCase().includes(q) ||
           a.assetId?.toLowerCase().includes(q) ||
-          a.assetCategory?.toLowerCase().includes(q)
-      )
+          a.assetCategory?.toLowerCase().includes(q),
+      ),
     );
   }, [searchQuery, availableAssets]);
 
@@ -261,7 +321,9 @@ export default function AssetView() {
 
   const handleToggleSelect = (assetId) => {
     setSelectedChildAssets((prev) =>
-      prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId]
+      prev.includes(assetId)
+        ? prev.filter((id) => id !== assetId)
+        : [...prev, assetId],
     );
   };
 
@@ -274,13 +336,18 @@ export default function AssetView() {
     try {
       const result = await linkChildAssets(id, selectedChildAssets);
       if (result.success) {
-        showSnackbar(`${selectedChildAssets.length} asset(s) linked successfully!`);
+        showSnackbar(
+          `${selectedChildAssets.length} asset(s) linked successfully!`,
+        );
         setLinkDialogOpen(false);
         setSelectedChildAssets([]);
         fetchAssetDetails();
       }
     } catch (error) {
-      showSnackbar(error.response?.data?.message || "Failed to link assets", "error");
+      showSnackbar(
+        error.response?.data?.message || "Failed to link assets",
+        "error",
+      );
     } finally {
       setLinking(false);
     }
@@ -296,7 +363,7 @@ export default function AssetView() {
     } catch (error) {
       showSnackbar(
         error.response?.data?.message || "Failed to delete asset",
-        "error"
+        "error",
       );
       setDeleteDialogOpen(false);
     } finally {
@@ -304,11 +371,80 @@ export default function AssetView() {
     }
   };
 
+  // Image upload handlers
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    setSelectedFiles(files);
+
+    // Create preview URLs
+    const previews = files.map((file) => URL.createObjectURL(file));
+    setImagePreviewUrls(previews);
+  };
+
+  const handleUploadImages = async () => {
+    if (selectedFiles.length === 0) {
+      showSnackbar("Please select files to upload", "warning");
+      return;
+    }
+
+    setUploadingImages(true);
+    try {
+      const formData = new FormData();
+      selectedFiles.forEach((file) => {
+        formData.append("image", file);
+      });
+
+      await uploadAssetImages(id, formData);
+      showSnackbar(`${selectedFiles.length} image(s) uploaded successfully!`);
+
+      // Clear selections and close dialog
+      setSelectedFiles([]);
+      setImagePreviewUrls([]);
+      setImageUploadDialogOpen(false);
+
+      // Refresh asset details
+      await fetchAssetDetails();
+    } catch (error) {
+      showSnackbar(
+        error.response?.data?.message || "Failed to upload images",
+        "error",
+      );
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageName) => {
+    if (!window.confirm("Are you sure you want to delete this image?")) return;
+
+    setDeletingImage(true);
+    try {
+      await deleteAssetImage(id, imageName);
+      showSnackbar("Image deleted successfully!");
+      await fetchAssetDetails();
+    } catch (error) {
+      showSnackbar("Failed to delete image", "error");
+    } finally {
+      setDeletingImage(false);
+    }
+  };
+
+  const handleSetPrimaryImage = async (imageName) => {
+    try {
+      await setPrimaryImage(id, imageName);
+      showSnackbar("Primary image updated successfully!");
+      await fetchAssetDetails();
+    } catch (error) {
+      showSnackbar("Failed to set primary image", "error");
+    }
+  };
+
   const getImageUrl = () => {
     if (!asset?.assetImages?.length) return null;
-    const primary = asset.assetImages.find((img) => img.isPrimary) || asset.assetImages[0];
+    const primary =
+      asset.assetImages.find((img) => img.isPrimary) || asset.assetImages[0];
     if (!primary?.name) return null;
-    return `http://localhost:9001/uploads/assets/${primary.name}`;
+    return `https://assset-management-backend-4.onrender.com/uploads/assets/${primary.name}`;
   };
 
   const getLastInspection = () => {
@@ -317,28 +453,44 @@ export default function AssetView() {
       ...(asset?.inspectionSystems?.camcInspection?.inspectionHistory || []),
     ];
     if (!histories.length) return null;
-    const sorted = histories.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return sorted[0]?.date ? new Date(sorted[0].date).toLocaleDateString() : null;
+    const sorted = histories.sort(
+      (a, b) => new Date(b.date) - new Date(a.date),
+    );
+    return sorted[0]?.date
+      ? new Date(sorted[0].date).toLocaleDateString()
+      : null;
   };
 
   const getDaysUntilDue = () => {
     if (!asset?.warrantyExpiry) return null;
     const diff = Math.ceil(
-      (new Date(asset.warrantyExpiry) - new Date()) / (1000 * 60 * 60 * 24)
+      (new Date(asset.warrantyExpiry) - new Date()) / (1000 * 60 * 60 * 24),
     );
     return diff > 0 ? `${diff} days` : "Overdue";
   };
 
   if (pageLoading) {
     return (
-      <Box sx={{ p: 4, bgcolor: "#f7f8fc", minHeight: "100vh" }}>
-        <Skeleton variant="rectangular" height={60} sx={{ mb: 3, borderRadius: 2 }} />
+      <Box sx={{ p: 4, minHeight: "100vh" }}>
+        <Skeleton
+          variant="rectangular"
+          height={60}
+          sx={{ mb: 3, borderRadius: 2 }}
+        />
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
-            <Skeleton variant="rectangular" height={450} sx={{ borderRadius: 3 }} />
+            <Skeleton
+              variant="rectangular"
+              height={450}
+              sx={{ borderRadius: 3 }}
+            />
           </Grid>
           <Grid item xs={12} md={8}>
-            <Skeleton variant="rectangular" height={600} sx={{ borderRadius: 3 }} />
+            <Skeleton
+              variant="rectangular"
+              height={600}
+              sx={{ borderRadius: 3 }}
+            />
           </Grid>
         </Grid>
       </Box>
@@ -362,7 +514,7 @@ export default function AssetView() {
   const custodian = asset.assignedUsers?.custodian;
 
   return (
-    <Box sx={{ minHeight: "100vh", p: { xs: 2, md: 3 } }}>
+    <Box sx={{ minHeight: "100vh", p: { xs: 2, md: 3 },}}>
       {/* ── Header ── */}
       <Stack
         direction="row"
@@ -378,13 +530,26 @@ export default function AssetView() {
             <ArrowBack fontSize="small" />
           </IconButton>
           <Box>
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              flexWrap="wrap"
+            >
               <Typography variant="h6" fontWeight={700} color="#1a1a2e">
                 {asset.assetName}
               </Typography>
               <StatusChip
-                label={asset.status?.toLowerCase() === "active" ? "operational" : asset.status}
-                statusvalue={asset.status?.toLowerCase() === "active" ? "operational" : asset.status}
+                label={
+                  asset.status?.toLowerCase() === "active"
+                    ? "operational"
+                    : asset.status
+                }
+                statusvalue={
+                  asset.status?.toLowerCase() === "active"
+                    ? "operational"
+                    : asset.status
+                }
                 size="small"
               />
               <CriticalChip label="Critical" size="small" />
@@ -396,6 +561,20 @@ export default function AssetView() {
         </Stack>
 
         <Stack direction="row" spacing={1.5} flexWrap="wrap">
+          <Button
+            variant="contained"
+            startIcon={<CloudUpload />}
+            onClick={() => setImageUploadDialogOpen(true)}
+            sx={{
+              bgcolor: "#1a3a4a",
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": { bgcolor: "#0f2836" },
+            }}
+          >
+            Upload Images
+          </Button>
           <Button
             variant="contained"
             startIcon={<LinkIcon />}
@@ -432,10 +611,10 @@ export default function AssetView() {
 
       {/* ── Body ── */}
       <Grid container spacing={3}>
-        {/* Left – Image + Health Score */}
+        {/* Left – Image Gallery */}
         <Grid item xs={12} md={4}>
           <InfoCard sx={{ p: 0, overflow: "hidden" }}>
-            {/* Asset Image */}
+            {/* Main Asset Image */}
             <Box
               sx={{
                 width: "300px",
@@ -463,8 +642,89 @@ export default function AssetView() {
               )}
             </Box>
 
+            {/* Thumbnail Gallery */}
+            {asset.assetImages && asset.assetImages.length > 0 && (
+              <Box sx={{ p: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  All Images ({asset.assetImages.length})
+                </Typography>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ overflowX: "auto", pb: 1 }}
+                >
+                  {asset.assetImages.map((img, idx) => (
+                    <Box
+                      key={img.name || idx}
+                      sx={{
+                        position: "relative",
+                        flexShrink: 0,
+                        width: 80,
+                        height: 80,
+                        borderRadius: 2,
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        border: img.isPrimary
+                          ? "2px solid #1a3a4a"
+                          : "1px solid #e0e0e0",
+                        "&:hover": { opacity: 0.8 },
+                      }}
+                    >
+                      <img
+                        src={`https://assset-management-backend-4.onrender.com/uploads/assets/${img.name}`}
+                        alt={`Thumbnail ${idx + 1}`}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          display: "flex",
+                          gap: 0.5,
+                          bgcolor: "rgba(0,0,0,0.6)",
+                          borderRadius: 1,
+                          p: 0.5,
+                        }}
+                      >
+                        {!img.isPrimary && (
+                          <IconButton
+                            size="small"
+                            sx={{ color: "#fff", p: 0.5 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetPrimaryImage(img.name);
+                            }}
+                          >
+                            <StarBorder sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        )}
+                        {img.isPrimary && (
+                          <Star sx={{ fontSize: 14, color: "#ffc107" }} />
+                        )}
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#fff", p: 0.5 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteImage(img.name);
+                          }}
+                        >
+                          <DeleteOutline sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
             {/* Health Score */}
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ p: 3, pt: asset.assetImages?.length ? 0 : 3 }}>
               <Stack direction="row" justifyContent="space-between" mb={0.5}>
                 <Typography variant="body2" color="text.secondary">
                   Health Score
@@ -476,8 +736,8 @@ export default function AssetView() {
                     asset.healthScore >= 70
                       ? "success.main"
                       : asset.healthScore >= 40
-                      ? "warning.main"
-                      : "error.main"
+                        ? "warning.main"
+                        : "error.main"
                   }
                 >
                   {asset.healthScore || 0}%
@@ -496,8 +756,8 @@ export default function AssetView() {
                       asset.healthScore >= 70
                         ? "#1a3a4a"
                         : asset.healthScore >= 40
-                        ? "#ed6c02"
-                        : "#d32f2f",
+                          ? "#ed6c02"
+                          : "#d32f2f",
                   },
                 }}
               />
@@ -506,10 +766,15 @@ export default function AssetView() {
         </Grid>
 
         {/* Right – Info */}
-        <Grid item xs={12} md={8} sx={{width:"810px"}}>
+        <Grid item xs={12} md={8} sx={{ width:"850px"}}>
           {/* Asset Information */}
           <InfoCard sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" fontWeight={700} color="#1a1a2e" mb={3}>
+            <Typography
+              variant="subtitle1"
+              fontWeight={700}
+              color="#1a1a2e"
+              mb={3}
+            >
               Asset Information
             </Typography>
             <Grid container spacing={3}>
@@ -522,7 +787,9 @@ export default function AssetView() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <InfoItem
-                  icon={<LocationOn fontSize="small" sx={{ color: "#6b7280" }} />}
+                  icon={
+                    <LocationOn fontSize="small" sx={{ color: "#6b7280" }} />
+                  }
                   label="Location"
                   value={asset.currentLocation}
                 />
@@ -549,27 +816,33 @@ export default function AssetView() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <InfoItem
-                  icon={<CalendarToday fontSize="small" sx={{ color: "#6b7280" }} />}
+                  icon={
+                    <CalendarToday fontSize="small" sx={{ color: "#6b7280" }} />
+                  }
                   label="Purchase Date"
                   value={
                     asset.commissioningDate
                       ? new Date(asset.commissioningDate).toLocaleDateString()
                       : asset.commissioningDate
-                      ? new Date(asset.commissioningDate).toLocaleDateString()
-                      : "N/A"
+                        ? new Date(asset.commissioningDate).toLocaleDateString()
+                        : "N/A"
                   }
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <InfoItem
-                  icon={<VerifiedUser fontSize="small" sx={{ color: "#6b7280" }} />}
+                  icon={
+                    <VerifiedUser fontSize="small" sx={{ color: "#6b7280" }} />
+                  }
                   label="Custodian"
                   value={custodian?.name || custodian || "N/A"}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <InfoItem
-                  icon={<AttachMoney fontSize="small" sx={{ color: "#6b7280" }} />}
+                  icon={
+                    <AttachMoney fontSize="small" sx={{ color: "#6b7280" }} />
+                  }
                   label="Purchase Cost"
                   value={
                     asset.purchaseCost
@@ -594,7 +867,8 @@ export default function AssetView() {
               label="Next Inspection"
               value={
                 asset.inspectionSystems?.amcInspection?.enabled
-                  ? asset.inspectionSystems.amcInspection.schedule || "Scheduled"
+                  ? asset.inspectionSystems.amcInspection.schedule ||
+                    "Scheduled"
                   : "N/A"
               }
               color="#1976d2"
@@ -608,17 +882,32 @@ export default function AssetView() {
           </Stack>
 
           {/* Asset Hierarchy */}
-          {(asset.parentAsset || (asset.childAssets && asset.childAssets.length > 0)) && (
+          {(asset.parentAsset ||
+            (asset.childAssets && asset.childAssets.length > 0)) && (
             <InfoCard>
-              <Typography variant="subtitle1" fontWeight={700} color="#1a1a2e" mb={2}>
+              <Typography
+                variant="subtitle1"
+                fontWeight={700}
+                color="#1a1a2e"
+                mb={2}
+              >
                 Asset Hierarchy
               </Typography>
               {asset.parentAsset && (
                 <Box sx={{ mb: 2, p: 2, bgcolor: "#f5f6fa", borderRadius: 2 }}>
-                  <Typography variant="caption" color="primary" fontWeight={600}>
+                  <Typography
+                    variant="caption"
+                    color="primary"
+                    fontWeight={600}
+                  >
                     Parent Asset
                   </Typography>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    mt={1}
+                  >
                     <Box>
                       <Typography variant="body2" fontWeight={600}>
                         {asset.parentAsset.assetName || "Parent Asset"}
@@ -628,7 +917,14 @@ export default function AssetView() {
                       </Typography>
                     </Box>
                     {asset.parentAsset._id && (
-                      <Button size="small" onClick={() => navigate(`/admin/assets/view/${asset.parentAsset._id}`)}>
+                      <Button
+                        size="small"
+                        onClick={() =>
+                          navigate(
+                            `/admin/assets/view/${asset.parentAsset._id}`,
+                          )
+                        }
+                      >
                         View
                       </Button>
                     )}
@@ -642,18 +938,34 @@ export default function AssetView() {
                   </Typography>
                   <Stack spacing={1}>
                     {asset.childAssets.map((child, index) => (
-                      <Paper key={child._id || index} sx={{ p: 2, bgcolor: "#fafbfc", borderRadius: 2 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Paper
+                        key={child._id || index}
+                        sx={{ p: 2, bgcolor: "#fafbfc", borderRadius: 2 }}
+                      >
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
                           <Box>
                             <Typography variant="body2" fontWeight={600}>
                               {child.assetName || "Child Asset"}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              ID: {child.assetId || "N/A"} | Status: {child.status || "N/A"}
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              ID: {child.assetId || "N/A"} | Status:{" "}
+                              {child.status || "N/A"}
                             </Typography>
                           </Box>
                           {child._id && (
-                            <Button size="small" onClick={() => navigate(`/admin/assets/view/${child._id}`)}>
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/assets/view/${child._id}`)
+                              }
+                            >
                               View
                             </Button>
                           )}
@@ -668,23 +980,195 @@ export default function AssetView() {
         </Grid>
       </Grid>
 
+      {/* ── Image Upload Dialog ── */}
+      <Dialog
+        open={imageUploadDialogOpen}
+        onClose={() => {
+          setImageUploadDialogOpen(false);
+          setSelectedFiles([]);
+          setImagePreviewUrls([]);
+        }}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CloudUpload fontSize="small" />
+              <Typography fontWeight={700}>Upload Asset Images</Typography>
+            </Stack>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setImageUploadDialogOpen(false);
+                setSelectedFiles([]);
+                setImagePreviewUrls([]);
+              }}
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ mb: 3 }}>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<PhotoCamera />}
+              sx={{ borderRadius: 2, textTransform: "none" }}
+            >
+              Select Images
+              <VisuallyHiddenInput
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileSelect}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+              Supported formats: JPG, PNG, GIF (Max 5MB each)
+            </Typography>
+          </Box>
+
+          {imagePreviewUrls.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Preview ({imagePreviewUrls.length} files)
+              </Typography>
+              <Grid container spacing={2}>
+                {imagePreviewUrls.map((url, idx) => (
+                  <Grid item xs={6} sm={4} md={3} key={idx}>
+                    <Paper
+                      sx={{
+                        p: 1,
+                        borderRadius: 2,
+                        position: "relative",
+                        "&:hover": {
+                          boxShadow: 2,
+                        },
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`Preview ${idx + 1}`}
+                        style={{
+                          width: "100%",
+                          height: 120,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                        }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: "block",
+                          mt: 0.5,
+                          textAlign: "center",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {selectedFiles[idx]?.name.substring(0, 20)}
+                        {selectedFiles[idx]?.name.length > 20 && "..."}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        sx={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          bgcolor: "rgba(0,0,0,0.6)",
+                          color: "#fff",
+                          "&:hover": { bgcolor: "rgba(0,0,0,0.8)" },
+                        }}
+                        onClick={() => {
+                          const newFiles = selectedFiles.filter(
+                            (_, i) => i !== idx,
+                          );
+                          const newPreviews = imagePreviewUrls.filter(
+                            (_, i) => i !== idx,
+                          );
+                          setSelectedFiles(newFiles);
+                          setImagePreviewUrls(newPreviews);
+                        }}
+                      >
+                        <Close sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => {
+              setImageUploadDialogOpen(false);
+              setSelectedFiles([]);
+              setImagePreviewUrls([]);
+            }}
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUploadImages}
+            variant="contained"
+            disabled={uploadingImages || selectedFiles.length === 0}
+            sx={{
+              bgcolor: "#1a3a4a",
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": { bgcolor: "#0f2836" },
+            }}
+          >
+            {uploadingImages ? (
+              <CircularProgress size={18} sx={{ color: "#fff" }} />
+            ) : (
+              `Upload (${selectedFiles.length}) Images`
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* ── Link Assets Dialog ── */}
       <Dialog
         open={linkDialogOpen}
-        onClose={() => { setLinkDialogOpen(false); setSelectedChildAssets([]); setSearchQuery(""); }}
+        onClose={() => {
+          setLinkDialogOpen(false);
+          setSelectedChildAssets([]);
+          setSearchQuery("");
+        }}
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
             <Stack direction="row" spacing={1} alignItems="center">
               <Inventory2 fontSize="small" />
               <Typography fontWeight={700}>Link Child Assets</Typography>
             </Stack>
             <IconButton
               size="small"
-              onClick={() => { setLinkDialogOpen(false); setSelectedChildAssets([]); setSearchQuery(""); }}
+              onClick={() => {
+                setLinkDialogOpen(false);
+                setSelectedChildAssets([]);
+                setSearchQuery("");
+              }}
             >
               <Close fontSize="small" />
             </IconButton>
@@ -712,7 +1196,8 @@ export default function AssetView() {
                   px: 2,
                   borderRadius: 1.5,
                   bgcolor: linkTab === i ? "#fff" : "transparent",
-                  boxShadow: linkTab === i ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+                  boxShadow:
+                    linkTab === i ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -721,8 +1206,24 @@ export default function AssetView() {
                   transition: "all 0.2s ease",
                 }}
               >
-                {i === 0 && <Search fontSize="small" sx={{ fontSize: 14, color: linkTab === i ? "#1a3a4a" : "#6b7280" }} />}
-                {i === 1 && <Add fontSize="small" sx={{ fontSize: 14, color: linkTab === i ? "#1a3a4a" : "#6b7280" }} />}
+                {i === 0 && (
+                  <Search
+                    fontSize="small"
+                    sx={{
+                      fontSize: 14,
+                      color: linkTab === i ? "#1a3a4a" : "#6b7280",
+                    }}
+                  />
+                )}
+                {i === 1 && (
+                  <Add
+                    fontSize="small"
+                    sx={{
+                      fontSize: 14,
+                      color: linkTab === i ? "#1a3a4a" : "#6b7280",
+                    }}
+                  />
+                )}
                 <Typography
                   variant="body2"
                   fontWeight={linkTab === i ? 600 : 500}
@@ -754,9 +1255,17 @@ export default function AssetView() {
                 }}
                 sx={{ mb: 2 }}
               />
-              <Stack spacing={1.5} sx={{ maxHeight: 320, overflowY: "auto", pr: 0.5 }}>
+              <Stack
+                spacing={1.5}
+                sx={{ maxHeight: 320, overflowY: "auto", pr: 0.5 }}
+              >
                 {filteredAssets.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    textAlign="center"
+                    py={3}
+                  >
                     No assets found
                   </Typography>
                 ) : (
@@ -771,8 +1280,14 @@ export default function AssetView() {
                 )}
               </Stack>
               {selectedChildAssets.length > 0 && (
-                <Typography variant="caption" color="text.secondary" mt={1} display="block">
-                  {selectedChildAssets.length} asset{selectedChildAssets.length > 1 ? "s" : ""} selected
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  mt={1}
+                  display="block"
+                >
+                  {selectedChildAssets.length} asset
+                  {selectedChildAssets.length > 1 ? "s" : ""} selected
                 </Typography>
               )}
             </>
@@ -795,7 +1310,11 @@ export default function AssetView() {
 
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button
-            onClick={() => { setLinkDialogOpen(false); setSelectedChildAssets([]); setSearchQuery(""); }}
+            onClick={() => {
+              setLinkDialogOpen(false);
+              setSelectedChildAssets([]);
+              setSearchQuery("");
+            }}
             sx={{ borderRadius: 2, textTransform: "none" }}
           >
             Cancel
@@ -849,8 +1368,8 @@ export default function AssetView() {
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete{" "}
-            <strong>"{asset.assetName}"</strong>? This action cannot be undone.
+            Are you sure you want to delete <strong>"{asset.assetName}"</strong>
+            ? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
@@ -866,9 +1385,18 @@ export default function AssetView() {
             variant="contained"
             color="error"
             disabled={deleting}
-            sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600, minWidth: 100 }}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              minWidth: 100,
+            }}
           >
-            {deleting ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "Delete"}
+            {deleting ? (
+              <CircularProgress size={18} sx={{ color: "#fff" }} />
+            ) : (
+              "Delete"
+            )}
           </Button>
         </DialogActions>
       </Dialog>

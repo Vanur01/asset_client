@@ -1,4 +1,3 @@
-// context/AssetContext.jsx
 import React, { createContext, useContext, useState, useCallback } from "react";
 import axios from "axios";
 
@@ -10,20 +9,17 @@ export const useAsset = () => {
   return context;
 };
 
-const API_BASE_URL = "http://localhost:9001/api/v1";
+const API_BASE_URL = "https://assset-management-backend-4.onrender.com/api/v1";
 
 export const AssetProvider = ({ children }) => {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
     totalPages: 0,
-    hasNextPage: false,
-    hasPrevPage: false,
   });
 
   const getToken = () => {
@@ -33,17 +29,13 @@ export const AssetProvider = ({ children }) => {
     );
   };
 
-  // Get user role from token or localStorage
   const getUserRole = useCallback(() => {
     try {
       const token = getToken();
       if (!token) return null;
-
-      // Decode JWT token to get role
       const payload = JSON.parse(atob(token.split(".")[1]));
       return payload.role || payload.userRole;
     } catch (error) {
-      // Fallback to localStorage
       const userStr =
         localStorage.getItem("user") || sessionStorage.getItem("user");
       if (userStr) {
@@ -58,332 +50,323 @@ export const AssetProvider = ({ children }) => {
     }
   }, []);
 
-  // Check if user has access to Asset Management (Admin or Team only, NOT Super Admin)
-  const hasAssetAccess = useCallback(() => {
-    const role = getUserRole();
-    return role === "admin" || role === "team";
-  }, [getUserRole]);
-
-  // Check if user can perform write operations (Admin only)
-  const canWriteAssets = useCallback(() => {
-    const role = getUserRole();
-     return role === "admin" || role === "team";
-  }, [getUserRole]);
-
   const getAuthHeaders = () => {
     const token = getToken();
-    const role = getUserRole();
-
     return {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        "X-User-Role": role || "",
       },
     };
   };
 
-  // Clear error helper
-  const clearError = () => setError(null);
-
-  // Get all assets with filters (Accessible by Admin & Team)
-  const getAllAssets = useCallback(
-    async (filters = {}) => {
-      // Check access before making request
-      if (!hasAssetAccess()) {
-        const err = new Error(
-          "Access denied: Only Admin and Team roles can view assets",
-        );
-        setError(err);
-        throw err;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams();
-        Object.keys(filters).forEach((key) => {
-          if (
-            filters[key] !== undefined &&
-            filters[key] !== "" &&
-            filters[key] !== null
-          ) {
-            params.append(key, filters[key]);
-          }
-        });
-
-        const url = `${API_BASE_URL}/asset${params.toString() ? `?${params.toString()}` : ""}`;
-        const response = await axios.get(url, getAuthHeaders());
-
-        if (response.data && response.data.success !== false) {
-          const assetData = response.data.assets || response.data.data || [];
-          setAssets(assetData);
-          setPagination(
-            response.data.pagination || {
-              page: filters.page || 1,
-              limit: filters.limit || 10,
-              total: assetData.length,
-              totalPages: Math.ceil(assetData.length / (filters.limit || 10)),
-            },
-          );
-          return response.data;
+  // Get all assets
+  const getAllAssets = useCallback(async (filters = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      Object.keys(filters).forEach((key) => {
+        if (
+          filters[key] !== undefined &&
+          filters[key] !== "" &&
+          filters[key] !== null
+        ) {
+          params.append(key, filters[key]);
         }
-        return null;
-      } catch (error) {
-        console.error("Error fetching assets:", error);
-        setError(error.response?.data?.message || error.message);
-        setAssets([]);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [hasAssetAccess],
-  );
+      });
 
-  // Get single asset by ID (Accessible by Admin & Team)
-  const getAssetById = useCallback(
-    async (id) => {
-      if (!hasAssetAccess()) {
-        const err = new Error(
-          "Access denied: Only Admin and Team roles can view assets",
-        );
-        setError(err);
-        throw err;
-      }
+      const url = `${API_BASE_URL}/asset${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await axios.get(url, getAuthHeaders());
 
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/asset/${id}`,
-          getAuthHeaders(),
+      if (response.data && response.data.success) {
+        setAssets(response.data.assets || []);
+        setPagination(
+          response.data.pagination || {
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            total: (response.data.assets || []).length,
+            totalPages: 1,
+          },
         );
         return response.data;
-      } catch (error) {
-        console.error("Error fetching asset:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
       }
-    },
-    [hasAssetAccess],
-  );
+      return null;
+    } catch (error) {
+      console.error("Error fetching assets:", error);
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Create new asset (Admin only)
-  const createAsset = useCallback(
-    async (assetData) => {
-      if (!canWriteAssets()) {
-        const err = new Error("Access denied: Only Admin can create assets");
-        setError(err);
-        throw err;
-      }
+  // Get single asset
+  const getAssetById = useCallback(async (id) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/asset/${id}`,
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.post(
-          `${API_BASE_URL}/asset`,
-          assetData,
-          getAuthHeaders(),
-        );
-        return { success: true, data: response.data };
-      } catch (error) {
-        console.error("Error creating asset:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [canWriteAssets],
-  );
+  // Create asset (Admin only)
+  const createAsset = useCallback(async (assetData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/asset/add`,
+        assetData,
+        getAuthHeaders(),
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Error creating asset:", error);
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Update asset (Admin only)
-  const updateAsset = useCallback(
-    async (id, assetData) => {
-      if (!canWriteAssets()) {
-        const err = new Error("Access denied: Only Admin can update assets");
-        setError(err);
-        throw err;
-      }
+  // Create asset request (Team only)
+  const createAssetRequest = useCallback(async (requestData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/asset/request`,
+        requestData,
+        getAuthHeaders(),
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Error creating asset request:", error);
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.put(
-          `${API_BASE_URL}/asset/${id}`,
-          assetData,
-          getAuthHeaders(),
-        );
-        return { success: true, data: response.data };
-      } catch (error) {
-        console.error("Error updating asset:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [canWriteAssets],
-  );
+  // Update asset
+  const updateAsset = useCallback(async (id, assetData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.put(
+        `${API_BASE_URL}/asset/${id}`,
+        assetData,
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Delete asset (soft or permanent) - Admin only
-  const deleteAsset = useCallback(
-    async (id, permanent = false) => {
-      if (!canWriteAssets()) {
-        const err = new Error("Access denied: Only Admin can delete assets");
-        setError(err);
-        throw err;
-      }
+  // Delete asset
+  const deleteAsset = useCallback(async (id, permanent = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.delete(
+        `${API_BASE_URL}/asset/${id}?permanent=${permanent}`,
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.delete(
-          `${API_BASE_URL}/asset/${id}?permanent=${permanent}`,
-          getAuthHeaders(),
-        );
-        return { success: true, data: response.data };
-      } catch (error) {
-        console.error("Error deleting asset:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [canWriteAssets],
-  );
+  // Clone asset - Fixed version
+  // Clone asset - Fixed version with better error handling
+  const cloneAsset = useCallback(async (id, cloneData = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Only send necessary data, avoid sending extra fields
+      const payload = {
+        cloneNote:
+          cloneData.cloneNote ||
+          `Cloned from asset on ${new Date().toLocaleDateString()}`,
+      };
 
-  // Clone asset - Admin only
-  const cloneAsset = useCallback(
-    async (id, cloneData = {}) => {
-      if (!canWriteAssets()) {
-        const err = new Error("Access denied: Only Admin can clone assets");
-        setError(err);
-        throw err;
-      }
+      const response = await axios.post(
+        `${API_BASE_URL}/asset/${id}/clone`,
+        payload,
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error cloning asset:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to clone asset";
+      setError(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      setLoading(true);
-      setError(null);
-      try {
-        const payload = {
-          assetName: cloneData.assetName || undefined,
-          description: cloneData.description || undefined,
-          serialNumber: cloneData.serialNumber || undefined,
-          currentLocation: cloneData.currentLocation || undefined,
-          status: cloneData.status || undefined,
-          ...cloneData,
-        };
+  // Get asset clones
+  const getAssetClones = useCallback(async (id, page = 1, limit = 10) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/asset/${id}/clones?page=${page}&limit=${limit}`,
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-        // Remove undefined values
-        Object.keys(payload).forEach((key) => {
-          if (payload[key] === undefined) {
-            delete payload[key];
-          }
-        });
+  // Link child assets
+  const linkChildAssets = useCallback(async (id, childAssetIds) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/asset/${id}/link`,
+        { childAssetIds },
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-        const response = await axios.post(
-          `${API_BASE_URL}/asset/${id}/clone`,
-          payload,
-          getAuthHeaders(),
-        );
-        return { success: true, data: response.data };
-      } catch (error) {
-        console.error("Error cloning asset:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [canWriteAssets],
-  );
+  // Update asset status
+  const updateAssetStatus = useCallback(async (id, status, reason = "") => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.patch(
+        `${API_BASE_URL}/asset/${id}/status`,
+        { status, reason },
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Get asset clones (Accessible by Admin & Team)
-  const getAssetClones = useCallback(
-    async (id, page = 1, limit = 10) => {
-      if (!hasAssetAccess()) {
-        const err = new Error(
-          "Access denied: Only Admin and Team roles can view asset clones",
-        );
-        setError(err);
-        throw err;
-      }
+  // Upload asset images
+  const uploadAssetImages = useCallback(async (id, formData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getToken();
+      const response = await axios.post(
+        `${API_BASE_URL}/asset/${id}/images`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/asset/${id}/clones?page=${page}&limit=${limit}`,
-          getAuthHeaders(),
-        );
-        return response.data;
-      } catch (error) {
-        console.error("Error fetching clones:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [hasAssetAccess],
-  );
+  // Delete asset image
+  const deleteAssetImage = useCallback(async (id, imageName) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.delete(
+        `${API_BASE_URL}/asset/${id}/images/${imageName}`,
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Link child assets (Admin only)
-  const linkChildAssets = useCallback(
-    async (id, childAssetIds) => {
-      if (!canWriteAssets()) {
-        const err = new Error(
-          "Access denied: Only Admin can link child assets",
-        );
-        setError(err);
-        throw err;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.post(
-          `${API_BASE_URL}/asset/${id}/link-children`,
-          { childAssetIds },
-          getAuthHeaders(),
-        );
-        return { success: true, data: response.data };
-      } catch (error) {
-        console.error("Error linking child assets:", error);
-        setError(error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [canWriteAssets],
-  );
-
+  // Set primary image
+  const setPrimaryImage = useCallback(async (id, imageName) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.patch(
+        `${API_BASE_URL}/asset/${id}/images/${imageName}/primary`,
+        {},
+        getAuthHeaders(),
+      );
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const value = {
     assets,
     loading,
-    uploadProgress,
     pagination,
     error,
-    clearError,
     getAllAssets,
     getAssetById,
     createAsset,
+    createAssetRequest,
     updateAsset,
     deleteAsset,
     cloneAsset,
     getAssetClones,
     linkChildAssets,
-    // Helper methods for UI components
-    canViewAssets: hasAssetAccess(),
-    canWriteAssets: canWriteAssets(),
+    updateAssetStatus,
+    uploadAssetImages,
+    deleteAssetImage,
+    setPrimaryImage,
     userRole: getUserRole(),
-    hasAssetAccess: hasAssetAccess(),
   };
 
   return (

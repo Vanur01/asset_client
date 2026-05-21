@@ -50,7 +50,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Create Checklist - Removed validations
+  // ─── Create Checklist ────────────────────────────────────────────────
   const createChecklist = useCallback(
     async (checklistData) => {
       setLoading(true);
@@ -76,7 +76,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Get All Checklists with pagination and search
+  // ─── Get All Checklists ──────────────────────────────────────────────
   const getAllChecklists = useCallback(
     async (filters = {}) => {
       setLoading(true);
@@ -90,10 +90,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         if (filters.search) queryParams.append("search", filters.search);
         if (filters.page) queryParams.append("page", filters.page);
         if (filters.limit) queryParams.append("limit", filters.limit);
-
-        if (queryParams.toString()) {
-          url += `?${queryParams.toString()}`;
-        }
+        if (queryParams.toString()) url += `?${queryParams.toString()}`;
 
         const response = await authRequest("GET", url);
         return { success: true, data: response };
@@ -111,7 +108,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Get Checklist by ID
+  // ─── Get Checklist by ID ─────────────────────────────────────────────
   const getChecklistById = useCallback(
     async (id) => {
       setLoading(true);
@@ -133,7 +130,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Update Checklist
+  // ─── Update Checklist ────────────────────────────────────────────────
   const updateChecklist = useCallback(
     async (id, updateData) => {
       setLoading(true);
@@ -163,7 +160,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Delete Checklist
+  // ─── Delete Checklist ────────────────────────────────────────────────
   const deleteChecklist = useCallback(
     async (id) => {
       setLoading(true);
@@ -189,14 +186,14 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Clone Checklist
+  // ─── Clone Checklist ─────────────────────────────────────────────────
   const cloneChecklist = useCallback(
     async (id, newName) => {
       setLoading(true);
       setError(null);
       try {
         const response = await authRequest("POST", `/checklist/clone/${id}`, {
-          newName: newName,
+          newName,
         });
         if (response.success) {
           setSuccess("Checklist cloned successfully!");
@@ -217,67 +214,58 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Import Checklist from Excel
-  const importFromExcel = useCallback(
-    async (file, checklistName = null) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const formData = new FormData();
-        formData.append("excelFile", file);
-        if (checklistName) {
-          formData.append("name", checklistName);
-        }
+  // ─── Import Checklist from Excel ─────────────────────────────────────
+  const importFromExcel = useCallback(async (file, checklistName = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("excelFile", file);
+      if (checklistName) formData.append("name", checklistName);
 
-        const token = localStorage.getItem("accessToken");
-        if (!token || token === "undefined" || token === "null") {
-          throw new Error("No authentication token found. Please login again.");
-        }
-
-        const response = await axios.post(
-          "http://localhost:9001/api/v1/checklist/import-excel",
-          formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Authorization: `Bearer ${token}`,
-            },
-            withCredentials: true,
-          },
-        );
-
-        if (response.data.success) {
-          setSuccess("Checklist imported successfully!");
-          return {
-            success: true,
-            data: response.data._doc || response.data,
-          };
-        }
-        return { success: false, error: response.data.message };
-      } catch (err) {
-        let errorMsg = "Failed to import checklist";
-        if (err.response?.status === 401) {
-          errorMsg = "Authentication failed. Please login again.";
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("user");
-          localStorage.removeItem("userType");
-          window.location.href = "/login";
-        } else if (err.response?.data?.message) {
-          errorMsg = err.response.data.message;
-        } else if (err.message) {
-          errorMsg = err.message;
-        }
-
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
-      } finally {
-        setLoading(false);
+      const token = localStorage.getItem("accessToken");
+      if (!token || token === "undefined" || token === "null") {
+        throw new Error("No authentication token found. Please login again.");
       }
-    },
-    [],
-  );
 
-  // Get Global Checklists (Approved ones)
+      const response = await axios.post(
+        "https://assset-management-backend-4.onrender.com/api/v1/checklist/import-excel",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
+        },
+      );
+
+      if (response.data.success) {
+        setSuccess("Checklist imported successfully!");
+        return { success: true, data: response.data._doc || response.data };
+      }
+      return { success: false, error: response.data.message };
+    } catch (err) {
+      let errorMsg = "Failed to import checklist";
+      if (err.response?.status === 401) {
+        errorMsg = "Authentication failed. Please login again.";
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userType");
+        window.location.href = "/login";
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ─── Get Global Checklists ───────────────────────────────────────────
   const getGlobalChecklists = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -296,7 +284,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     }
   }, [authRequest]);
 
-  // Submit for Global Approval
+  // ─── Submit for Global Approval ──────────────────────────────────────
   const submitForGlobalApproval = useCallback(
     async (id) => {
       setLoading(true);
@@ -325,7 +313,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Approve Global Checklist (Super Admin only)
+  // ─── Approve Global Checklist (Super Admin only) ─────────────────────
   const approveGlobalChecklist = useCallback(
     async (id) => {
       setLoading(true);
@@ -351,7 +339,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Reject Global Checklist (Super Admin only)
+  // ─── Reject Global Checklist (Super Admin only) ──────────────────────
   const rejectGlobalChecklist = useCallback(
     async (id, reason) => {
       setLoading(true);
@@ -379,9 +367,73 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [authRequest],
   );
 
-  // Convert UI Field to API Field
-  const convertUIToAPIField = useCallback((uiField) => {
-    const apiField = {
+  // ─── Assign Checklist to Admin (Super Admin only) ────────────────────
+  // POST /assignments/assign-to-admin
+  // Body: { checklistId, adminId, dueDate, priority, notes, assetId? }
+  const assignChecklistToAdmin = useCallback(
+    async (data) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await authRequest(
+          "POST",
+          "/assignments/assign-to-admin",
+          data,
+        );
+        if (response.success) {
+          setSuccess("Checklist assigned to admin successfully!");
+          return { success: true, data: response.data };
+        }
+        return { success: false, error: response.message };
+      } catch (err) {
+        const errorMsg =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to assign checklist to admin";
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [authRequest],
+  );
+
+  // ─── Assign Checklist to Team Members (Admin only) ───────────────────
+  // POST /assignments/assign-to-team
+  // Body: { checklistId, teamMemberIds, dueDate, priority, notes, assetId? }
+  const assignChecklistToTeam = useCallback(
+    async (data) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await authRequest(
+          "POST",
+          "/assignments/assign-to-team",
+          data,
+        );
+        if (response.success) {
+          setSuccess("Checklist assigned to team members successfully!");
+          return { success: true, data: response.data };
+        }
+        return { success: false, error: response.message };
+      } catch (err) {
+        const errorMsg =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to assign checklist to team";
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [authRequest],
+  );
+
+  // ─── Field / Section converters ──────────────────────────────────────
+  const convertUIToAPIField = useCallback(
+    (uiField) => ({
       label: uiField.label,
       fieldType: FIELD_TYPE_MAP[uiField.type] || "text_input",
       isRequired: uiField.required || false,
@@ -395,13 +447,12 @@ export const ChecklistBuilderProvider = ({ children }) => {
         maxLength: uiField.maxLength || null,
         pattern: uiField.pattern || null,
       },
-    };
-    return apiField;
-  }, []);
+    }),
+    [],
+  );
 
-  // Convert API Field to UI Field
-  const convertAPIToUIField = useCallback((apiField) => {
-    const uiField = {
+  const convertAPIToUIField = useCallback(
+    (apiField) => ({
       id: apiField._id || `field_${Date.now()}`,
       label: apiField.label,
       type: DISPLAY_FIELD_TYPE_MAP[apiField.fieldType] || "text",
@@ -414,11 +465,10 @@ export const ChecklistBuilderProvider = ({ children }) => {
       minLength: apiField.validationRules?.minLength,
       maxLength: apiField.validationRules?.maxLength,
       pattern: apiField.validationRules?.pattern,
-    };
-    return uiField;
-  }, []);
+    }),
+    [],
+  );
 
-  // Convert UI Section to API Section
   const convertUIToAPISection = useCallback(
     (section, order) => ({
       sectionTitle: section.sectionTitle,
@@ -426,12 +476,11 @@ export const ChecklistBuilderProvider = ({ children }) => {
       fields: section.fields.map((field, idx) =>
         convertUIToAPIField({ ...field, order: idx }),
       ),
-      order: order,
+      order,
     }),
     [convertUIToAPIField],
   );
 
-  // Convert API Section to UI Section
   const convertAPIToUISection = useCallback(
     (apiSection) => ({
       id: apiSection._id,
@@ -444,24 +493,20 @@ export const ChecklistBuilderProvider = ({ children }) => {
     [convertAPIToUIField],
   );
 
-  // Prepare complete checklist data from UI state
   const prepareChecklistData = useCallback(
-    (name, description, type, category, sections, status = "draft") => {
-      return {
-        name,
-        description,
-        type,
-        category,
-        status,
-        sections: sections.map((section, idx) =>
-          convertUIToAPISection(section, idx),
-        ),
-      };
-    },
+    (name, description, type, category, sections, status = "draft") => ({
+      name,
+      description,
+      type,
+      category,
+      status,
+      sections: sections.map((section, idx) =>
+        convertUIToAPISection(section, idx),
+      ),
+    }),
     [convertUIToAPISection],
   );
 
-  // Clear messages
   const clearMessages = useCallback(() => {
     setError(null);
     setSuccess(null);
@@ -473,7 +518,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     error,
     success,
 
-    // Actions
+    // Checklist CRUD
     createChecklist,
     getAllChecklists,
     getChecklistById,
@@ -481,12 +526,18 @@ export const ChecklistBuilderProvider = ({ children }) => {
     deleteChecklist,
     cloneChecklist,
     importFromExcel,
+
+    // Global checklist workflow
     getGlobalChecklists,
     submitForGlobalApproval,
     approveGlobalChecklist,
     rejectGlobalChecklist,
 
-    // Converters
+    // ── Assignment APIs ──────────────────────────────────────────────
+    assignChecklistToAdmin, // Super Admin → Admin
+    assignChecklistToTeam, // Admin → Team Members
+
+    // Field / Section converters
     convertUIToAPIField,
     convertAPIToUIField,
     convertUIToAPISection,

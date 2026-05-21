@@ -131,7 +131,7 @@ export default function EditAsset() {
           <Typography fontWeight={700} fontSize={16} mb={3}>Asset Information</Typography>
           
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Asset Name *</Typography>
               <TextField
                 fullWidth
@@ -141,7 +141,7 @@ export default function EditAsset() {
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Asset Category</Typography>
               <FormControl fullWidth size="small">
                 <Select
@@ -160,19 +160,18 @@ export default function EditAsset() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Description</Typography>
               <TextField
                 fullWidth
                 size="small"
                 multiline
-                rows={3}
                 value={formData.description || ""}
                 onChange={(e) => handleChange("description", e.target.value)}
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Serial Number</Typography>
               <TextField
                 fullWidth
@@ -182,7 +181,7 @@ export default function EditAsset() {
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Status</Typography>
               <FormControl fullWidth size="small">
                 <Select
@@ -198,7 +197,7 @@ export default function EditAsset() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Condition</Typography>
               <FormControl fullWidth size="small">
                 <Select
@@ -214,7 +213,7 @@ export default function EditAsset() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Purchase Cost ($)</Typography>
               <TextField
                 fullWidth
@@ -226,7 +225,7 @@ export default function EditAsset() {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} sx={{width:"350px"}}>
               <Typography fontSize={12} fontWeight={600} mb={1}>Current Location</Typography>
               <TextField
                 fullWidth
@@ -236,7 +235,7 @@ export default function EditAsset() {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} sx={{width:"350px"}}>
               <Divider sx={{ my: 1 }} />
               <Typography fontWeight={600} fontSize={14} mb={2}>Physical Address</Typography>
               <Grid container spacing={2}>
@@ -249,7 +248,7 @@ export default function EditAsset() {
                     onChange={(e) => handleNestedChange("customPhysicalAddress", "streetAddress", e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sx={{width:"350px"}}>
                   <TextField
                     fullWidth
                     size="small"
@@ -258,7 +257,7 @@ export default function EditAsset() {
                     onChange={(e) => handleNestedChange("customPhysicalAddress", "city", e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sx={{width:"350px"}}>
                   <TextField
                     fullWidth
                     size="small"
@@ -267,7 +266,7 @@ export default function EditAsset() {
                     onChange={(e) => handleNestedChange("customPhysicalAddress", "stateProvince", e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sx={{width:"350px"}}>
                   <TextField
                     fullWidth
                     size="small"
@@ -276,7 +275,7 @@ export default function EditAsset() {
                     onChange={(e) => handleNestedChange("customPhysicalAddress", "postalCode", e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sx={{width:"350px"}}>
                   <TextField
                     fullWidth
                     size="small"

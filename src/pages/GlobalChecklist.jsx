@@ -1,4 +1,4 @@
-// Updated GlobalChecklistBuilder with API integration
+// GlobalChecklistBuilder.jsx - Fixed Version
 import React, { useState, useRef, useEffect } from "react";
 import {
   Box,
@@ -23,6 +23,7 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
+  MenuItem,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -40,6 +41,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SaveIcon from "@mui/icons-material/Save";
 import { useChecklistBuilder } from "../context/ChecklistBuilderContext";
+import { useAuth } from "../context/AuthContexts";
 import { useNavigate } from "react-router-dom";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -83,12 +85,12 @@ const theme = createTheme({
 // ─── Field Types Config ───────────────────────────────────────────────────────
 const FIELD_TYPES = [
   {
-    type: "text",
+    type: "text_input",
     label: "Text Input",
     icon: <TitleIcon sx={{ fontSize: 18, color: "#374151" }} />,
   },
   {
-    type: "textarea",
+    type: "text_area",
     label: "Text Area",
     icon: <SubjectIcon sx={{ fontSize: 18, color: "#374151" }} />,
   },
@@ -108,7 +110,7 @@ const FIELD_TYPES = [
     icon: <StarBorderIcon sx={{ fontSize: 18, color: "#374151" }} />,
   },
   {
-    type: "image",
+    type: "image_upload",
     label: "Image Upload",
     icon: <ImageOutlinedIcon sx={{ fontSize: 18, color: "#374151" }} />,
   },
@@ -116,6 +118,11 @@ const FIELD_TYPES = [
     type: "signature",
     label: "Signature",
     icon: <GestureIcon sx={{ fontSize: 18, color: "#374151" }} />,
+  },
+  {
+    type: "date_picker",
+    label: "Date Picker",
+    icon: <ExpandMoreIcon sx={{ fontSize: 18, color: "#374151" }} />,
   },
 ];
 
@@ -126,17 +133,12 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
   const [checked, setChecked] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  const handleValueChange = (fieldId, value) => {
+  const handleValueChange = (fieldId, value) =>
     setValues((prev) => ({ ...prev, [fieldId]: value }));
-  };
-
-  const handleRatingChange = (fieldId, value) => {
+  const handleRatingChange = (fieldId, value) =>
     setRating((prev) => ({ ...prev, [fieldId]: value }));
-  };
-
-  const handleCheckboxChange = (fieldId, checkedValue) => {
+  const handleCheckboxChange = (fieldId, checkedValue) =>
     setChecked((prev) => ({ ...prev, [fieldId]: checkedValue }));
-  };
 
   const handleSubmit = () => {
     setSubmitted(true);
@@ -148,7 +150,7 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
 
   const renderPreviewField = (field) => {
     switch (field.type) {
-      case "text":
+      case "text_input":
         return (
           <TextField
             fullWidth
@@ -161,7 +163,7 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
             }}
           />
         );
-      case "textarea":
+      case "text_area":
         return (
           <TextField
             fullWidth
@@ -192,7 +194,6 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
             <option value="">Select an option...</option>
             <option value="opt1">Option 1</option>
             <option value="opt2">Option 2</option>
-            <option value="opt3">Option 3</option>
           </TextField>
         );
       case "checkbox":
@@ -223,17 +224,14 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
               value={rating[field.id] || 0}
               onChange={(_, v) => handleRatingChange(field.id, v)}
               size="medium"
-              sx={{
-                "& .MuiRating-iconFilled": { color: "#1a4a5c" },
-                "& .MuiRating-iconEmpty": { color: "#d1d5db" },
-              }}
+              sx={{ "& .MuiRating-iconFilled": { color: "#1a4a5c" } }}
             />
             <Typography sx={{ fontSize: 12, color: "#9ca3af" }}>
               {rating[field.id] ? `${rating[field.id]}/5` : "Rate 1-5"}
             </Typography>
           </Box>
         );
-      case "image":
+      case "image_upload":
         return (
           <Box
             sx={{
@@ -280,7 +278,7 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
                 Signature pad will appear here
               </Typography>
             </Box>
-            <Divider sx={{ borderColor: "#e5e7eb" }} />
+            <Divider />
             <Box sx={{ px: 2, py: 0.8 }}>
               <Typography
                 sx={{ fontSize: 11.5, color: "#2a7a9b", textAlign: "center" }}
@@ -289,6 +287,19 @@ function PreviewDialog({ open, onClose, checklistName, description, fields }) {
               </Typography>
             </Box>
           </Box>
+        );
+      case "date_picker":
+        return (
+          <TextField
+            fullWidth
+            type="date"
+            size="small"
+            value={values[field.id] || ""}
+            onChange={(e) => handleValueChange(field.id, e.target.value)}
+            sx={{
+              "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 13 },
+            }}
+          />
         );
       default:
         return null;
@@ -472,6 +483,7 @@ function DraggableFieldPreview({
   const [value, setValue] = useState("");
   const [rating, setRating] = useState(0);
   const [checked, setChecked] = useState(false);
+  const [dateValue, setDateValue] = useState("");
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [labelValue, setLabelValue] = useState(field.label);
   const canvasRef = useRef(null);
@@ -505,26 +517,173 @@ function DraggableFieldPreview({
       canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  const handleLabelDoubleClick = () => {
-    setIsEditingLabel(true);
-  };
+  useEffect(() => {
+    if (field.type === "signature" && canvasRef.current) {
+      canvasRef.current.width = 600;
+      canvasRef.current.height = 80;
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  }, [field.type]);
 
-  const handleLabelChange = (e) => {
-    setLabelValue(e.target.value);
-  };
-
+  const handleLabelDoubleClick = () => setIsEditingLabel(true);
+  const handleLabelChange = (e) => setLabelValue(e.target.value);
   const handleLabelBlur = () => {
     setIsEditingLabel(false);
-    if (labelValue.trim() && labelValue !== field.label) {
+    if (labelValue.trim() && labelValue !== field.label)
       onLabelChange(field.id, labelValue);
-    } else {
-      setLabelValue(field.label);
-    }
+    else setLabelValue(field.label);
+  };
+  const handleLabelKeyPress = (e) => {
+    if (e.key === "Enter") handleLabelBlur();
   };
 
-  const handleLabelKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleLabelBlur();
+  const renderFieldPreview = () => {
+    switch (field.type) {
+      case "text_input":
+        return (
+          <TextField
+            fullWidth
+            size="small"
+            placeholder={`Enter ${field.label.toLowerCase()}...`}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        );
+      case "text_area":
+        return (
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            placeholder="Enter text..."
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        );
+      case "dropdown":
+        return (
+          <TextField
+            fullWidth
+            select
+            size="small"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            SelectProps={{ native: true }}
+          >
+            <option value="">Select an option...</option>
+            <option value="opt1">Option 1</option>
+            <option value="opt2">Option 2</option>
+          </TextField>
+        );
+      case "checkbox":
+        return (
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={checked}
+                onChange={(e) => setChecked(e.target.checked)}
+                size="small"
+                sx={{ color: "#1a4a5c" }}
+              />
+            }
+            label="Checkbox option"
+          />
+        );
+      case "rating":
+        return (
+          <Box display="flex" alignItems="center" gap={1}>
+            <Rating
+              value={rating}
+              onChange={(_, v) => setRating(v)}
+              size="medium"
+            />
+            <Typography sx={{ fontSize: 12, color: "#9ca3af" }}>
+              {rating ? `${rating}/5` : "Rate 1-5"}
+            </Typography>
+          </Box>
+        );
+      case "image_upload":
+        return (
+          <Box
+            sx={{
+              border: "2px dashed #d1d5db",
+              borderRadius: "8px",
+              bgcolor: "#fafafa",
+              py: 2.5,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 0.8,
+              cursor: "pointer",
+            }}
+          >
+            <ImageOutlinedIcon sx={{ fontSize: 28, color: "#d1d5db" }} />
+            <Typography sx={{ fontSize: 13, color: "#9ca3af" }}>
+              Drag & drop or click to browse
+            </Typography>
+          </Box>
+        );
+      case "signature":
+        return (
+          <Box
+            sx={{
+              border: "1.5px solid #e5e7eb",
+              borderRadius: "8px",
+              overflow: "hidden",
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              style={{
+                display: "block",
+                width: "100%",
+                height: 80,
+                cursor: "crosshair",
+                backgroundColor: "#fff",
+              }}
+              onMouseDown={startDraw}
+              onMouseMove={draw}
+              onMouseUp={stopDraw}
+              onMouseLeave={stopDraw}
+            />
+            <Divider />
+            <Box
+              sx={{
+                px: 2,
+                py: 0.8,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Typography sx={{ fontSize: 11.5, color: "#2a7a9b" }}>
+                Sign above using mouse or touch
+              </Typography>
+              <Button
+                size="small"
+                onClick={clearCanvas}
+                sx={{ fontSize: 11, color: "#9ca3af", minWidth: "auto", p: 0 }}
+              >
+                Clear
+              </Button>
+            </Box>
+          </Box>
+        );
+      case "date_picker":
+        return (
+          <TextField
+            fullWidth
+            type="date"
+            size="small"
+            value={dateValue}
+            onChange={(e) => setDateValue(e.target.value)}
+          />
+        );
+      default:
+        return null;
     }
   };
 
@@ -605,133 +764,7 @@ function DraggableFieldPreview({
           <DeleteOutlineIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Box>
-
-      {/* Field Input Preview */}
-      {field.type === "text" && (
-        <TextField
-          fullWidth
-          size="small"
-          placeholder={`Enter ${field.label.toLowerCase()}...`}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-      )}
-      {field.type === "textarea" && (
-        <TextField
-          fullWidth
-          multiline
-          rows={3}
-          size="small"
-          placeholder="Enter text..."
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-      )}
-      {field.type === "dropdown" && (
-        <TextField
-          fullWidth
-          select
-          size="small"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          SelectProps={{ native: true }}
-        >
-          <option value="">Select an option...</option>
-          <option value="opt1">Option 1</option>
-          <option value="opt2">Option 2</option>
-        </TextField>
-      )}
-      {field.type === "checkbox" && (
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checked}
-              onChange={(e) => setChecked(e.target.checked)}
-              size="small"
-              sx={{ color: "#1a4a5c" }}
-            />
-          }
-          label="Checkbox option"
-        />
-      )}
-      {field.type === "rating" && (
-        <Box display="flex" alignItems="center" gap={1}>
-          <Rating
-            value={rating}
-            onChange={(_, v) => setRating(v)}
-            size="medium"
-          />
-          <Typography sx={{ fontSize: 12, color: "#9ca3af" }}>
-            {rating ? `${rating}/5` : "Rate 1-5"}
-          </Typography>
-        </Box>
-      )}
-      {field.type === "image" && (
-        <Box
-          sx={{
-            border: "2px dashed #d1d5db",
-            borderRadius: "8px",
-            bgcolor: "#fafafa",
-            py: 2.5,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 0.8,
-            cursor: "pointer",
-          }}
-        >
-          <ImageOutlinedIcon sx={{ fontSize: 28, color: "#d1d5db" }} />
-          <Typography sx={{ fontSize: 13, color: "#9ca3af" }}>
-            Drag & drop or click to browse
-          </Typography>
-        </Box>
-      )}
-      {field.type === "signature" && (
-        <Box
-          sx={{
-            border: "1.5px solid #e5e7eb",
-            borderRadius: "8px",
-            overflow: "hidden",
-          }}
-        >
-          <canvas
-            ref={canvasRef}
-            width={600}
-            height={80}
-            style={{
-              display: "block",
-              width: "100%",
-              height: 80,
-              cursor: "crosshair",
-            }}
-            onMouseDown={startDraw}
-            onMouseMove={draw}
-            onMouseUp={stopDraw}
-            onMouseLeave={stopDraw}
-          />
-          <Divider sx={{ borderColor: "#e5e7eb" }} />
-          <Box
-            sx={{
-              px: 2,
-              py: 0.8,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Typography sx={{ fontSize: 11.5, color: "#2a7a9b" }}>
-              Sign above using mouse or touch
-            </Typography>
-            <Button
-              size="small"
-              onClick={clearCanvas}
-              sx={{ fontSize: 11, color: "#9ca3af", minWidth: "auto", p: 0 }}
-            >
-              Clear
-            </Button>
-          </Box>
-        </Box>
-      )}
+      {renderFieldPreview()}
     </Box>
   );
 }
@@ -739,6 +772,7 @@ function DraggableFieldPreview({
 // ─── Main Page with API Integration ────────────────────────────────────────────
 export default function GlobalChecklistBuilder() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { createChecklist, loading, error, success, clearMessages } =
     useChecklistBuilder();
 
@@ -771,51 +805,42 @@ export default function GlobalChecklistBuilder() {
     setCounter((c) => c + 1);
   };
 
-  const deleteField = (id) => {
+  const deleteField = (id) =>
     setFields((prev) => prev.filter((f) => f.id !== id));
-  };
-
-  const updateFieldLabel = (id, newLabel) => {
+  const updateFieldLabel = (id, newLabel) =>
     setFields((prev) =>
       prev.map((field) =>
         field.id === id ? { ...field, label: newLabel } : field,
       ),
     );
-  };
 
   const handleFieldDragStart = (e, index) => {
     setDraggedFieldIndex(index);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", index.toString());
   };
-
   const handleFieldDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
   };
-
   const handleFieldDrop = (e, dropIndex) => {
     e.preventDefault();
-    const dragIndex = draggedFieldIndex;
-    if (dragIndex === null || dragIndex === dropIndex) return;
+    if (draggedFieldIndex === null || draggedFieldIndex === dropIndex) return;
     const reorderedFields = [...fields];
-    const [removed] = reorderedFields.splice(dragIndex, 1);
+    const [removed] = reorderedFields.splice(draggedFieldIndex, 1);
     reorderedFields.splice(dropIndex, 0, removed);
     setFields(reorderedFields);
     setDraggedFieldIndex(null);
   };
-
   const handleFieldTypeDragStart = (e, fieldType) => {
     setDraggedFieldType(fieldType);
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("text/plain", fieldType.type);
   };
-
   const handleDropZoneDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
   };
-
   const handleDropZoneDrop = (e) => {
     e.preventDefault();
     if (draggedFieldType) {
@@ -823,10 +848,7 @@ export default function GlobalChecklistBuilder() {
       setDraggedFieldType(null);
     }
   };
-
-  const handlePreview = () => {
-    setPreviewOpen(true);
-  };
+  const handlePreview = () => setPreviewOpen(true);
 
   const handleSave = async () => {
     if (!checklistName.trim()) {
@@ -835,7 +857,6 @@ export default function GlobalChecklistBuilder() {
       setSnackbarOpen(true);
       return;
     }
-
     if (fields.length === 0) {
       setSnackbarMessage("Please add at least one field to the checklist");
       setSnackbarSeverity("error");
@@ -843,52 +864,43 @@ export default function GlobalChecklistBuilder() {
       return;
     }
 
-    // Convert fields to sections structure
     const sections = [
       {
         sectionTitle: "Checklist Fields",
         sectionDescription: description,
         fields: fields.map((field, index) => ({
           label: field.label,
-          fieldType:
-            field.type === "textarea"
-              ? "text_area"
-              : field.type === "text"
-                ? "text_input"
-                : field.type === "image"
-                  ? "image_upload"
-                  : field.type,
+          fieldType: field.type,
           isRequired: field.required || false,
           placeholder: field.placeholder || "",
           options:
             field.type === "dropdown"
               ? ["Option 1", "Option 2", "Option 3"]
               : [],
-          ratingMax: field.type === "rating" ? 5 : 5,
+          ratingMax: field.type === "rating" ? 5 : null,
           order: index,
         })),
       },
     ];
 
     const checklistData = {
-      name: checklistName,
-      description: description,
+      name: checklistName.trim(),
+      description: description.trim(),
       type: "global",
       category: category,
-      status: "draft",
+      status: "active",
       sections: sections,
+      tags: [category],
+      totalFields: fields.length,
+      version: "v1.0",
     };
 
     const result = await createChecklist(checklistData);
-
     if (result.success) {
       setSnackbarMessage("Global checklist created successfully!");
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
-      // Redirect to checklists page after 2 seconds
-      setTimeout(() => {
-        navigate("/admin/checklists");
-      }, 2000);
+      setTimeout(() => navigate("/admin/checklists"), 2000);
     } else {
       setSnackbarMessage(result.error || "Failed to create checklist");
       setSnackbarSeverity("error");
@@ -901,7 +913,6 @@ export default function GlobalChecklistBuilder() {
     clearMessages();
   };
 
-  // Show API errors in snackbar
   useEffect(() => {
     if (error) {
       setSnackbarMessage(error);
@@ -919,7 +930,6 @@ export default function GlobalChecklistBuilder() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
-
       <Box
         sx={{ minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", p: 3 }}
       >
@@ -1004,7 +1014,6 @@ export default function GlobalChecklistBuilder() {
 
         {/* Body */}
         <Box sx={{ display: "flex", gap: 2.5, alignItems: "flex-start" }}>
-          {/* Left: Builder Canvas */}
           <Box
             onDragOver={handleDropZoneDragOver}
             onDrop={handleDropZoneDrop}
@@ -1228,7 +1237,7 @@ export default function GlobalChecklistBuilder() {
         fields={fields}
       />
 
-      {/* Snackbar for notifications */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}

@@ -28,9 +28,7 @@ import {
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 
-// ─────────────────────────────────────────────
 // MODERN ICONS (Material UI v6+ compatible)
-// ─────────────────────────────────────────────
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
@@ -53,10 +51,7 @@ import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import { useAuth } from "../context/AuthContexts";
 
-// ─────────────────────────────────────────────
 // Styled Components
-// ─────────────────────────────────────────────
-
 const MobileHeader = styled(Box)(({ theme }) => ({
   position: "fixed",
   top: 0,
@@ -130,10 +125,7 @@ const DesktopSidebar = styled(Box)(({ theme, iscollapsed }) => ({
   boxShadow: `2px 0 12px ${alpha(theme.palette.common.black, 0.02)}`,
 }));
 
-// ─────────────────────────────────────────────
 // Navigation Configuration with Modern Icons
-// ─────────────────────────────────────────────
-
 const navItemsConfig = {
   admin: [
     {
@@ -142,6 +134,13 @@ const navItemsConfig = {
       label: "Dashboard",
       path: "/admin",
       roles: ["super_admin", "admin"],
+    },
+    {
+      id: "contact-inquiries",
+      icon: EmailOutlinedIcon, 
+      label: "Contact Inquiries",
+      path: "/admin/contact-inquiries",
+      roles: ["super_admin"],
     },
     {
       id: "clients",
@@ -155,27 +154,13 @@ const navItemsConfig = {
       icon: PeopleAltOutlinedIcon,
       label: "Team Management",
       path: "/admin/team",
-      roles: ["admin"],
-    },
-    {
-      id: "contact-inquiries", // ADD THIS
-      icon: EmailOutlinedIcon, // Make sure to import EmailOutlinedIcon
-      label: "Contact Inquiries",
-      path: "/admin/contact-inquiries",
-      roles: ["super_admin"],
+      roles: ["admin", "super_admin"],
     },
     {
       id: "checklists",
       icon: ChecklistOutlinedIcon,
       label: "Checklists Builder",
       path: "/admin/checklists",
-      roles: ["super_admin", "admin"],
-    },
-    {
-      id: "request-checklist",
-      icon: RequestQuoteOutlinedIcon,
-      label: "Request Checklist",
-      path: "/admin/request-checklist",
       roles: ["super_admin", "admin"],
     },
     {
@@ -190,22 +175,15 @@ const navItemsConfig = {
       icon: Inventory2OutlinedIcon,
       label: "Assets Management",
       path: "/admin/assets",
-      roles: ["admin", "team"],
+      roles: ["admin", "super_admin", "team"],
     },
     {
       id: "reports",
       icon: BarChartOutlinedIcon,
       label: "Reports and Analysis",
       path: "/admin/reports",
-      roles: ["super_admin", "admin"],
+      roles: ["super_admin", "admin", "team"],
     },
-    // {
-    //   id: "settings",
-    //   icon: SettingsOutlinedIcon,
-    //   label: "Settings",
-    //   path: "/admin/settings",
-    //   roles: ["super_admin", "admin"],
-    // },
   ],
   team: [
     {
@@ -219,7 +197,7 @@ const navItemsConfig = {
       id: "assets",
       icon: Inventory2OutlinedIcon,
       label: "Assets Management",
-      path: "/team/assets",
+      path: "/admin/assets",
       roles: ["team"],
     },
     {
@@ -255,10 +233,7 @@ export const getNavItems = (userRole) => {
   return [];
 };
 
-// ─────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────
-
 const getUserDisplayName = (user) => {
   if (!user) return "User";
   return user.name || user.email?.split("@")[0] || "User";
@@ -275,10 +250,7 @@ const getUserInitials = (user) => {
     .slice(0, 2);
 };
 
-// ─────────────────────────────────────────────
 // Main Component
-// ─────────────────────────────────────────────
-
 export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -289,14 +261,11 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
-  const isLargeDesktop = useMediaQuery(theme.breakpoints.up("lg"));
-  const isExtraLarge = useMediaQuery(theme.breakpoints.up("xl"));
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bottomNavValue, setBottomNavValue] = useState(0);
-  const [hoveredItem, setHoveredItem] = useState(null);
 
   const navItems = getNavItems(user?.role);
 
@@ -378,9 +347,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
 
   if (!user || navItems.length === 0) return null;
 
-  // ─────────────────────────────────────────────
   // Desktop Sidebar
-  // ─────────────────────────────────────────────
   const desktopSidebarContent = (
     <Box
       sx={{
@@ -484,8 +451,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
             >
               <ListItem
                 onClick={(e) => handleNavigation(path, id, e)}
-                onMouseEnter={() => setHoveredItem(id)}
-                onMouseLeave={() => setHoveredItem(null)}
                 sx={{
                   borderRadius: 2,
                   mb: 0.5,
@@ -612,9 +577,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
     </Box>
   );
 
-  // ─────────────────────────────────────────────
   // Mobile Drawer Content
-  // ─────────────────────────────────────────────
   const mobileMenuContent = (
     <Box
       sx={{
@@ -746,9 +709,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
     </Box>
   );
 
-  // ─────────────────────────────────────────────
   // Mobile / Tablet Layout
-  // ─────────────────────────────────────────────
   if (isMobile || isTablet) {
     return (
       <>
@@ -863,9 +824,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
     );
   }
 
-  // ─────────────────────────────────────────────
   // Desktop Return
-  // ─────────────────────────────────────────────
   return (
     <DesktopSidebar iscollapsed={isCollapsed.toString()}>
       {desktopSidebarContent}

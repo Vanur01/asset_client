@@ -1,4 +1,4 @@
-// Updated CustomChecklistBuilder with proper API integration
+// CustomChecklistBuilder.jsx - Fixed Version
 import React, { useState, useRef, useEffect } from "react";
 import {
   Box,
@@ -27,22 +27,18 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DownloadIcon from "@mui/icons-material/Download";
+import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SaveIcon from "@mui/icons-material/Save";
 import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
 import TagIcon from "@mui/icons-material/Tag";
-import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
-import LabelOutlinedIcon from "@mui/icons-material/LabelOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
-import StarIcon from "@mui/icons-material/Star";
-import StarBorderIcon from "@mui/icons-material/StarBorder";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import jsPDF from "jspdf";
 import { useChecklistBuilder } from "../context/ChecklistBuilderContext";
+import { useAuth } from "../context/AuthContexts";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const theme = createTheme({
@@ -103,22 +99,9 @@ const CATEGORY_OPTIONS = [
 function SectionHeader({ title }) {
   return (
     <Box
-      sx={{
-        bgcolor: "#eef2f5",
-        borderRadius: "10px",
-        px: 2.5,
-        py: 1.5,
-        mb: 3,
-      }}
+      sx={{ bgcolor: "#eef2f5", borderRadius: "10px", px: 2.5, py: 1.5, mb: 3 }}
     >
-      <Typography
-        sx={{
-          fontWeight: 700,
-          fontSize: 15,
-          color: "#1a4a5c",
-          fontFamily: "'DM Sans', sans-serif",
-        }}
-      >
+      <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#1a4a5c" }}>
         {title}
       </Typography>
     </Box>
@@ -129,13 +112,7 @@ function SectionHeader({ title }) {
 function FieldLabel({ label, required }) {
   return (
     <Typography
-      sx={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: "#1a4a5c",
-        mb: 0.8,
-        fontFamily: "'DM Sans', sans-serif",
-      }}
+      sx={{ fontSize: 13, fontWeight: 600, color: "#1a4a5c", mb: 0.8 }}
     >
       {label}
       {required && " *"}
@@ -168,6 +145,7 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
 
   const draw = (e) => {
     if (!drawing.current || readOnly) return;
+    e.preventDefault();
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.strokeStyle = "#1a4a5c";
@@ -195,6 +173,17 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
     if (onSignatureChange) onSignatureChange(false);
   };
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = 700;
+      canvas.height = 100;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }, []);
+
   return (
     <Box
       sx={{
@@ -206,13 +195,12 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
     >
       <canvas
         ref={canvasRef}
-        width={700}
-        height={100}
         style={{
           display: "block",
           width: "100%",
           height: 100,
           cursor: readOnly ? "default" : "crosshair",
+          backgroundColor: "#fff",
         }}
         onMouseDown={startDraw}
         onMouseMove={draw}
@@ -287,6 +275,7 @@ function SuccessDialog({ open, onClose, message, checklistId }) {
 // ─── Main Page with API Integration ────────────────────────────────────────────
 export default function CustomChecklistBuilder() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { createChecklist, loading, error, success, clearMessages } =
     useChecklistBuilder();
 
@@ -332,7 +321,7 @@ export default function CustomChecklistBuilder() {
     setFormData({ ...formData, [field]: value });
   };
 
-  // Prepare data for API submission
+  // Prepare data for API submission - FIXED STRUCTURE
   const prepareChecklistData = () => {
     const sections = [
       {
@@ -432,14 +421,22 @@ export default function CustomChecklistBuilder() {
       },
     ];
 
+    // Calculate total fields
+    let totalFields = 0;
+    sections.forEach((section) => {
+      totalFields += section.fields.length;
+    });
+
     return {
-      name: formData.name,
-      description: formData.description,
+      name: formData.name.trim(),
+      description: formData.description.trim(),
       type: "custom",
       category: formData.category,
       status: "active",
       sections: sections,
       tags: ["Safety", "Equipment", "Inspection"],
+      totalFields: totalFields,
+      version: "v1.0",
     };
   };
 
@@ -464,8 +461,9 @@ export default function CustomChecklistBuilder() {
     setSubmitting(false);
 
     if (result.success) {
-      setCreatedChecklistId(result.data?._doc?._id || result.data?._id);
+      setCreatedChecklistId(result.data?._id || result.data?.data?._id);
       setSuccessDialogOpen(true);
+      setEditMode(false);
     } else {
       setSnackbarMessage(result.error || "Failed to create checklist");
       setSnackbarSeverity("error");
@@ -473,7 +471,7 @@ export default function CustomChecklistBuilder() {
     }
   };
 
-  // Download Form as PDF with filled data
+  // Download Form as PDF
   const downloadFormAsPDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const teal = [26, 74, 92];
@@ -482,7 +480,6 @@ export default function CustomChecklistBuilder() {
     const W = 210;
     let y = 0;
 
-    // Header
     doc.setFillColor(...teal);
     doc.rect(0, 0, W, 28, "F");
     doc.setTextColor(255, 255, 255);
@@ -523,7 +520,6 @@ export default function CustomChecklistBuilder() {
       doc.text(truncatedValue, x + 3, y + 8.5);
     };
 
-    // Basic Information
     section("Basic Information");
     field("Equipment Name", formData.equipmentName, 10, 90);
     field("Equipment ID", formData.equipmentId, 108, 92);
@@ -535,7 +531,6 @@ export default function CustomChecklistBuilder() {
     field("Inspector Name", formData.inspectorName, 108, 92);
     y += 22;
 
-    // Safety Checks
     section("Safety Checks");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
@@ -573,7 +568,6 @@ export default function CustomChecklistBuilder() {
     doc.text(`${stars}   [Rating: ${formData.overallCondition}/5]`, 20, y + 9);
     y += 20;
 
-    // Documentation
     section("Documentation");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
@@ -607,7 +601,6 @@ export default function CustomChecklistBuilder() {
     });
     y += 28;
 
-    // Footer
     doc.setDrawColor(229, 231, 235);
     doc.line(10, y, W - 10, y);
     y += 6;
@@ -639,7 +632,7 @@ export default function CustomChecklistBuilder() {
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
     }
-  }, [error, success]);
+  }, [error, success, successDialogOpen]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -804,9 +797,6 @@ export default function CustomChecklistBuilder() {
                       handleInputChange("equipmentName", e.target.value)
                     }
                     InputProps={{ readOnly: !editMode }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": { borderRadius: "10px" },
-                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -834,11 +824,11 @@ export default function CustomChecklistBuilder() {
                     }
                     disabled={!editMode}
                   >
-                    <option value="">Select location</option>
+                    <MenuItem value="">Select location</MenuItem>
                     {LOCATION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
+                      <MenuItem key={opt} value={opt}>
                         {opt}
-                      </option>
+                      </MenuItem>
                     ))}
                   </TextField>
                 </Grid>
@@ -854,11 +844,11 @@ export default function CustomChecklistBuilder() {
                     }
                     disabled={!editMode}
                   >
-                    <option value="">Select category</option>
+                    <MenuItem value="">Select category</MenuItem>
                     {CATEGORY_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
+                      <MenuItem key={opt} value={opt}>
                         {opt}
-                      </option>
+                      </MenuItem>
                     ))}
                   </TextField>
                 </Grid>
@@ -1138,7 +1128,9 @@ export default function CustomChecklistBuilder() {
                   <Typography
                     sx={{ fontSize: 13.5, fontWeight: 600, color: "#1a1d23" }}
                   >
-                    System Admin
+                    {user?.firstName
+                      ? `${user.firstName} ${user.lastName || ""}`
+                      : user?.email || "System Admin"}
                   </Typography>
                 </Box>
               </Box>
@@ -1194,6 +1186,7 @@ export default function CustomChecklistBuilder() {
                     Tags
                   </Typography>
                   <Box display="flex" flexWrap="wrap" gap={0.7}>
+                    {" "}
                     {["Safety", "Equipment", "Inspection", "Custom"].map(
                       (tag) => (
                         <Chip
@@ -1215,7 +1208,6 @@ export default function CustomChecklistBuilder() {
                 </Box>
               </Box>
 
-              {/* Status */}
               <Box
                 sx={{
                   bgcolor: editMode ? "#fff3e0" : "#e8f5e9",
@@ -1228,7 +1220,7 @@ export default function CustomChecklistBuilder() {
                   gap: 1,
                 }}
               >
-                <CheckCircleOutlineIcon
+                <CheckCircleIcon
                   sx={{ fontSize: 16, color: editMode ? "#ed6c02" : "#4caf50" }}
                 />
                 <Typography

@@ -1,4 +1,3 @@
-// pages/Submissiondetails.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -18,7 +17,6 @@ import {
   Alert,
   CircularProgress,
   Rating,
-  Tooltip,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useAuth } from "../context/AuthContexts";
@@ -29,12 +27,10 @@ import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import ImageIcon from "@mui/icons-material/Image";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import CloseIcon from "@mui/icons-material/Close";
-import VisibilityIcon from "@mui/icons-material/Visibility";
+import * as XLSX from "xlsx";
 
 const TEAL = "#1B4D5C";
 const theme = createTheme({
@@ -75,9 +71,6 @@ export default function SubmissionDetails() {
   const { authRequest } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState(null);
-  const [checklist, setChecklist] = useState(null);
-  const [comment, setComment] = useState("");
-  const [comments, setComments] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -87,20 +80,18 @@ export default function SubmissionDetails() {
   const fetchSubmissionDetails = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await authRequest("GET", `/assignments/${id}/details`);
+      const response = await authRequest(
+        "GET",
+        `/assignments/submissions/${id}`,
+      );
       if (response.success) {
         setSubmission(response);
-        setChecklist(response.checklist);
-        // Extract comments from reviewComments if available
-        if (response.reviewComments) {
-          setComments([
-            {
-              author: response.reviewedBy?.email?.split("@")[0] || "Admin",
-              date: response.reviewedAt,
-              text: response.reviewComments,
-            },
-          ]);
-        }
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.message || "Failed to load submission",
+          severity: "error",
+        });
       }
     } catch (err) {
       setSnackbar({
@@ -117,59 +108,41 @@ export default function SubmissionDetails() {
     fetchSubmissionDetails();
   }, [fetchSubmissionDetails]);
 
-  const handleAddComment = async () => {
-    if (!comment.trim()) return;
-    try {
-      const response = await authRequest("PATCH", `/assignments/${id}`, {
-        reviewComments: comment,
-      });
-      if (response.success) {
-        setComments([
-          ...comments,
-          {
-            author: "Current User",
-            date: new Date().toISOString(),
-            text: comment,
-          },
-        ]);
-        setComment("");
-        setSnackbar({
-          open: true,
-          message: "Comment added",
-          severity: "success",
-        });
-      }
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: "Failed to add comment",
-        severity: "error",
-      });
-    }
-  };
+  const handleExportToExcel = () => {
+    if (!submission) return;
 
-  const handleExportPDF = () => {
+    const exportData = [
+      ["Field", "Value"],
+      ["Checklist Name", submission.checklistName || "N/A"],
+      ["Submitted By", submission.assignedToTeamMembers?.[0]?.name || "N/A"],
+      [
+        "Submitted Email",
+        submission.assignedToTeamMembers?.[0]?.userId?.email || "N/A",
+      ],
+      [
+        "Submitted Date",
+        submission.submittedAt
+          ? new Date(submission.submittedAt).toLocaleString()
+          : "N/A",
+      ],
+      ["Status", submission.submissionStatus || submission.status || "N/A"],
+      ["Completion Rate", `${submission.completionRate || 0}%`],
+      ["Overall Rating", submission.overallRating || "Not rated"],
+      ["Inspector Notes", submission.inspectorNotes || "No notes"],
+      ["Additional Notes", submission.notes || "No notes"],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Submission Details");
+    XLSX.writeFile(workbook, `submission_${submission._id}.xlsx`);
+
     setSnackbar({
       open: true,
-      message: "PDF export coming soon",
-      severity: "info",
+      message: "Excel file exported successfully",
+      severity: "success",
     });
   };
-
-  const submissionData = submission?._doc || submission;
-  const responses =
-    checklist?.sections?.flatMap((section) =>
-      section.fields.map((field) => ({
-        label: field.label,
-        required: field.isRequired,
-        type: field.fieldType,
-        value:
-          submissionData?.responses?.find((r) => r.fieldId === field._id)
-            ?.value || "Not provided",
-        options: field.options,
-        checkboxItems: field.checkboxItems,
-      })),
-    ) || [];
 
   if (loading) {
     return (
@@ -180,6 +153,8 @@ export default function SubmissionDetails() {
       </ThemeProvider>
     );
   }
+
+  const submissionData = submission;
 
   return (
     <ThemeProvider theme={theme}>
@@ -221,14 +196,14 @@ export default function SubmissionDetails() {
               Submission Details
             </Typography>
             <Typography sx={{ fontSize: "0.82rem", color: "#888", mt: 0.3 }}>
-              {checklist?.name || "Checklist Submission"}
+              {submissionData?.checklistName || "Checklist Submission"}
             </Typography>
           </Box>
           <Button
             startIcon={<FileDownloadOutlinedIcon />}
             variant="outlined"
             size="small"
-            onClick={handleExportPDF}
+            onClick={handleExportToExcel}
             sx={{
               textTransform: "none",
               borderColor: "#ccc",
@@ -238,7 +213,7 @@ export default function SubmissionDetails() {
               borderRadius: 2,
             }}
           >
-            Export PDF
+            Export Excel
           </Button>
         </Box>
 
@@ -255,6 +230,7 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"180px",
                     mb: 0.5,
                   }}
                 >
@@ -266,7 +242,9 @@ export default function SubmissionDetails() {
                 <Typography
                   sx={{ fontWeight: 600, fontSize: "0.92rem", color: "#111" }}
                 >
-                  {submissionData?.primaryMember?.email?.split("@")[0] || "N/A"}
+                  {submissionData?.assignedToTeamMembers?.[0]?.name?.split(
+                    "@",
+                  )[0] || "N/A"}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -275,6 +253,7 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"180px",
                     mb: 0.5,
                   }}
                 >
@@ -299,6 +278,7 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"180px",
                     mb: 0.5,
                   }}
                 >
@@ -321,6 +301,7 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"180px",
                     mb: 0.5,
                   }}
                 >
@@ -337,6 +318,7 @@ export default function SubmissionDetails() {
                     alignItems: "center",
                     gap: 1.5,
                     mt: 0.5,
+                    width:"180px",
                   }}
                 >
                   <LinearProgress
@@ -369,6 +351,7 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"180px",
                     mb: 0.5,
                   }}
                 >
@@ -390,6 +373,7 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"180px",
                     mb: 0.5,
                   }}
                 >
@@ -414,10 +398,13 @@ export default function SubmissionDetails() {
                     display: "flex",
                     alignItems: "center",
                     gap: 0.8,
+                    width:"200px",
                     mb: 0.5,
                   }}
                 >
-                  <CheckCircleIcon sx={{ fontSize: 15, color: "#888" }} />
+                  <CheckCircleOutlineIcon
+                    sx={{ fontSize: 15, color: "#888" }}
+                  />
                   <Typography sx={{ fontSize: "0.78rem", color: "#888" }}>
                     Overall Rating
                   </Typography>
@@ -432,178 +419,30 @@ export default function SubmissionDetails() {
           </CardContent>
         </Card>
 
-        {/* Submission Responses */}
-        <Card
-          elevation={0}
-          sx={{ border: "1px solid #e8e8e8", borderRadius: 2, mb: 2.5 }}
-        >
-          <CardContent sx={{ p: "0 !important" }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                px: 3,
-                py: 2.5,
-              }}
-            >
+        {/* Attachments */}
+        {(submissionData?.attachments?.length > 0 ||
+          submissionData?.uploadedPhotos?.length > 0) && (
+          <Card
+            elevation={0}
+            sx={{ border: "1px solid #e8e8e8", borderRadius: 2, mb: 2.5  }}
+          >
+            <CardContent>
               <Typography
-                sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#111" }}
-              >
-                Submission Responses
-              </Typography>
-              <Chip
-                label={`${responses.length} Questions`}
-                size="small"
                 sx={{
-                  bgcolor: "#f5f5f5",
-                  color: "#555",
-                  border: "1px solid #e0e0e0",
-                  fontWeight: 600,
-                  fontSize: "0.75rem",
-                  height: 26,
-                  borderRadius: "6px",
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  color: "#111",
+                  mb: 2,
                 }}
-              />
-            </Box>
-            {responses.map((r, i) => (
-              <Box key={i}>
-                <Divider />
-                <Box sx={{ px: 3, py: 2.5 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 1.2,
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: "0.88rem",
-                        color: "#222",
-                      }}
-                    >
-                      {r.label}
-                    </Typography>
-                    {r.required && (
-                      <Chip
-                        label="Required"
-                        size="small"
-                        sx={{
-                          bgcolor: "#fff0f0",
-                          color: "#e53935",
-                          border: "1px solid #ffcdd2",
-                          fontWeight: 600,
-                          fontSize: "0.7rem",
-                          height: 22,
-                          borderRadius: "5px",
-                        }}
-                      />
-                    )}
-                  </Box>
-                  {r.type === "text_input" || r.type === "text_area" ? (
-                    <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#333" }}>
-                        {r.value}
-                      </Typography>
-                    </Box>
-                  ) : r.type === "date_picker" ? (
-                    <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 0.8 }}
-                      >
-                        <CalendarTodayOutlinedIcon
-                          sx={{ fontSize: 14, color: "#555" }}
-                        />
-                        <Typography sx={{ fontSize: "0.88rem", color: "#333" }}>
-                          {new Date(r.value).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ) : r.type === "checkbox" ? (
-                    <Box
-                      sx={{
-                        borderLeft: "3px solid #90caf9",
-                        pl: 1.5,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 0.8,
-                      }}
-                    >
-                      {r.checkboxItems?.map((item, j) => (
-                        <Box
-                          key={j}
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.8,
-                          }}
-                        >
-                          <CheckCircleIcon
-                            sx={{
-                              fontSize: 18,
-                              color: r.value?.includes(item)
-                                ? "#2e7d32"
-                                : "#ccc",
-                            }}
-                          />
-                          <Typography
-                            sx={{ fontSize: "0.88rem", color: "#333" }}
-                          >
-                            {item}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : r.type === "rating" ? (
-                    <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                      <Rating value={r.value || 0} readOnly />
-                    </Box>
-                  ) : r.type === "image_upload" || r.type === "signature" ? (
-                    r.value && r.value !== "Not provided" ? (
-                      <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<ImageIcon />}
-                          onClick={() => window.open(r.value, "_blank")}
-                        >
-                          View File
-                        </Button>
-                      </Box>
-                    ) : (
-                      <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#999" }}>
-                          No file uploaded
-                        </Typography>
-                      </Box>
-                    )
-                  ) : (
-                    <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#333" }}>
-                        {r.value}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              </Box>
-            ))}
-            {/* Attachments */}
-            {submissionData?.attachments?.length > 0 && (
-              <>
-                <Divider />
-                <Box sx={{ px: 3, py: 2.5 }}>
+              >
+                Attachments & Photos
+              </Typography>
+              {submissionData?.attachments?.length > 0 && (
+                <Box sx={{ mb: 2 }}>
                   <Typography
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: "0.88rem",
-                      color: "#222",
-                      mb: 1.2,
-                    }}
+                    sx={{ fontSize: "0.85rem", color: "#555", mb: 1 }}
                   >
-                    Attachments
+                    Documents:
                   </Typography>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     {submissionData.attachments.map((file, idx) => (
@@ -619,134 +458,96 @@ export default function SubmissionDetails() {
                     ))}
                   </Box>
                 </Box>
-              </>
-            )}
-            {/* Additional Notes */}
-            {submissionData?.additionalNotes && (
-              <>
-                <Divider />
-                <Box sx={{ px: 3, py: 2.5 }}>
+              )}
+              {submissionData?.uploadedPhotos?.length > 0 && (
+                <Box>
                   <Typography
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: "0.88rem",
-                      color: "#222",
-                      mb: 1.2,
-                    }}
+                    sx={{ fontSize: "0.85rem", color: "#555", mb: 1 }}
                   >
-                    Additional Notes
+                    Photos:
                   </Typography>
-                  <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                    <Typography
-                      sx={{
-                        fontSize: "0.87rem",
-                        color: "#333",
-                        lineHeight: 1.7,
-                      }}
-                    >
-                      {submissionData.additionalNotes}
-                    </Typography>
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    {submissionData.uploadedPhotos.map((photo, idx) => (
+                      <Button
+                        key={idx}
+                        variant="outlined"
+                        size="small"
+                        startIcon={<ImageIcon />}
+                        onClick={() => window.open(photo, "_blank")}
+                      >
+                        View Photo {idx + 1}
+                      </Button>
+                    ))}
                   </Box>
                 </Box>
-              </>
-            )}
-            {/* Inspector Notes */}
-            {submissionData?.inspectorNotes && (
-              <>
-                <Divider />
-                <Box sx={{ px: 3, py: 2.5 }}>
-                  <Typography
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: "0.88rem",
-                      color: "#222",
-                      mb: 1.2,
-                    }}
-                  >
-                    Inspector Notes
-                  </Typography>
-                  <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
-                    <Typography
-                      sx={{
-                        fontSize: "0.87rem",
-                        color: "#333",
-                        lineHeight: 1.7,
-                      }}
-                    >
-                      {submissionData.inspectorNotes}
-                    </Typography>
-                  </Box>
-                </Box>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Comments & Notes */}
-        <Card
-          elevation={0}
-          sx={{ border: "1px solid #e8e8e8", borderRadius: 2 }}
-        >
-          <CardContent sx={{ p: "24px !important" }}>
-            <Box
-              sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}
-            >
-              <ChatBubbleOutlineIcon sx={{ fontSize: 18, color: "#333" }} />
+        {/* Additional Notes */}
+        {submissionData?.notes && (
+          <Card
+            elevation={0}
+            sx={{ border: "1px solid #e8e8e8", borderRadius: 2, mb: 2.5 }}
+          >
+            <CardContent>
               <Typography
-                sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#111" }}
-              >
-                Comments & Notes
-              </Typography>
-            </Box>
-            {comments.map((c, i) => (
-              <Box
-                key={i}
                 sx={{
-                  bgcolor: "#f9f9f9",
-                  border: "1px solid #efefef",
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 2,
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  color: "#111",
+                  mb: 1.5,
                 }}
               >
+                Additional Notes
+              </Typography>
+              <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
                 <Typography
-                  sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#222" }}
+                  sx={{
+                    fontSize: "0.87rem",
+                    color: "#333",
+                    lineHeight: 1.7,
+                  }}
                 >
-                  {c.author}
-                </Typography>
-                <Typography sx={{ fontSize: "0.75rem", color: "#999", mb: 1 }}>
-                  {new Date(c.date).toLocaleString()}
-                </Typography>
-                <Typography sx={{ fontSize: "0.85rem", color: "#444" }}>
-                  {c.text}
+                  {submissionData.notes}
                 </Typography>
               </Box>
-            ))}
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              placeholder="Add a comment..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              variant="outlined"
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 2,
-                  fontSize: "0.85rem",
-                  bgcolor: "#fff",
-                },
-              }}
-            />
-            <Button
-              variant="contained"
-              onClick={handleAddComment}
-              sx={{ mt: 2, textTransform: "none", bgcolor: TEAL }}
-            >
-              Post Comment
-            </Button>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Inspector Notes */}
+        {submissionData?.inspectorNotes && (
+          <Card
+            elevation={0}
+            sx={{ border: "1px solid #e8e8e8", borderRadius: 2 }}
+          >
+            <CardContent>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  color: "#111",
+                  mb: 1.5,
+                }}
+              >
+                Inspector Notes
+              </Typography>
+              <Box sx={{ borderLeft: "3px solid #90caf9", pl: 1.5 }}>
+                <Typography
+                  sx={{
+                    fontSize: "0.87rem",
+                    color: "#333",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  {submissionData.inspectorNotes}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
 
         <Snackbar
           open={snackbar.open}

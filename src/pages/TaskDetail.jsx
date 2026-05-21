@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
@@ -37,11 +37,22 @@ import { useAssignment } from "../context/TeamAssignmentcontext";
 const UploadZone = ({
   accept = "image/*",
   multiple = true,
-  files,
+  files = [],
   onChange,
   disabled,
 }) => {
   const ref = useRef();
+
+  const handleFileChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    onChange(selectedFiles);
+  };
+
+  const removeFile = (indexToRemove) => {
+    const newFiles = files.filter((_, idx) => idx !== indexToRemove);
+    onChange(newFiles);
+  };
+
   return (
     <Box>
       <Box
@@ -64,7 +75,9 @@ const UploadZone = ({
           Click to upload or drag and drop
         </Typography>
         <Typography sx={{ fontSize: "0.72rem", color: "#9ca3af", mt: 0.3 }}>
-          PNG, JPG, HEIC up to 10MB
+          {accept.includes("image")
+            ? "PNG, JPG up to 10MB"
+            : "PDF, DOC, XLS up to 10MB"}
         </Typography>
         <input
           ref={ref}
@@ -72,7 +85,7 @@ const UploadZone = ({
           hidden
           accept={accept}
           multiple={multiple}
-          onChange={(e) => onChange(Array.from(e.target.files))}
+          onChange={handleFileChange}
         />
       </Box>
       {files?.length > 0 && (
@@ -95,7 +108,7 @@ const UploadZone = ({
               {f.name}
               <IconButton
                 size="small"
-                onClick={() => onChange(files.filter((_, j) => j !== i))}
+                onClick={() => removeFile(i)}
                 sx={{ p: 0, color: "#9ca3af", "&:hover": { color: "#ef4444" } }}
               >
                 <DeleteOutlineIcon sx={{ fontSize: 14 }} />
@@ -112,8 +125,8 @@ const UploadZone = ({
 const SignaturePad = ({ onSave, disabled, existing }) => {
   const canvasRef = useRef();
   const drawing = useRef(false);
-  const [signed, setSigned] = useState(false);
-  const [cleared, setCleared] = useState(false);
+  const [hasSignature, setHasSignature] = useState(!!existing);
+  const [showPad, setShowPad] = useState(!existing);
 
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
@@ -131,6 +144,7 @@ const SignaturePad = ({ onSave, disabled, existing }) => {
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
+
   const draw = (e) => {
     if (!drawing.current || disabled) return;
     e.preventDefault();
@@ -142,100 +156,123 @@ const SignaturePad = ({ onSave, disabled, existing }) => {
     ctx.strokeStyle = "#0d3d52";
     ctx.lineTo(x, y);
     ctx.stroke();
-    setSigned(true);
   };
+
   const stop = () => {
     drawing.current = false;
-    if (signed) {
+    if (canvasRef.current && hasSignature) {
       canvasRef.current.toBlob((blob) => {
-        if (blob)
-          onSave(new File([blob], "signature.png", { type: "image/png" }));
+        if (blob) {
+          const file = new File([blob], "signature.png", { type: "image/png" });
+          onSave(file);
+        }
       });
     }
   };
-  const clear = () => {
+
+  const clearSignature = () => {
     const c = canvasRef.current;
-    c.getContext("2d").clearRect(0, 0, c.width, c.height);
-    setSigned(false);
-    setCleared(true);
-    onSave(null);
+    if (c) {
+      c.getContext("2d").clearRect(0, 0, c.width, c.height);
+      setHasSignature(false);
+      onSave(null);
+    }
   };
+
+  const replaceSignature = () => {
+    setShowPad(true);
+    setHasSignature(false);
+    setTimeout(() => {
+      if (canvasRef.current) {
+        canvasRef.current
+          .getContext("2d")
+          .clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }, 100);
+  };
+
+  if (!showPad && existing && !disabled) {
+    return (
+      <Box
+        sx={{
+          border: "2px dashed #d1d5db",
+          borderRadius: 3,
+          p: 2,
+          textAlign: "center",
+        }}
+      >
+        <CheckCircleIcon sx={{ color: "#16a34a", fontSize: 36, mb: 1 }} />
+        <Typography variant="body2" color="text.secondary" mb={1.5}>
+          Signature already recorded
+        </Typography>
+        <Button
+          size="small"
+          onClick={replaceSignature}
+          sx={{
+            textTransform: "none",
+            color: "#6b7280",
+            fontSize: "0.75rem",
+          }}
+        >
+          Replace signature
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ border: "2px dashed #d1d5db", borderRadius: 3, p: 2 }}>
-      {existing && !cleared ? (
-        <Box textAlign="center">
-          <CheckCircleIcon sx={{ color: "#16a34a", fontSize: 36, mb: 1 }} />
-          <Typography variant="body2" color="text.secondary" mb={1.5}>
-            Signature already recorded
-          </Typography>
-          <Button
-            size="small"
-            onClick={() => setCleared(true)}
-            sx={{
-              textTransform: "none",
-              color: "#6b7280",
-              fontSize: "0.75rem",
-            }}
-          >
-            Replace signature
-          </Button>
-        </Box>
-      ) : (
-        <>
-          <canvas
-            ref={canvasRef}
-            width={600}
-            height={160}
-            style={{
-              width: "100%",
-              height: 160,
-              borderRadius: 8,
-              background: "#fafafa",
-              touchAction: "none",
-              cursor: disabled ? "not-allowed" : "crosshair",
-            }}
-            onMouseDown={start}
-            onMouseMove={draw}
-            onMouseUp={stop}
-            onMouseLeave={stop}
-            onTouchStart={start}
-            onTouchMove={draw}
-            onTouchEnd={stop}
-          />
-          <Box
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-            mt={1.2}
-          >
-            <Typography
-              sx={{
-                fontSize: "0.72rem",
-                color: "#9ca3af",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <DrawIcon sx={{ fontSize: 13 }} /> Draw your signature above
-            </Typography>
-            <Button
-              size="small"
-              onClick={clear}
-              sx={{
-                textTransform: "none",
-                color: "#6b7280",
-                fontSize: "0.75rem",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-              }}
-            >
-              Clear
-            </Button>
-          </Box>
-        </>
-      )}
+      <canvas
+        ref={canvasRef}
+        width={600}
+        height={160}
+        style={{
+          width: "100%",
+          height: 160,
+          borderRadius: 8,
+          background: "#fafafa",
+          touchAction: "none",
+          cursor: disabled ? "not-allowed" : "crosshair",
+        }}
+        onMouseDown={start}
+        onMouseMove={draw}
+        onMouseUp={stop}
+        onMouseLeave={stop}
+        onTouchStart={start}
+        onTouchMove={draw}
+        onTouchEnd={stop}
+      />
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        mt={1.2}
+      >
+        <Typography
+          sx={{
+            fontSize: "0.72rem",
+            color: "#9ca3af",
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+          }}
+        >
+          <DrawIcon sx={{ fontSize: 13 }} /> Draw your signature above
+        </Typography>
+        <Button
+          size="small"
+          onClick={clearSignature}
+          sx={{
+            textTransform: "none",
+            color: "#6b7280",
+            fontSize: "0.75rem",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+          }}
+        >
+          Clear
+        </Button>
+      </Box>
     </Box>
   );
 };
@@ -395,28 +432,6 @@ const DynamicField = ({ field, value, onChange, disabled }) => {
         </Box>
       );
 
-    case "image_upload":
-      return (
-        <Box>
-          {labelEl}
-          <UploadZone
-            files={value || []}
-            onChange={onChange}
-            disabled={disabled}
-            accept="image/*"
-            multiple
-          />
-        </Box>
-      );
-
-    case "signature":
-      return (
-        <Box>
-          {labelEl}
-          <SignaturePad onSave={onChange} disabled={disabled} existing={null} />
-        </Box>
-      );
-
     default:
       return (
         <Box>
@@ -518,6 +533,7 @@ export default function TaskDetail() {
   const [addNotes, setAddNotes] = useState("");
   const [snack, setSnack] = useState({ open: false, msg: "", sev: "success" });
   const [loadErr, setLoadErr] = useState(null);
+  const [overallRating, setOverallRating] = useState(0);
 
   /* ─── load detail ─── */
   useEffect(() => {
@@ -530,6 +546,7 @@ export default function TaskDetail() {
       setTask(detail);
       const cl = detail.checklist;
       setChecklist(cl);
+
       if (detail.responses?.length) {
         const seed = {};
         detail.responses.forEach((r) => {
@@ -537,8 +554,17 @@ export default function TaskDetail() {
         });
         setResponses(seed);
       }
+
       setInspNotes(detail.inspectorNotes || "");
       setAddNotes(detail.additionalNotes || "");
+      setOverallRating(detail.overallRating || 0);
+
+      if (detail.uploadedPhotos?.length) {
+        setPhotos(detail.uploadedPhotos);
+      }
+      if (detail.attachments?.length) {
+        setAttachments(detail.attachments);
+      }
     };
     if (id) load();
   }, [id, fetchAssignmentDetail]);
@@ -556,7 +582,10 @@ export default function TaskDetail() {
       s.fields.forEach((f) => {
         const v = responses[f._id];
         if (v !== undefined && v !== null && v !== "") {
-          arr.push({ fieldId: f._id, value: Array.isArray(v) ? v : String(v) });
+          arr.push({
+            fieldId: f._id,
+            value: Array.isArray(v) ? v : String(v),
+          });
         }
       }),
     );
@@ -564,29 +593,76 @@ export default function TaskDetail() {
   };
 
   const handleDraft = async () => {
-    const result = await saveDraft(id, {
+    const payload = {
       responses: buildResponsesArr(),
       inspectorNotes: inspNotes,
       additionalNotes: addNotes,
-    });
+      overallRating: overallRating,
+    };
+
+    const result = await saveDraft(id, payload);
     setSnack({
       open: true,
       msg: result.success ? result.message || "Draft saved!" : result.error,
       sev: result.success ? "success" : "error",
     });
+    if (result.success) {
+      await fetchAssignmentDetail(id);
+    }
   };
 
   const handleSubmit = async () => {
-    const fd = new FormData();
-    const responsesArr = buildResponsesArr();
-    fd.append("responses", JSON.stringify(responsesArr));
-    fd.append("inspectorNotes", inspNotes);
-    fd.append("additionalNotes", addNotes);
-    if (signature) fd.append("signature", signature);
-    photos.forEach((f) => fd.append("photos", f));
-    attachments.forEach((f) => fd.append("attachments", f));
+    const missingRequired = [];
+    if (checklist?.sections) {
+      checklist.sections.forEach((section) => {
+        section.fields.forEach((field) => {
+          if (field.isRequired) {
+            const value = responses[field._id];
+            if (!value || (Array.isArray(value) && value.length === 0)) {
+              missingRequired.push(field.label);
+            }
+          }
+        });
+      });
+    }
 
-    const result = await submitAssignment(id, fd);
+    if (missingRequired.length > 0) {
+      setSnack({
+        open: true,
+        msg: `Please fill required fields: ${missingRequired.join(", ")}`,
+        sev: "error",
+      });
+      return;
+    }
+
+    const formData = new FormData();
+
+    const submissionData = {
+      responses: buildResponsesArr(),
+      inspectorNotes: inspNotes,
+      notes: addNotes,
+      overallRating: overallRating,
+    };
+
+    formData.append("data", JSON.stringify(submissionData));
+
+    photos.forEach((photo) => {
+      if (photo instanceof File) {
+        formData.append("photos", photo);
+      }
+    });
+
+    attachments.forEach((attachment) => {
+      if (attachment instanceof File) {
+        formData.append("attachments", attachment);
+      }
+    });
+
+    if (signature instanceof File) {
+      formData.append("signature", signature);
+    }
+
+    const result = await submitAssignment(id, formData);
     setSnack({
       open: true,
       msg: result.success
@@ -594,7 +670,19 @@ export default function TaskDetail() {
         : result.error,
       sev: result.success ? "success" : "error",
     });
-    if (result.success) setTimeout(() => navigate("/team"), 1500);
+
+    if (result.success) {
+      // Redirect to /team after successful submission
+      setTimeout(() => {
+        navigate("/team");
+      }, 1500);
+    }
+  };
+
+  const handleBackToTasks = () => {
+    // Check user role and redirect accordingly
+    // You can get user role from auth context if needed
+    navigate("/team");
   };
 
   const isSubmitted =
@@ -605,13 +693,7 @@ export default function TaskDetail() {
   if (detailLoading && !task) {
     return (
       <ThemeProvider theme={theme}>
-        <Box
-          sx={{
-            minHeight: "100vh",
-            px: { xs: 2, md: 4 },
-            pt: 3,
-          }}
-        >
+        <Box sx={{ minHeight: "100vh", px: { xs: 2, md: 4 }, pt: 3 }}>
           <Skeleton width={120} height={36} sx={{ mb: 2 }} />
           <Skeleton width="40%" height={38} sx={{ mb: 1 }} />
           <Skeleton width="30%" height={24} sx={{ mb: 3 }} />
@@ -644,7 +726,7 @@ export default function TaskDetail() {
         <Box px={{ xs: 2, md: 4 }} pt={3}>
           <Button
             startIcon={<ArrowBackIcon sx={{ fontSize: 17 }} />}
-            onClick={() => navigate("/team")}
+            onClick={handleBackToTasks}
             sx={{
               color: "text.secondary",
               textTransform: "none",
@@ -678,6 +760,18 @@ export default function TaskDetail() {
 
           <Card sx={{ mb: 2, borderRadius: "14px" }}>
             <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "22px" }}>
+              <Box display="flex" justifyContent="space-between" mb={1.2}>
+                <Typography variant="body2" fontWeight={600}>
+                  Overall Rating
+                </Typography>
+                <Rating
+                  value={overallRating}
+                  onChange={(_, v) => setOverallRating(v || 0)}
+                  disabled={isSubmitted}
+                  size="large"
+                  sx={{ color: "#fbbf24" }}
+                />
+              </Box>
               <Box display="flex" justifyContent="space-between" mb={1.2}>
                 <Typography variant="body2" fontWeight={600}>
                   Checklist Progress
@@ -754,7 +848,7 @@ export default function TaskDetail() {
             />
           ))}
 
-          <Card sx={{ mb: 2, borderRadius: "14px"  }}>
+          <Card sx={{ mb: 2, borderRadius: "14px" }}>
             <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "24px" }}>
               <Typography
                 sx={{
@@ -822,7 +916,6 @@ export default function TaskDetail() {
                 disabled={isSubmitted}
                 accept="image/*"
                 multiple
-                sx={{width:"1000px"}}
               />
 
               <Typography
@@ -890,7 +983,7 @@ export default function TaskDetail() {
                   <Button
                     variant="contained"
                     fullWidth
-                    disabled={submitting || progress < 1}
+                    disabled={submitting || progress < 100}
                     onClick={handleSubmit}
                     sx={{
                       py: 1.3,

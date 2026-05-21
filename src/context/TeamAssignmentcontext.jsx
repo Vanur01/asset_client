@@ -18,8 +18,7 @@ export const useAssignment = () => {
   return ctx;
 };
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:9001/api/v1";
+const API_BASE_URL = "https://assset-management-backend-4.onrender.com/api/v1";
 
 const getApi = (token) =>
   axios.create({
@@ -33,35 +32,44 @@ const getApi = (token) =>
 
 /* ─── helpers ─── */
 const priorityMap = {
-  high: { label: "High Priority", bg: "#ef4444", color: "#fff" },
-  medium: { label: "Medium Priority", bg: "#0d3d52", color: "#fff" },
-  low: { label: "Low Priority", bg: "#3b82f6", color: "#fff" },
-  critical: { label: "Critical Priority", bg: "#7c3aed", color: "#fff" },
+  critical: { label: "Extremely Critical", bg: "#f472b6", color: "#fff" },
+  high:     { label: "High Priority",      bg: "#ef4444", color: "#fff" },
+  medium:   { label: "Medium Priority",    bg: "#f97316", color: "#fff" },
+  low:      { label: "Low Priority",       bg: "#3b82f6", color: "#fff" },
 };
 
 const statusMap = {
-  pending: { label: "Pending", bg: "#dbeafe", color: "#1d4ed8" },
-  assigned: { label: "Pending", bg: "#dbeafe", color: "#1d4ed8" },
-  in_progress: { label: "In Progress", bg: "#0d3d52", color: "#fff" },
-  submitted: { label: "Submitted", bg: "#374151", color: "#fff" },
-  completed: { label: "Completed", bg: "#16a34a", color: "#fff" },
-  approved: { label: "Approved", bg: "#15803d", color: "#fff" },
-  rejected: { label: "Rejected", bg: "#dc2626", color: "#fff" },
-  overdue: { label: "Overdue", bg: "#b91c1c", color: "#fff" },
+  pending:     { label: "Pending",     bg: "#dbeafe", color: "#1d4ed8" },
+  assigned:    { label: "Pending",     bg: "#dbeafe", color: "#1d4ed8" },
+  in_progress: { label: "In Progress", bg: "#22c55e", color: "#fff"    },
+  submitted:   { label: "Submitted",   bg: "#374151", color: "#fff"    },
+  completed:   { label: "Completed",   bg: "#16a34a", color: "#fff"    },
+  approved:    { label: "Approved",    bg: "#15803d", color: "#fff"    },
+  rejected:    { label: "Rejected",    bg: "#dc2626", color: "#fff"    },
+  overdue:     { label: "Overdue",     bg: "#9ca3af", color: "#fff"    },
 };
 
 export const transformAssignment = (a) => {
-  const p = priorityMap[a.priority] || priorityMap.medium;
-  const s = statusMap[a.status] || statusMap.pending;
+  const priority = a.priority || "medium";
+  const p = priorityMap[priority] || priorityMap.medium;
+  const status = a.status || "pending";
+  const s = statusMap[status] || statusMap.pending;
+
   const checklist = a.checklist || {};
-  const asset = a.assetDetails || {};
+  const assetEntry = Array.isArray(a.assets) && a.assets.length > 0
+    ? a.assets[0]
+    : {};
 
   return {
     id: a._id,
     _id: a._id,
-    title: checklist.name || a.assetName || "Inspection Task",
-    type: checklist.category || "Inspection",
-    location: asset.location || "—",
+    title: checklist.name || checklist.title || a.checklistName || "Inspection Task",
+    type: checklist.type || checklist.category || "Inspection",
+    location: assetEntry.assetLocation || a.location || "—",
+    assetName: assetEntry.assetName || a.assetName || "—",
+    assetId: assetEntry.assetId?._id || assetEntry.assetId || "—",
+    tagNumber: assetEntry.assetTagNumber || "—",
+    category: assetEntry.assetCategory || "—",
     due: a.dueDate ? new Date(a.dueDate).toISOString().split("T")[0] : "—",
     priority: p.label,
     priorityBg: p.bg,
@@ -69,30 +77,54 @@ export const transformAssignment = (a) => {
     status: s.label,
     statusBg: s.bg,
     statusColor: s.color,
-    btn:
-      a.status === "in_progress" ? "Continue Inspection" : "Start Inspection",
-    dot: a.priority === "high" || a.priority === "critical",
-    critical: a.priority === "critical",
-    assetName: a.assetName || "—",
-    assetId: asset.assetId || "—",
-    tagNumber: asset.tagNumber || "—",
-    category: asset.category || "—",
-    customerName: a.customerName || "—",
+    btn: status === "in_progress" ? "Continue Inspection" : "Start Inspection",
+    dot: priority === "high" || priority === "critical",
+    critical: priority === "critical",
+    customerName: a.customerName || a.customerId?.customerName || "—",
     assignedAt: a.assignedAt,
     submittedAt: a.submittedAt,
     completedAt: a.completedAt,
     completionRate: a.completionRate || 0,
     overallRating: a.overallRating || 0,
     inspectorNotes: a.inspectorNotes || "",
-    additionalNotes: a.additionalNotes || "",
+    additionalNotes: a.additionalNotes || a.notes || "",
     isDraft: a.isDraft || false,
     responses: a.responses || [],
     attachments: a.attachments || [],
     uploadedPhotos: a.uploadedPhotos || [],
     signaturePath: a.signaturePath || null,
-    checklist: checklist,
-    rawStatus: a.status,
+    checklist,
+    rawStatus: status,
     submissionStatus: a.submissionStatus,
+  };
+};
+
+// Transform inspection history data
+export const transformInspectionHistory = (submission) => {
+  const asset = submission.assets?.[0]?.assetName || 
+                submission.checklist?.name || 
+                'N/A';
+  
+  let score = null;
+  if (submission.completionRate) {
+    score = Math.round(submission.completionRate);
+  } else if (submission.overallRating) {
+    score = Math.round(submission.overallRating * 20);
+  }
+  
+  const inspector = submission.assignedToTeamMembers?.[0]?.name || 
+                   submission.assignedBy?.name || 
+                   'Unknown';
+  
+  return {
+    id: submission._id,
+    asset: asset,
+    formType: submission.checklistName || 'Inspection Form',
+    date: submission.submittedAt ? new Date(submission.submittedAt).toLocaleDateString() : 'N/A',
+    status: submission.submissionStatus || submission.status,
+    score: score,
+    inspector: inspector,
+    rawData: submission
   };
 };
 
@@ -101,10 +133,15 @@ export const TeamAssignmentProvider = ({ children }) => {
   const { token } = useAuth();
 
   const [assignments, setAssignments] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    overdue: 0,
+  });
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 20,
+    limit: 12,
     total: 0,
     totalPages: 1,
   });
@@ -117,76 +154,149 @@ export const TeamAssignmentProvider = ({ children }) => {
     status: "",
     priority: "",
     page: 1,
-    limit: 20,
+    limit: 12,
   });
 
+  // Inspection history state
+  const [inspectionHistory, setInspectionHistory] = useState([]);
+  const [historyStats, setHistoryStats] = useState({
+    total: 0,
+    approved: 0,
+    rejected: 0,
+    underReview: 0,
+    needsRevision: 0,
+    avgScore: 0,
+  });
+  const [historyPagination, setHistoryPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const abortRef = useRef(null);
-  const mounted = useRef(false);
+  const filtersRef = useRef(filters);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   /* ─── fetch list ─── */
   const fetchAssignments = useCallback(
-    async (overrides = {}, force = false) => {
-      if (!token) {
-        console.log("No token available");
-        return;
-      }
+    async (overrides = {}) => {
+      if (!token) return;
 
       if (abortRef.current) abortRef.current.abort();
       abortRef.current = new AbortController();
 
-      const active = { ...filters, ...overrides };
+      const active = { ...filtersRef.current, ...overrides };
       setLoading(true);
       setError(null);
 
       try {
-        console.log("Fetching assignments with params:", active);
-
-        const params = new URLSearchParams({
-          page: active.page,
-          limit: active.limit,
+        const params = new URLSearchParams({ 
+          page: active.page, 
+          limit: active.limit 
         });
-        if (active.status) params.append("status", active.status);
+        if (active.status)   params.append("status",   active.status);
         if (active.priority) params.append("priority", active.priority);
 
         const response = await getApi(token).get(
-          `/assignments`,
-          {
-            signal: abortRef.current.signal,
-          },
+          `/assignments?${params.toString()}`,
+          { signal: abortRef.current.signal }
         );
 
-        console.log("Full API Response:", response);
-        console.log("Response data:", response.data);
-        console.log("Assignments array:", response.data?.assignments);
-
         if (response.data?.success) {
-          const transformedAssignments = (response.data.assignments || []).map(
-            transformAssignment,
-          );
-          console.log("Transformed assignments:", transformedAssignments);
+          const raw = response.data.assignments || response.data.data || [];
+          const transformed = raw.map(transformAssignment);
+          setAssignments(transformed);
 
-          setAssignments(transformedAssignments);
-          setStats(response.data.stats || null);
-          setPagination(response.data.pagination || {});
+          const apiStats = response.data.stats || {};
+          setStats({
+            total:      apiStats.total      ?? transformed.length,
+            pending:    apiStats.pending    ?? 0,
+            inProgress: apiStats.inProgress ?? apiStats.in_progress ??
+              transformed.filter((a) => a.rawStatus === "in_progress").length,
+            overdue:    apiStats.overdue    ?? 0,
+          });
+
+          const pg = response.data.pagination || {};
+          setPagination({
+            page:       pg.page       || active.page,
+            limit:      pg.limit      || active.limit,
+            total:      pg.total      || transformed.length,
+            totalPages: pg.totalPages || pg.pages || 1,
+          });
+
           setFilters((prev) => ({
             ...prev,
-            page: active.page,
-            status: active.status,
+            page:     active.page,
+            status:   active.status,
             priority: active.priority,
           }));
         } else {
-          console.log("API returned success false:", response.data);
+          setAssignments([]);
         }
       } catch (e) {
-        console.error("Fetch error:", e);
         if (e.name !== "CanceledError" && e.code !== "ERR_CANCELED") {
           setError(e.response?.data?.message || "Failed to fetch assignments");
+          setAssignments([]);
         }
       } finally {
         setLoading(false);
       }
     },
-    [token, filters],
+    [token],
+  );
+
+  /* ─── fetch inspection history ─── */
+  const fetchInspectionHistory = useCallback(
+    async (page = 1, statusFilter = 'all', searchQuery = '') => {
+      if (!token) return;
+
+      setHistoryLoading(true);
+      setError(null);
+
+      try {
+        const params = new URLSearchParams({
+          page: page,
+          limit: 20,
+        });
+        
+        if (statusFilter && statusFilter !== 'all') {
+          params.append("status", statusFilter);
+        }
+        if (searchQuery) {
+          params.append("search", searchQuery);
+        }
+
+        const response = await getApi(token).get(
+          `/assignments/history?${params.toString()}`
+        );
+
+        if (response.data?.success) {
+          const transformed = response.data.submissions.map(transformInspectionHistory);
+          setInspectionHistory(transformed);
+          setHistoryStats(response.data.stats);
+          setHistoryPagination(response.data.pagination);
+        } else {
+          setInspectionHistory([]);
+          setHistoryStats({
+            total: 0,
+            approved: 0,
+            rejected: 0,
+            underReview: 0,
+            needsRevision: 0,
+            avgScore: 0,
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching inspection history:', e);
+        setError(e.response?.data?.message || "Failed to fetch inspection history");
+        setInspectionHistory([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [token],
   );
 
   /* ─── fetch single detail ─── */
@@ -197,12 +307,7 @@ export const TeamAssignmentProvider = ({ children }) => {
       setError(null);
       try {
         const { data } = await getApi(token).get(`/assignments/${id}/details`);
-        const raw = data._doc || data;
-        const merged = {
-          ...raw,
-          checklist: raw.checklist?._doc || raw.checklist || {},
-        };
-        const transformed = transformAssignment(merged);
+        const transformed = transformAssignment(data);
         setSelectedDetail(transformed);
         return transformed;
       } catch (e) {
@@ -215,21 +320,55 @@ export const TeamAssignmentProvider = ({ children }) => {
     [token],
   );
 
+  /* ─── get assignment by id ─── */
+  const getAssignmentById = useCallback(
+    async (id) => {
+      if (!token || !id) return null;
+      try {
+        const { data } = await getApi(token).get(`/assignments/${id}`);
+        return data;
+      } catch (e) {
+        console.error('Error fetching assignment:', e);
+        return null;
+      }
+    },
+    [token],
+  );
+
+  /* ─── get checklist analytics ─── */
+  const getChecklistAnalytics = useCallback(
+    async (checklistId) => {
+      if (!token || !checklistId) return null;
+      try {
+        const { data } = await getApi(token).get(`/assignments/checklist/${checklistId}/analytics`);
+        return data;
+      } catch (e) {
+        console.error('Error fetching analytics:', e);
+        return null;
+      }
+    },
+    [token],
+  );
+
   /* ─── save draft ─── */
   const saveDraft = useCallback(
     async (id, payload) => {
       if (!token) return { success: false, error: "Not authenticated" };
       setSubmitting(true);
       try {
-        const { data } = await getApi(token).post(
-          `/assignments/${id}/draft`,
-          payload,
-        );
-        return { success: data.success, message: data.message };
+        const cleanPayload = {
+          responses: payload.responses || [],
+          inspectorNotes: payload.inspectorNotes || "",
+          notes: payload.additionalNotes || "",
+          overallRating: payload.overallRating || 0,
+        };
+        
+        const { data } = await getApi(token).post(`/assignments/${id}/draft`, cleanPayload);
+        return { success: true, message: data.message || "Draft saved successfully" };
       } catch (e) {
-        return {
-          success: false,
-          error: e.response?.data?.message || "Failed to save draft",
+        return { 
+          success: false, 
+          error: e.response?.data?.message || "Failed to save draft" 
         };
       } finally {
         setSubmitting(false);
@@ -248,21 +387,23 @@ export const TeamAssignmentProvider = ({ children }) => {
           `${API_BASE_URL}/assignments/${id}/submit`,
           formData,
           {
-            headers: {
+            headers: { 
               Authorization: `Bearer ${token}`,
-              "Content-Type": "multipart/form-data",
+              "Content-Type": "multipart/form-data" 
             },
             withCredentials: true,
           },
         );
+        
         if (data.success) {
-          fetchAssignments({}, true);
+          await fetchAssignments({});
+          return { success: true, message: data.message || "Submitted successfully" };
         }
-        return { success: data.success, message: data.message };
+        return { success: false, error: data.message || "Submission failed" };
       } catch (e) {
-        return {
-          success: false,
-          error: e.response?.data?.message || "Failed to submit",
+        return { 
+          success: false, 
+          error: e.response?.data?.message || "Failed to submit" 
         };
       } finally {
         setSubmitting(false);
@@ -273,48 +414,34 @@ export const TeamAssignmentProvider = ({ children }) => {
 
   /* ─── filter helpers ─── */
   const applyFilters = useCallback(
-    (newFilters) => fetchAssignments({ ...newFilters, page: 1 }, true),
+    (newFilters) => {
+      setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
+      fetchAssignments({ ...newFilters, page: 1 });
+    },
     [fetchAssignments],
   );
 
   const changePage = useCallback(
-    (page) => fetchAssignments({ page }, true),
+    (page) => {
+      setFilters((prev) => ({ ...prev, page }));
+      fetchAssignments({ page });
+    },
     [fetchAssignments],
   );
 
   const clearError = useCallback(() => setError(null), []);
 
-  /* ─── initial load ─── */
   useEffect(() => {
-    if (token && !mounted.current) {
-      mounted.current = true;
-      fetchAssignments({ page: 1 }, true);
-    }
+    if (token) fetchAssignments({ page: 1 });
   }, [token, fetchAssignments]);
 
-  useEffect(
-    () => () => {
-      if (abortRef.current) abortRef.current.abort();
-    },
-    [],
-  );
-
-  /* ─── computed stats for UI cards ─── */
-  const uiStats = {
-    total: stats?.total || assignments.length,
-    pending: stats?.pending || 0,
-    inProgress: stats?.inProgress || 0,
-    overdue: stats?.overdue || 0,
-    completed: stats?.completed || 0,
-    approved: stats?.approved || 0,
-    rejected: stats?.rejected || 0,
-  };
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
   return (
     <TeamAssignmentContext.Provider
       value={{
         assignments,
-        stats: uiStats,
+        stats,
         pagination,
         selectedDetail,
         loading,
@@ -324,12 +451,19 @@ export const TeamAssignmentProvider = ({ children }) => {
         filters,
         fetchAssignments,
         fetchAssignmentDetail,
+        getAssignmentById,
+        getChecklistAnalytics,
         saveDraft,
         submitAssignment,
         applyFilters,
         changePage,
         clearError,
         setSelectedDetail,
+        inspectionHistory,
+        historyStats,
+        historyPagination,
+        historyLoading,
+        fetchInspectionHistory,
       }}
     >
       {children}
@@ -337,5 +471,4 @@ export const TeamAssignmentProvider = ({ children }) => {
   );
 };
 
-// Also export default for convenience
 export default TeamAssignmentProvider;
