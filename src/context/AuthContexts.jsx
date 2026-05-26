@@ -1,5 +1,13 @@
-// context/AuthContexts.jsx
-import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from "react";
+// context/AuthContexts.jsx - Fixed Version
+
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import axios from "axios";
 
 const AuthContext = createContext();
@@ -15,64 +23,10 @@ export const useAuth = () => {
 // API base URL
 const API_BASE_URL = "https://assset-management-backend-4.onrender.com/api/v1";
 
-// Create axios instance with interceptors
-const createApiInstance = (token) => {
-  console.log("Creating API instance with token:", token ? "Token present" : "No token");
-  
-  const instance = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    withCredentials: true,
-  });
-
-  // Add request interceptor to include token
-  instance.interceptors.request.use(
-    (config) => {
-      const currentToken = token || localStorage.getItem("accessToken");
-      if (currentToken && currentToken !== "undefined" && currentToken !== "null") {
-        config.headers.Authorization = `Bearer ${currentToken}`;
-        console.log(`Making ${config.method?.toUpperCase()} request to: ${config.url}`);
-      } else {
-        console.warn("No token available for request:", config.url);
-      }
-      return config;
-    },
-    (error) => {
-      console.error("Request interceptor error:", error);
-      return Promise.reject(error);
-    }
-  );
-
-  // Add response interceptor for error handling
-  instance.interceptors.response.use(
-    (response) => {
-      console.log(`Response from ${response.config.url}:`, response.status);
-      return response;
-    },
-    (error) => {
-      console.error("Response error:", error.response?.status, error.response?.data);
-      
-      // Don't redirect on 404 for base URL checks
-      if (error.response?.status === 401) {
-        console.log("Token expired or invalid, clearing auth data");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("userType");
-        window.location.href = "/login";
-      }
-      
-      return Promise.reject(error);
-    }
-  );
-
-  return instance;
-};
-
 // Helper function to clear auth data
 const clearAuthData = () => {
   localStorage.removeItem("accessToken");
+  localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem("userType");
   localStorage.removeItem("rememberMe");
@@ -84,19 +38,21 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
   const [userType, setUserType] = useState(null);
-  const [api, setApi] = useState(null);
 
   // Initialize auth from localStorage
   useEffect(() => {
     const initializeAuth = () => {
       console.log("Initializing authentication...");
       const storedUser = localStorage.getItem("user");
-      const storedToken = localStorage.getItem("accessToken");
+      const storedToken =
+        localStorage.getItem("accessToken") || localStorage.getItem("token");
       const storedUserType = localStorage.getItem("userType");
-      
-      const isValidUser = storedUser && storedUser !== "undefined" && storedUser !== "null";
-      const isValidToken = storedToken && storedToken !== "undefined" && storedToken !== "null";
-      
+
+      const isValidUser =
+        storedUser && storedUser !== "undefined" && storedUser !== "null";
+      const isValidToken =
+        storedToken && storedToken !== "undefined" && storedToken !== "null";
+
       if (isValidUser && isValidToken) {
         try {
           const parsedUser = JSON.parse(storedUser);
@@ -104,19 +60,16 @@ export const AuthProvider = ({ children }) => {
           setUser(parsedUser);
           setToken(storedToken);
           setUserType(storedUserType || parsedUser.role);
-          const apiInstance = createApiInstance(storedToken);
-          setApi(apiInstance);
         } catch (parseError) {
           console.error("Error parsing user data:", parseError);
           clearAuthData();
         }
       } else {
         console.log("No stored auth found");
-        setApi(null);
       }
       setLoading(false);
     };
-    
+
     initializeAuth();
   }, []);
 
@@ -129,7 +82,7 @@ export const AuthProvider = ({ children }) => {
         headers: { "Content-Type": "application/json" },
         withCredentials: true,
       });
-      
+
       const response = await tempApi.post("/user/auth/login", {
         email,
         password,
@@ -137,10 +90,14 @@ export const AuthProvider = ({ children }) => {
 
       console.log("Login response:", response.data);
 
-      if (response.data.success && response.data.user && response.data.accessToken) {
+      if (
+        response.data.success &&
+        response.data.user &&
+        response.data.accessToken
+      ) {
         const userData = response.data.user;
         const accessToken = response.data.accessToken;
-        
+
         // Transform user data based on role
         let transformedUser = {};
         let userRoleType = "";
@@ -154,12 +111,11 @@ export const AuthProvider = ({ children }) => {
             role: "super_admin",
             backendRole: userData.role,
             name: userData.name,
-            permissions: userData.permissions || []
+            permissions: userData.permissions || [],
           };
           userRoleType = "super_admin";
           redirectPath = "/admin";
-        } 
-        else if (userData.role === "admin") {
+        } else if (userData.role === "admin") {
           transformedUser = {
             id: userData.id,
             _id: userData.id,
@@ -176,19 +132,19 @@ export const AuthProvider = ({ children }) => {
             phone: userData.phone,
             website: userData.website,
             address: userData.address,
-            settings: userData.settings
+            settings: userData.settings,
           };
           userRoleType = "admin";
           redirectPath = "/admin";
-        }
-        else if (userData.role === "team") {
+        } else if (userData.role === "team") {
           transformedUser = {
             id: userData.id,
             _id: userData.id,
             email: userData.email,
             role: "team",
             backendRole: userData.role,
-            name: userData.fullName || `${userData.firstName} ${userData.lastName}`,
+            name:
+              userData.fullName || `${userData.firstName} ${userData.lastName}`,
             firstName: userData.firstName,
             lastName: userData.lastName,
             fullName: userData.fullName,
@@ -199,7 +155,7 @@ export const AuthProvider = ({ children }) => {
             teamRole: userData.teamRole,
             roleDisplay: userData.roleDisplay,
             stats: userData.stats,
-            permissions: userData.permissions || []
+            permissions: userData.permissions || [],
           };
           userRoleType = "team";
           redirectPath = "/team";
@@ -207,20 +163,17 @@ export const AuthProvider = ({ children }) => {
 
         // Store in localStorage
         localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(transformedUser));
         localStorage.setItem("userType", userRoleType);
-        
+
         // Set state
         setToken(accessToken);
         setUser(transformedUser);
         setUserType(userRoleType);
-        
-        // Create API instance after setting token
-        const apiInstance = createApiInstance(accessToken);
-        setApi(apiInstance);
-        
+
         console.log("Login successful, redirecting to:", redirectPath);
-        
+
         return {
           success: true,
           role: userRoleType,
@@ -228,32 +181,35 @@ export const AuthProvider = ({ children }) => {
           user: transformedUser,
           token: accessToken,
           redirectPath,
-          message: response.data.message || "Login successful"
+          message: response.data.message || "Login successful",
         };
       }
-      
+
       return {
         success: false,
-        error: response.data.message || "Invalid response from server"
+        error: response.data.message || "Invalid response from server",
       };
-      
     } catch (error) {
       console.error("Login error:", error);
-      
+
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || error.response.data?.error || "Invalid credentials"
+          error:
+            error.response.data?.message ||
+            error.response.data?.error ||
+            "Invalid credentials",
         };
       } else if (error.request) {
         return {
           success: false,
-          error: "Unable to connect to server. Please check if the backend is running."
+          error:
+            "Unable to connect to server. Please check if the backend is running.",
         };
       } else {
         return {
           success: false,
-          error: "An error occurred during login. Please try again."
+          error: "An error occurred during login. Please try again.",
         };
       }
     }
@@ -263,17 +219,26 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     console.log("Logging out...");
     try {
-      const currentToken = token || localStorage.getItem("accessToken");
-      if (currentToken && currentToken !== "undefined" && currentToken !== "null") {
-        const tempApi = axios.create({
-          baseURL: API_BASE_URL,
-          headers: { 
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentToken}`
+      const currentToken =
+        token ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("token");
+      if (
+        currentToken &&
+        currentToken !== "undefined" &&
+        currentToken !== "null"
+      ) {
+        await axios.post(
+          `${API_BASE_URL}/user/auth/logout`,
+          {},
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${currentToken}`,
+            },
+            withCredentials: true,
           },
-          withCredentials: true,
-        });
-        await tempApi.post("/user/auth/logout", {});
+        );
       }
     } catch (error) {
       console.error("Logout error:", error);
@@ -282,7 +247,6 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
       setUser(null);
       setUserType(null);
-      setApi(null);
       console.log("Logout complete");
     }
   }, [token]);
@@ -296,86 +260,162 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = () => user?.role === "admin";
   const isTeam = () => user?.role === "team";
 
-  // Make authenticated API requests
-  const authRequest = useCallback(async (method, url, data = null, customConfig = {}) => {
-    const currentToken = token || localStorage.getItem("accessToken");
-    
-    if (!currentToken) {
-      throw new Error("No authentication token available");
-    }
+  // ─── FIX 1: authRequest now uses axios() directly ────────────────────
+  // Previously stored `api` (an axios instance) was being called as
+  // `requestApi(config)` which throws "requestApi is not a function".
+  // Axios instances must be called via `.request(config)` or you can
+  // call the top-level `axios(config)` directly — we do the latter here
+  // to also eliminate the stale-token closure problem in the interceptor.
+  const authRequest = useCallback(
+    async (method, url, data = null, customConfig = {}) => {
+      const currentToken =
+        token ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("token");
 
-    // Ensure URL doesn't have double slashes and starts correctly
-    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
-    const fullUrl = `${API_BASE_URL}${cleanUrl}`;
-    
-    console.log(`Making ${method} request to: ${fullUrl}`);
+      if (!currentToken) {
+        throw new Error("No authentication token available");
+      }
 
-    try {
-      const config = {
-        method,
-        url: fullUrl,
-        headers: {
+      // Clean up URL to avoid double slashes
+      const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+      console.log(`Making ${method} request to: ${cleanUrl}`);
+
+      try {
+        // ─── FIX 2: Build headers carefully so Authorization is never lost ──
+        const headers = {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${currentToken}`,
-        },
-        withCredentials: true,
-        ...customConfig,
-      };
-      
-      // Handle FormData differently
-      if (data instanceof FormData) {
-        delete config.headers["Content-Type"];
-        config.data = data;
-      } else if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
-        config.data = data;
-      }
-      
-      const response = await axios(config);
-      return response.data;
-    } catch (error) {
-      console.error(`Auth request error (${method} ${url}):`, error);
-      if (error.response?.status === 401) {
-        logout();
-      }
-      throw error;
-    }
-  }, [token, logout]);
+          ...customConfig.headers, // caller overrides come first
+          Authorization: `Bearer ${currentToken}`, // token always wins
+        };
 
-  // Check if backend is reachable (optional, remove if causing issues)
-  const checkBackendHealth = useCallback(async () => {
+        // ─── FIX 3: FormData — remove Content-Type so browser sets boundary ─
+        if (data instanceof FormData) {
+          delete headers["Content-Type"];
+        }
+
+        // ─── FIX 4: Only attach `data` for mutating methods or FormData ──────
+        const isMutating = ["post", "put", "patch"].includes(
+          method.toLowerCase(),
+        );
+        const shouldAttachData =
+          data !== null && (isMutating || data instanceof FormData);
+
+        const config = {
+          method: method.toLowerCase(),
+          url: `${API_BASE_URL}${cleanUrl}`,
+          headers,
+          withCredentials: true,
+          // Spread remaining customConfig keys (e.g. params, timeout)
+          // but exclude `headers` since we already merged them above
+          ...Object.fromEntries(
+            Object.entries(customConfig).filter(([k]) => k !== "headers"),
+          ),
+          ...(shouldAttachData && { data }),
+        };
+
+        // ✅ Use top-level axios() — works correctly as a function
+        const response = await axios(config);
+        console.log(`Response from ${cleanUrl}:`, response.status);
+        return response.data;
+      } catch (error) {
+        console.error(`Auth request error (${method} ${url}):`, error);
+
+        if (error.response?.status === 401) {
+          console.log("Token expired or invalid, logging out...");
+          logout();
+        }
+
+        throw error;
+      }
+    },
+    [token, logout], // ─── FIX 5: removed `api` dependency (no longer used) ──
+  );
+
+  // Convenience methods for common HTTP methods
+  const get = useCallback(
+    async (url, config = {}) => authRequest("GET", url, null, config),
+    [authRequest],
+  );
+
+  const post = useCallback(
+    async (url, data = null, config = {}) =>
+      authRequest("POST", url, data, config),
+    [authRequest],
+  );
+
+  const put = useCallback(
+    async (url, data = null, config = {}) =>
+      authRequest("PUT", url, data, config),
+    [authRequest],
+  );
+
+  const patch = useCallback(
+    async (url, data = null, config = {}) =>
+      authRequest("PATCH", url, data, config),
+    [authRequest],
+  );
+
+  const del = useCallback(
+    async (url, config = {}) => authRequest("DELETE", url, null, config),
+    [authRequest],
+  );
+
+  // Check if backend is reachable
+  const checkBackendStatus = useCallback(async () => {
     try {
-      // Try to hit a known endpoint instead of the base URL
-      const response = await axios.get(`${API_BASE_URL}/user/auth/health`, { timeout: 5000 });
-      return response.data;
+      const response = await axios.options(`${API_BASE_URL}/user/auth/login`, {
+        timeout: 5000,
+        validateStatus: (status) =>
+          status === 200 || status === 404 || status === 405,
+      });
+      return { reachable: true, status: response.status };
     } catch (error) {
-      console.warn("Backend health check failed:", error.message);
-      return null;
+      console.warn("Backend not reachable:", error.message);
+      return { reachable: false, error: error.message };
     }
   }, []);
 
-  const value = useMemo(() => ({
-    user,
-    login,
-    logout,
-    token,
-    api,
-    loading,
-    userType,
-    isAuthenticated: !!user && !!token && token !== "undefined" && token !== "null",
-    getUserRole,
-    getUserType,
-    hasRole,
-    hasAnyRole,
-    isSuperAdmin,
-    isAdmin,
-    isTeam,
-    authRequest,
-    checkBackendHealth,
-  }), [user, token, api, loading, userType, authRequest, checkBackendHealth]);
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      login,
+      logout,
+      token,
+      loading,
+      userType,
+      isAuthenticated:
+        !!user && !!token && token !== "undefined" && token !== "null",
+      getUserRole,
+      getUserType,
+      hasRole,
+      hasAnyRole,
+      isSuperAdmin,
+      isAdmin,
+      isTeam,
+      authRequest,
+      get,
+      post,
+      put,
+      patch,
+      delete: del,
+      checkBackendStatus,
+    }),
+    [
+      user,
+      token,
+      loading,
+      userType,
+      authRequest,
+      get,
+      post,
+      put,
+      patch,
+      del,
+      logout,
+      checkBackendStatus,
+    ],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

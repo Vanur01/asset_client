@@ -1,4 +1,5 @@
-// context/ReportContext.js
+// context/ReportContext.js - Updated with Role-Based Access
+
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContexts';
 import axios from 'axios';
@@ -31,6 +32,7 @@ export const ReportProvider = ({ children }) => {
   
   // State
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -46,18 +48,36 @@ export const ReportProvider = ({ children }) => {
     abortControllerRef.current = new AbortController();
   };
 
-  // Helper to check role access
-  const hasAccess = useCallback((allowedRoles) => {
-    return allowedRoles.includes(user?.role) || 
-           (user?.role === 'super_admin' && allowedRoles.includes('super_admin')) ||
-           (user?.role === 'superadmin' && allowedRoles.includes('super_admin'));
+  // Role check helpers
+  const isAdmin = useCallback(() => {
+    const role = user?.role;
+    return role === 'admin';
   }, [user]);
 
+  const isSuperAdmin = useCallback(() => {
+    const role = user?.role;
+    return role === 'super_admin' || role === 'superadmin';
+  }, [user]);
+
+  // Check if user has access to specific report type
+  const hasReportAccess = useCallback((reportType) => {
+    if (isAdmin()) {
+      // Admin has access to: team, asset, financial
+      const adminAccess = ['team', 'assets', 'financial', 'clients', 'inspections'];
+      return adminAccess.includes(reportType);
+    }
+    if (isSuperAdmin()) {
+      // Super Admin has access to: financial only
+      const superAdminAccess = ['financial'];
+      return superAdminAccess.includes(reportType);
+    }
+    // Regular users
+    return ['clients', 'inspections', 'financial'].includes(reportType);
+  }, [isAdmin, isSuperAdmin]);
+
   // ==================== CLIENT REPORTS ====================
-  
   const getClientReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
 
     cancelPreviousRequest();
     setLoading(true);
@@ -94,13 +114,15 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token]);
 
   // ==================== ASSET REPORTS (Admin Only) ====================
-  
   const getAssetReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['admin'])) return null;
+    if (!hasReportAccess('assets')) {
+      setError('You do not have permission to access asset reports');
+      return null;
+    }
 
     cancelPreviousRequest();
     setLoading(true);
@@ -138,13 +160,15 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token, hasReportAccess]);
 
   // ==================== TEAM PERFORMANCE REPORTS (Admin Only) ====================
-  
   const getTeamReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['admin'])) return null;
+    if (!hasReportAccess('team')) {
+      setError('You do not have permission to access team reports');
+      return null;
+    }
 
     cancelPreviousRequest();
     setLoading(true);
@@ -181,13 +205,11 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token, hasReportAccess]);
 
   // ==================== INSPECTION REPORTS ====================
-  
   const getInspectionReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
 
     cancelPreviousRequest();
     setLoading(true);
@@ -225,13 +247,15 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token]);
 
-  // ==================== FINANCIAL REPORTS ====================
-  
+  // ==================== FINANCIAL REPORTS (Admin & Super Admin) ====================
   const getFinancialReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
+    if (!hasReportAccess('financial')) {
+      setError('You do not have permission to access financial reports');
+      return null;
+    }
 
     cancelPreviousRequest();
     setLoading(true);
@@ -266,13 +290,11 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token, hasReportAccess]);
 
-  // ==================== COMPLIANCE REPORTS (Admin Only) ====================
-  
+  // ==================== COMPLIANCE REPORTS ====================
   const getComplianceReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['admin'])) return null;
 
     cancelPreviousRequest();
     setLoading(true);
@@ -307,49 +329,11 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token]);
 
-  // ==================== CUSTOM REPORTS ====================
-  
-  const getCustomReport = useCallback(async (config) => {
-    if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
-
-    cancelPreviousRequest();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const api = getApiClient(token);
-      const response = await api.post('/reports/custom', config, {
-        signal: abortControllerRef.current.signal,
-        ...(config.format !== 'json' && config.format && { responseType: 'blob' })
-      });
-
-      if (config.format !== 'json' && config.format) {
-        return response.data;
-      }
-
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
-      }
-      throw new Error(response.data.message || 'Failed to generate custom report');
-    } catch (err) {
-      if (err.name !== 'CanceledError') {
-        setError(err.response?.data?.message || err.message);
-      }
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, token, hasAccess]);
-
-  // ==================== ANALYTICS ====================
-  
+  // ==================== DASHBOARD ANALYTICS ====================
   const getDashboardAnalytics = useCallback(async (dateRange = 30, startDate = null, endDate = null) => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
 
     cancelPreviousRequest();
     setLoading(true);
@@ -379,8 +363,9 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token]);
 
+  // ==================== KPI SUMMARY ====================
   const getKPISummary = useCallback(async () => {
     if (!isAuthenticated || !token) return null;
 
@@ -409,11 +394,9 @@ export const ReportProvider = ({ children }) => {
     }
   }, [isAuthenticated, token]);
 
-  // ==================== BULK OPERATIONS ====================
-  
+  // ==================== BULK EXPORT ====================
   const exportBulkReports = useCallback(async (reportTypes, dateRange, format = 'excel') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
 
     setExporting(true);
     setError(null);
@@ -435,35 +418,7 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setExporting(false);
     }
-  }, [isAuthenticated, token, hasAccess]);
-
-  const scheduleReport = useCallback(async (reportType, schedule, recipients, format = 'excel') => {
-    if (!isAuthenticated || !token) return null;
-    if (!hasAccess(['super_admin', 'admin'])) return null;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const api = getApiClient(token);
-      const response = await api.post('/reports/schedule', {
-        reportType,
-        schedule,
-        recipients,
-        format
-      });
-
-      if (response.data.success) {
-        return response.data;
-      }
-      throw new Error(response.data.message || 'Failed to schedule report');
-    } catch (err) {
-      setError(err.response?.data?.message || err.message);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, token, hasAccess]);
+  }, [isAuthenticated, token]);
 
   // Clear error
   const clearError = useCallback(() => setError(null), []);
@@ -478,6 +433,7 @@ export const ReportProvider = ({ children }) => {
   const value = {
     // State
     loading,
+    initialLoading,
     exporting,
     error,
     reportData,
@@ -485,28 +441,19 @@ export const ReportProvider = ({ children }) => {
     kpiData,
     // Client Reports
     getClientReport,
-    // Asset Reports (Admin only)
     getAssetReport,
-    // Team Reports (Admin only)
     getTeamReport,
-    // Inspection Reports
     getInspectionReport,
-    // Financial Reports
     getFinancialReport,
-    // Compliance Reports (Admin only)
     getComplianceReport,
-    // Custom Reports
-    getCustomReport,
-    // Analytics
     getDashboardAnalytics,
     getKPISummary,
-    // Bulk Operations
     exportBulkReports,
-    scheduleReport,
-    // Utilities
     clearError,
     cleanup,
-    hasAccess: () => hasAccess(['super_admin', 'admin'])
+    isAdmin: isAdmin(),
+    isSuperAdmin: isSuperAdmin(),
+    hasReportAccess,
   };
 
   return (

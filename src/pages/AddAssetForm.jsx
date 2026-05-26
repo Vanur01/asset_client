@@ -811,7 +811,7 @@ export default function AddNewAsset() {
                 sx={{ mb: 2 }}
               />
 
-              <FilterLabel>Purchase Cost ($)</FilterLabel>
+              <FilterLabel>Purchase Cost</FilterLabel>
               <TextField
                 fullWidth
                 size="small"
@@ -824,7 +824,7 @@ export default function AddNewAsset() {
                 disabled={!canEdit}
                 InputProps={{
                   startAdornment: (
-                    <InputAdornment position="start">$</InputAdornment>
+                    <InputAdornment position="start"></InputAdornment>
                   ),
                 }}
                 sx={{ mb: 2 }}

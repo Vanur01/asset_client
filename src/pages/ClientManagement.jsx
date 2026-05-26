@@ -1,4 +1,4 @@
-// pages/ClientManagement.tsx - Website and Notes Made Optional
+// pages/ClientManagement.jsx
 
 import React, {
   useState,
@@ -12,12 +12,12 @@ import {
   Grid,
   Paper,
   Typography,
+  Skeleton,
   Button,
   TextField,
   IconButton,
   Avatar,
   Chip,
-  LinearProgress,
   Divider,
   Modal,
   Fade,
@@ -36,12 +36,7 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  Skeleton,
-  Zoom,
-  TablePagination,
-  alpha,
   InputAdornment,
-  FormHelperText,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -58,19 +53,16 @@ import {
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
   Visibility as VisibilityIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
   ErrorOutline as ErrorOutlineIcon,
   Inbox as InboxIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  Language as LanguageIcon,
-  VpnKey as VpnKeyIcon,
-  CalendarToday as CalendarIcon,
-  People as PeopleIcon,
-  CheckCircle as CheckIcon,
-  Description as DescriptionIcon,
-  BusinessCenter as BusinessCenterIcon,
+  // These are the correct icon names from @mui/icons-material
+  EmailOutlined as EmailIcon,
+  PhoneOutlined as PhoneIcon,
+  LanguageOutlined as LanguageIcon,
+  VpnKeyOutlined as VpnKeyIcon,
+  CalendarTodayOutlined as CalendarIcon,
+  PeopleAltOutlined as PeopleIcon,
+  DescriptionOutlined as DescriptionIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useClient } from "../context/ClientContext";
@@ -92,7 +84,7 @@ const C = {
   text: { primary: "#1e293b", secondary: "#475569", disabled: "#94a3b8" },
 };
 
-// ─── Validation Functions ───────────────────────────────────────────
+// ─── Validation Functions ─────────────────────────────────────────────────
 const validateCustomerName = (name) => {
   if (!name || !name.trim()) return "Customer name is required";
   if (name.trim().length < 2) return "Name must be at least 2 characters";
@@ -160,7 +152,6 @@ const validateLicenseLimit = (limit) => {
 
 const validatePhoneNumber = (phone) => {
   if (!phone) return "Phone number is required";
-  // International phone number format with better validation
   const phoneRegex =
     /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,5}[-\s\.]?[0-9]{1,5}$/;
   if (!phoneRegex.test(phone))
@@ -172,9 +163,8 @@ const validatePhoneNumber = (phone) => {
   return "";
 };
 
-// Updated: Website validation - made optional
 const validateWebsite = (website) => {
-  if (!website || !website.trim()) return ""; // Optional field
+  if (!website || !website.trim()) return "";
   const urlRegex =
     /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
   if (!urlRegex.test(website))
@@ -184,10 +174,10 @@ const validateWebsite = (website) => {
   return "";
 };
 
-// Updated: Notes validation - made optional
 const validateNotes = (notes) => {
-  if (!notes || !notes.trim()) return ""; // Optional field
-  if (notes.trim().length < 5) return "Notes must be at least 5 characters if provided";
+  if (!notes || !notes.trim()) return "";
+  if (notes.trim().length < 5)
+    return "Notes must be at least 5 characters if provided";
   if (notes.trim().length > 1000)
     return "Notes must be less than 1000 characters";
   return "";
@@ -225,7 +215,7 @@ const getMembershipStyle = (plan = "") => {
   );
 };
 
-// ─── Loading Skeleton ────────────────────────────────────────────────────────
+// ─── Skeletons / Empty / Error ────────────────────────────────────────────
 const ClientCardSkeleton = () => (
   <Paper
     elevation={0}
@@ -236,31 +226,95 @@ const ClientCardSkeleton = () => (
     }}
   >
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
-      <Skeleton
-        variant="rounded"
-        width={44}
-        height={44}
-        sx={{ borderRadius: 2 }}
+      <Box
+        sx={{
+          width: 44,
+          height: 44,
+          bgcolor: C.border,
+          borderRadius: 2,
+          "@keyframes pulse": {
+            "0%": { opacity: 1 },
+            "50%": { opacity: 0.5 },
+            "100%": { opacity: 1 },
+          },
+          animation: "pulse 1.5s ease-in-out infinite",
+        }}
       />
       <Box sx={{ flex: 1 }}>
-        <Skeleton variant="text" width="70%" height={20} />
-        <Skeleton variant="text" width="50%" height={16} />
+        <Box
+          sx={{
+            width: "70%",
+            height: 20,
+            bgcolor: C.border,
+            borderRadius: 1,
+            mb: 1,
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        />
+        <Box
+          sx={{
+            width: "50%",
+            height: 16,
+            bgcolor: C.border,
+            borderRadius: 1,
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        />
       </Box>
-      <Skeleton variant="circular" width={32} height={32} />
     </Box>
-    <Skeleton variant="text" width="40%" height={16} sx={{ mb: 1 }} />
-    <Skeleton variant="rounded" height={5} sx={{ borderRadius: 3, mb: 1.5 }} />
+    <Box
+      sx={{
+        width: "40%",
+        height: 16,
+        bgcolor: C.border,
+        borderRadius: 1,
+        mb: 1,
+        animation: "pulse 1.5s ease-in-out infinite",
+      }}
+    />
+    <Box
+      sx={{
+        height: 5,
+        bgcolor: C.border,
+        borderRadius: 3,
+        mb: 1.5,
+        animation: "pulse 1.5s ease-in-out infinite",
+      }}
+    />
     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-      <Skeleton variant="rounded" width={70} height={32} />
+      <Box
+        sx={{
+          width: 70,
+          height: 32,
+          bgcolor: C.border,
+          borderRadius: 1,
+          animation: "pulse 1.5s ease-in-out infinite",
+        }}
+      />
       <Box sx={{ display: "flex", gap: 1 }}>
-        <Skeleton variant="circular" width={32} height={32} />
-        <Skeleton variant="circular" width={32} height={32} />
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            bgcolor: C.border,
+            borderRadius: "50%",
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        />
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            bgcolor: C.border,
+            borderRadius: "50%",
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        />
       </Box>
     </Box>
   </Paper>
 );
 
-// ─── Empty State ─────────────────────────────────────────────────────────────
 const EmptyState = ({ title, description, action }) => (
   <Box sx={{ textAlign: "center", py: { xs: 6, sm: 8, md: 10 }, px: 2 }}>
     <InboxIcon
@@ -293,31 +347,15 @@ const EmptyState = ({ title, description, action }) => (
   </Box>
 );
 
-// ─── Error State ─────────────────────────────────────────────────────────────
 const ErrorState = ({ message, onRetry }) => (
   <Box sx={{ textAlign: "center", py: { xs: 6, sm: 8 }, px: 2 }}>
     <ErrorOutlineIcon
       sx={{ fontSize: { xs: 48, sm: 64 }, color: C.error, mb: 2 }}
     />
-    <Typography
-      variant="h6"
-      sx={{
-        fontWeight: 600,
-        color: C.error,
-        mb: 1,
-        fontSize: { xs: "0.9rem", sm: "1rem" },
-      }}
-    >
+    <Typography variant="h6" sx={{ fontWeight: 600, color: C.error, mb: 1 }}>
       Failed to Load Clients
     </Typography>
-    <Typography
-      variant="body2"
-      sx={{
-        color: C.text.secondary,
-        mb: 3,
-        fontSize: { xs: "0.7rem", sm: "0.75rem" },
-      }}
-    >
+    <Typography variant="body2" sx={{ color: C.text.secondary, mb: 3 }}>
       {message || "An error occurred while fetching clients."}
     </Typography>
     <Button
@@ -331,11 +369,8 @@ const ErrorState = ({ message, onRetry }) => (
   </Box>
 );
 
-// ─── Stat Card ───────────────────────────────────────────────────────────────
+// ─── Stat Card ────────────────────────────────────────────────────────────
 const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
   if (loading) {
     return (
       <Paper
@@ -347,13 +382,17 @@ const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
           border: `1px solid ${C.border}`,
         }}
       >
-        <Skeleton variant="circular" width={32} height={32} sx={{ mb: 1 }} />
-        <Skeleton variant="text" width="60%" height={20} />
-        <Skeleton variant="text" width="40%" height={28} sx={{ mt: 1 }} />
+        <Skeleton
+          variant="rectangular"
+          width={32}
+          height={32}
+          sx={{ borderRadius: 1.5, mb: 1 }}
+        />
+        <Skeleton variant="text" width="60%" height={20} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width="40%" height={28} />
       </Paper>
     );
   }
-
   return (
     <Paper
       elevation={0}
@@ -364,9 +403,9 @@ const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
         border: "1px solid",
         borderColor: C.border,
         height: "100%",
+        width:"280px",
         display: "flex",
         flexDirection: "column",
-        width: "100%",
         gap: 1,
         transition: "all 0.2s",
         "&:hover": {
@@ -380,7 +419,6 @@ const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          width: isMobile ? "100%" : "235px",
         }}
       >
         <Typography
@@ -434,10 +472,8 @@ const StatCard = ({ icon: Icon, title, value, subtitle, color, loading }) => {
   );
 };
 
-// ─── Client Card ─────────────────────────────────────────────────────────────
+// ─── Client Card ──────────────────────────────────────────────────────────
 const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const plan = client.membershipPlan || "free";
   const daysLeft = client.daysRemaining ?? 0;
   const isActive = client.status === "active";
@@ -453,307 +489,308 @@ const ClientCard = ({ client, onEdit, onDelete, onViewDetails }) => {
   const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
 
   return (
-    <Zoom in style={{ transitionDelay: "50ms" }}>
-      <Paper
-        elevation={0}
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 2, sm: 2.5 },
+        borderRadius: { xs: 2, sm: 3 },
+        border: "1px solid",
+        borderColor: C.border,
+        bgcolor: C.card,
+        width: "380px",
+        position: "relative",
+        opacity: isActive ? 1 : 0.75,
+        transition: "all 0.2s",
+        "&:hover": {
+          borderColor: C.primary,
+          boxShadow: "0 4px 20px rgba(13,74,92,0.1)",
+          transform: "translateY(-2px)",
+        },
+      }}
+    >
+      {!isActive && (
+        <Chip
+          label="Inactive"
+          size="small"
+          sx={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            height: 20,
+            fontSize: { xs: "0.55rem", sm: "0.6rem" },
+            fontWeight: 700,
+            bgcolor: C.errorLight,
+            color: C.error,
+          }}
+        />
+      )}
+
+      <Box
         sx={{
-          p: { xs: 2, sm: 2.5 },
-          borderRadius: { xs: 2, sm: 3 },
-          border: "1px solid",
-          borderColor: C.border,
-          bgcolor: C.card,
-          width: isMobile ? "260px" : "377px",
-          position: "relative",
-          opacity: isActive ? 1 : 0.75,
-          transition: "all 0.2s",
-          "&:hover": {
-            borderColor: C.primary,
-            boxShadow: "0 4px 20px rgba(13,74,92,0.1)",
-            transform: "translateY(-2px)",
-          },
+          display: "flex",
+          alignItems: "center",
+          gap: { xs: 1, sm: 1.5 },
+          mb: 2,
         }}
       >
-        {!isActive && (
-          <Chip
-            label="Inactive"
-            size="small"
-            sx={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              height: 20,
-              fontSize: { xs: "0.55rem", sm: "0.6rem" },
-              fontWeight: 700,
-              bgcolor: C.errorLight,
-              color: C.error,
-            }}
-          />
-        )}
-
-        <Box
+        <Avatar
           sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: { xs: 1, sm: 1.5 },
-            mb: 2,
+            width: { xs: 40, sm: 44 },
+            height: { xs: 40, sm: 44 },
+            bgcolor: isActive ? C.primary : C.text.disabled,
+            fontSize: { xs: "0.8rem", sm: "0.9rem" },
+            fontWeight: 700,
+            borderRadius: 2,
           }}
         >
-          <Avatar
-            sx={{
-              width: { xs: 40, sm: 44 },
-              height: { xs: 40, sm: 44 },
-              bgcolor: isActive ? C.primary : C.text.disabled,
-              fontSize: { xs: "0.8rem", sm: "0.9rem" },
-              fontWeight: 700,
-              borderRadius: 2,
-            }}
+          {getInitials(client.customerName)}
+        </Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}
           >
-            {getInitials(client.customerName)}
-          </Avatar>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box
-              sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 700,
-                  color: C.text.primary,
-                  fontSize: { xs: "0.8rem", sm: "0.88rem" },
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {client.customerName}
-              </Typography>
-              <CircleIcon
-                sx={{
-                  color: isActive ? C.success : C.text.disabled,
-                  fontSize: "0.45rem",
-                  flexShrink: 0,
-                }}
-              />
-            </Box>
             <Typography
-              variant="caption"
+              variant="body2"
               sx={{
-                color: C.text.secondary,
-                fontSize: { xs: "0.62rem", sm: "0.67rem" },
-                display: "block",
+                fontWeight: 700,
+                color: C.text.primary,
+                fontSize: { xs: "0.8rem", sm: "0.88rem" },
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
               }}
             >
-              {client.email}
+              {client.customerName}
             </Typography>
-          </Box>
-          <IconButton
-            size="small"
-            sx={{ color: C.text.disabled, p: 0.5 }}
-            onClick={(e) => setMenuAnchor(e.currentTarget)}
-          >
-            <MoreVertIcon sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }} />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ display: "flex", gap: { xs: 1, sm: 2 }, mb: 2 }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="caption"
+            <CircleIcon
               sx={{
-                color: C.text.disabled,
-                fontSize: { xs: "0.55rem", sm: "0.6rem" },
-                display: "block",
-                mb: 0.5,
-              }}
-            >
-              Membership
-            </Typography>
-            <Chip
-              label={mStyle.label}
-              size="small"
-              sx={{
-                bgcolor: mStyle.bg,
-                color: mStyle.color,
-                fontSize: { xs: "0.58rem", sm: "0.62rem" },
-                fontWeight: 700,
-                height: { xs: 20, sm: 22 },
-                borderRadius: 1,
+                color: isActive ? C.success : C.text.disabled,
+                fontSize: "0.45rem",
+                flexShrink: 0,
               }}
             />
           </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: C.text.disabled,
-                fontSize: { xs: "0.55rem", sm: "0.6rem" },
-                display: "block",
-                mb: 0.5,
-              }}
-            >
-              Duration
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                color: isExpiringSoon ? C.error : C.text.primary,
-              }}
-            >
-              {daysLeft} days left {isExpiringSoon && "⚠"}
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ mb: 2 }}>
-          <Box
-            sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}
-          >
-            <Typography
-              variant="caption"
-              sx={{
-                color: C.text.disabled,
-                fontSize: { xs: "0.55rem", sm: "0.6rem" },
-              }}
-            >
-              License Usage
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: "0.62rem", sm: "0.67rem" },
-                color: usagePercentage > 85 ? C.error : C.text.primary,
-              }}
-            >
-              {usersUsed} / {licenseLimit} ({usagePercentage}%)
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={usagePercentage}
+          <Typography
+            variant="caption"
             sx={{
-              height: { xs: 4, sm: 5 },
-              borderRadius: 3,
-              bgcolor: C.border,
-              "& .MuiLinearProgress-bar": {
-                bgcolor: usagePercentage > 85 ? C.error : C.primary,
-                borderRadius: 3,
-              },
+              color: C.text.secondary,
+              fontSize: { xs: "0.62rem", sm: "0.67rem" },
+              display: "block",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {client.email}
+          </Typography>
+        </Box>
+        <IconButton
+          size="small"
+          sx={{ color: C.text.disabled, p: 0.5 }}
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
+        >
+          <MoreVertIcon sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }} />
+        </IconButton>
+      </Box>
+
+      <Box sx={{ display: "flex", gap: { xs: 1, sm: 2 }, mb: 2 }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: C.text.disabled,
+              fontSize: { xs: "0.55rem", sm: "0.6rem" },
+              display: "block",
+              mb: 0.5,
+            }}
+          >
+            Membership
+          </Typography>
+          <Chip
+            label={mStyle.label}
+            size="small"
+            sx={{
+              bgcolor: mStyle.bg,
+              color: mStyle.color,
+              fontSize: { xs: "0.58rem", sm: "0.62rem" },
+              fontWeight: 700,
+              height: { xs: 20, sm: 22 },
+              borderRadius: 1,
             }}
           />
         </Box>
-
-        <Divider sx={{ borderColor: C.border, mb: { xs: 1, sm: 1.5 } }} />
-
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={
-              <VisibilityIcon
-                sx={{ fontSize: { xs: "0.8rem", sm: "0.85rem" } }}
-              />
-            }
-            onClick={() => onViewDetails(client._id)}
+        <Box sx={{ flex: 1 }}>
+          <Typography
+            variant="caption"
             sx={{
-              fontSize: { xs: "0.65rem", sm: "0.7rem" },
-              fontWeight: 600,
-              textTransform: "none",
-              borderColor: C.border,
-              color: C.text.secondary,
-              py: 0.5,
-              px: { xs: 1, sm: 1.5 },
-              borderRadius: 1.5,
-              "&:hover": {
-                borderColor: C.primary,
-                color: C.primary,
-                bgcolor: C.primaryLight,
-              },
+              color: C.text.disabled,
+              fontSize: { xs: "0.55rem", sm: "0.6rem" },
+              display: "block",
+              mb: 0.5,
             }}
           >
-            View
-          </Button>
-          <Box sx={{ display: "flex", gap: 0.5 }}>
-            <IconButton
-              size="small"
-              onClick={() => onEdit(client)}
-              sx={{
-                color: C.text.secondary,
-                p: { xs: 0.5, sm: 0.75 },
-                "&:hover": { color: C.primary, bgcolor: C.primaryLight },
-              }}
-            >
-              <EditIcon sx={{ fontSize: { xs: "0.85rem", sm: "0.95rem" } }} />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={() => onDelete(client)}
-              sx={{
-                color: C.text.secondary,
-                p: { xs: 0.5, sm: 0.75 },
-                "&:hover": { color: C.error, bgcolor: C.errorLight },
-              }}
-            >
-              <DeleteIcon sx={{ fontSize: { xs: "0.85rem", sm: "0.95rem" } }} />
-            </IconButton>
-          </Box>
+            Duration
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
+              color: isExpiringSoon ? C.error : C.text.primary,
+            }}
+          >
+            {daysLeft} days left {isExpiringSoon && "⚠"}
+          </Typography>
         </Box>
+      </Box>
 
-        <Menu
-          anchorEl={menuAnchor}
-          open={Boolean(menuAnchor)}
-          onClose={() => setMenuAnchor(null)}
-          PaperProps={{
-            sx: {
-              mt: 0.5,
-              borderRadius: 2,
-              minWidth: 150,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: C.text.disabled,
+              fontSize: { xs: "0.55rem", sm: "0.6rem" },
+            }}
+          >
+            License Usage
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              fontSize: { xs: "0.62rem", sm: "0.67rem" },
+              color: usagePercentage > 85 ? C.error : C.text.primary,
+            }}
+          >
+            {usersUsed} / {licenseLimit} ({usagePercentage}%)
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            height: { xs: 4, sm: 5 },
+            width: "100%",
+            bgcolor: C.border,
+            borderRadius: 3,
+            overflow: "hidden",
+          }}
+        >
+          <Box
+            sx={{
+              width: `${usagePercentage}%`,
+              height: "100%",
+              bgcolor: usagePercentage > 85 ? C.error : C.primary,
+              borderRadius: 3,
+            }}
+          />
+        </Box>
+      </Box>
+
+      <Divider sx={{ borderColor: C.border, mb: { xs: 1, sm: 1.5 } }} />
+
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={
+            <VisibilityIcon
+              sx={{ fontSize: { xs: "0.8rem", sm: "0.85rem" } }}
+            />
+          }
+          onClick={() => onViewDetails(client._id)}
+          sx={{
+            fontSize: { xs: "0.65rem", sm: "0.7rem" },
+            fontWeight: 600,
+            textTransform: "none",
+            borderColor: C.border,
+            color: C.text.secondary,
+            py: 0.5,
+            px: { xs: 1, sm: 1.5 },
+            borderRadius: 1.5,
+            "&:hover": {
+              borderColor: C.primary,
+              color: C.primary,
+              bgcolor: C.primaryLight,
             },
           }}
         >
-          <MenuItem
-            onClick={() => {
-              onEdit(client);
-              setMenuAnchor(null);
-            }}
-            sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, py: 0.75 }}
-          >
-            <ListItemIcon>
-              <EditIcon sx={{ fontSize: "1rem", color: C.text.secondary }} />
-            </ListItemIcon>
-            <ListItemText primary="Edit" />
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              onDelete(client);
-              setMenuAnchor(null);
-            }}
+          View
+        </Button>
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <IconButton
+            size="small"
+            onClick={() => onEdit(client)}
             sx={{
-              fontSize: { xs: "0.7rem", sm: "0.75rem" },
-              py: 0.75,
-              color: C.error,
+              color: C.text.secondary,
+              p: { xs: 0.5, sm: 0.75 },
+              "&:hover": { color: C.primary, bgcolor: C.primaryLight },
             }}
           >
-            <ListItemIcon>
-              <DeleteIcon sx={{ fontSize: "1rem", color: C.error }} />
-            </ListItemIcon>
-            <ListItemText primary={isActive ? "Deactivate" : "Activate"} />
-          </MenuItem>
-        </Menu>
-      </Paper>
-    </Zoom>
+            <EditIcon sx={{ fontSize: { xs: "0.85rem", sm: "0.95rem" } }} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => onDelete(client)}
+            sx={{
+              color: C.text.secondary,
+              p: { xs: 0.5, sm: 0.75 },
+              "&:hover": { color: C.error, bgcolor: C.errorLight },
+            }}
+          >
+            <DeleteIcon sx={{ fontSize: { xs: "0.85rem", sm: "0.95rem" } }} />
+          </IconButton>
+        </Box>
+      </Box>
+
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        PaperProps={{
+          sx: {
+            mt: 0.5,
+            borderRadius: 2,
+            minWidth: 150,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+          },
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            onEdit(client);
+            setMenuAnchor(null);
+          }}
+          sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, py: 0.75 }}
+        >
+          <ListItemIcon>
+            <EditIcon sx={{ fontSize: "1rem", color: C.text.secondary }} />
+          </ListItemIcon>
+          <ListItemText primary="Edit" />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            onDelete(client);
+            setMenuAnchor(null);
+          }}
+          sx={{
+            fontSize: { xs: "0.7rem", sm: "0.75rem" },
+            py: 0.75,
+            color: C.error,
+          }}
+        >
+          <ListItemIcon>
+            <DeleteIcon sx={{ fontSize: "1rem", color: C.error }} />
+          </ListItemIcon>
+          <ListItemText primary={isActive ? "Deactivate" : "Activate"} />
+        </MenuItem>
+      </Menu>
+    </Paper>
   );
 };
 
@@ -772,8 +809,33 @@ const EMPTY_FORM = {
 export default function ClientManagement() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const navigate = useNavigate();
+
+  // Add error handling for useClient
+  let clientContext;
+  try {
+    clientContext = useClient();
+  } catch (err) {
+    console.error("❌ useClient error:", err);
+    return (
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Alert severity="error">
+          <Typography variant="h6">Configuration Error</Typography>
+          <Typography>
+            Client provider is not available. Please refresh the page or contact
+            support.
+          </Typography>
+          <Button
+            sx={{ mt: 2 }}
+            variant="contained"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
 
   const {
     clients,
@@ -791,7 +853,8 @@ export default function ClientManagement() {
     updateFilters,
     changePage,
     resetFilters,
-  } = useClient();
+    clearError,
+  } = clientContext;
 
   const [searchTerm, setSearchTerm] = useState(filters.search || "");
   const [openModal, setOpenModal] = useState(false);
@@ -807,8 +870,8 @@ export default function ClientManagement() {
     severity: "success",
   });
   const [touchedFields, setTouchedFields] = useState({});
-
   const searchTimeoutRef = useRef(null);
+  const lastSearchRef = useRef(filters.search || "");
 
   const showToast = useCallback(
     (msg, sev = "success") =>
@@ -821,41 +884,48 @@ export default function ClientManagement() {
   );
 
   useEffect(() => {
-    fetchClients();
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, []);
 
+  // Search with debounce
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      updateFilters({ search: searchTerm });
-      fetchClients({ search: searchTerm, page: 1 });
-    }, 500);
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
-  }, [searchTerm]);
+      if (searchTerm !== lastSearchRef.current) {
+        console.log("🔍 Searching for:", searchTerm);
+        lastSearchRef.current = searchTerm;
+        updateFilters({ search: searchTerm });
+        fetchClients({ search: searchTerm, page: 1 });
+      }
+    }, 800);
+  }, [searchTerm, updateFilters, fetchClients]);
 
   const handleStatusFilterChange = (status) => {
+    console.log("📌 Filter by status:", status);
     updateFilters({ status });
     setFilterAnchorEl(null);
     fetchClients({ status, page: 1 });
   };
 
   const handleMembershipFilterChange = (membershipPlan) => {
+    console.log("📌 Filter by plan:", membershipPlan);
     updateFilters({ membershipPlan });
     setMembershipAnchorEl(null);
     fetchClients({ membershipPlan, page: 1 });
   };
 
   const handleClearFilters = () => {
+    console.log("🧹 Clearing all filters");
     resetFilters();
     setSearchTerm("");
+    lastSearchRef.current = "";
+    fetchClients({ search: "", status: "all", membershipPlan: "all", page: 1 });
   };
 
   const handlePageChange = (newPage) => {
+    console.log("📄 Changing to page:", newPage);
     changePage(newPage);
     fetchClients({ page: newPage });
   };
@@ -874,152 +944,71 @@ export default function ClientManagement() {
   };
 
   const validateField = (fieldName, value) => {
-    let error = "";
+    let fieldError = "";
     switch (fieldName) {
       case "customerName":
-        error = validateCustomerName(value);
+        fieldError = validateCustomerName(value);
         break;
       case "email":
-        error = validateEmail(value);
+        fieldError = validateEmail(value);
         break;
       case "password":
-        if (modalMode === "add") error = validatePassword(value);
+        if (modalMode === "add") fieldError = validatePassword(value);
         break;
       case "duration":
-        if (modalMode === "add") error = validateDuration(value);
+        if (modalMode === "add") fieldError = validateDuration(value);
         break;
       case "extendDays":
-        if (modalMode === "edit") error = validateExtendDays(value);
+        if (modalMode === "edit") fieldError = validateExtendDays(value);
         break;
       case "licenseLimit":
-        error = validateLicenseLimit(value);
+        fieldError = validateLicenseLimit(value);
         break;
       case "phone":
-        error = validatePhoneNumber(value);
+        fieldError = validatePhoneNumber(value);
         break;
       case "website":
-        error = validateWebsite(value);
+        fieldError = validateWebsite(value);
         break;
       case "notes":
-        error = validateNotes(value);
+        fieldError = validateNotes(value);
         break;
       case "membershipPlan":
-        error = validateMembershipPlan(value);
+        fieldError = validateMembershipPlan(value);
         break;
       default:
         break;
     }
-    setFormErrors((prev) => ({ ...prev, [fieldName]: error }));
-    return error === "";
+    setFormErrors((prev) => ({ ...prev, [fieldName]: fieldError }));
+    return fieldError === "";
   };
 
   const validateForm = () => {
     const errors = {};
     let isValid = true;
 
-    // Validate ALL fields for Add Mode
+    const check = (key, fn) => {
+      const err = fn(formData[key]);
+      if (err) {
+        errors[key] = err;
+        isValid = false;
+      }
+    };
+
+    check("customerName", validateCustomerName);
+    check("membershipPlan", validateMembershipPlan);
+    check("licenseLimit", validateLicenseLimit);
+    check("phone", validatePhoneNumber);
+    if (formData.website) check("website", validateWebsite);
+    if (formData.notes) check("notes", validateNotes);
+
     if (modalMode === "add") {
-      const nameError = validateCustomerName(formData.customerName);
-      if (nameError) {
-        errors.customerName = nameError;
-        isValid = false;
-      }
-
-      const emailError = validateEmail(formData.email);
-      if (emailError) {
-        errors.email = emailError;
-        isValid = false;
-      }
-
-      const passwordError = validatePassword(formData.password);
-      if (passwordError) {
-        errors.password = passwordError;
-        isValid = false;
-      }
-
-      const planError = validateMembershipPlan(formData.membershipPlan);
-      if (planError) {
-        errors.membershipPlan = planError;
-        isValid = false;
-      }
-
-      const durationError = validateDuration(formData.duration);
-      if (durationError) {
-        errors.duration = durationError;
-        isValid = false;
-      }
-
-      const licenseError = validateLicenseLimit(formData.licenseLimit);
-      if (licenseError) {
-        errors.licenseLimit = licenseError;
-        isValid = false;
-      }
-
-      const phoneError = validatePhoneNumber(formData.phone);
-      if (phoneError) {
-        errors.phone = phoneError;
-        isValid = false;
-      }
-
-      // Website is optional - only validate if provided
-      const websiteError = validateWebsite(formData.website);
-      if (websiteError) {
-        errors.website = websiteError;
-        isValid = false;
-      }
-
-      // Notes is optional - only validate if provided
-      const notesError = validateNotes(formData.notes);
-      if (notesError) {
-        errors.notes = notesError;
-        isValid = false;
-      }
-    }
-
-    // Validate ALL fields for Edit Mode
-    if (modalMode === "edit") {
-      const nameError = validateCustomerName(formData.customerName);
-      if (nameError) {
-        errors.customerName = nameError;
-        isValid = false;
-      }
-
-      const planError = validateMembershipPlan(formData.membershipPlan);
-      if (planError) {
-        errors.membershipPlan = planError;
-        isValid = false;
-      }
-
-      const extendDaysError = validateExtendDays(formData.extendDays);
-      if (extendDaysError) {
-        errors.extendDays = extendDaysError;
-        isValid = false;
-      }
-
-      const licenseError = validateLicenseLimit(formData.licenseLimit);
-      if (licenseError) {
-        errors.licenseLimit = licenseError;
-        isValid = false;
-      }
-
-      const phoneError = validatePhoneNumber(formData.phone);
-      if (phoneError) {
-        errors.phone = phoneError;
-        isValid = false;
-      }
-
-      // Website is optional - only validate if provided
-      const websiteError = validateWebsite(formData.website);
-      if (websiteError) {
-        errors.website = websiteError;
-        isValid = false;
-      }
-
-      // Notes is optional - only validate if provided
-      const notesError = validateNotes(formData.notes);
-      if (notesError) {
-        errors.notes = notesError;
-        isValid = false;
+      check("email", validateEmail);
+      check("password", validatePassword);
+      check("duration", validateDuration);
+    } else if (modalMode === "edit") {
+      if (formData.extendDays && parseInt(formData.extendDays) > 0) {
+        check("extendDays", validateExtendDays);
       }
     }
 
@@ -1029,29 +1018,23 @@ export default function ClientManagement() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      // Mark all required fields as touched to show errors
-      const allFields = {};
-      if (modalMode === "add") {
-        allFields.customerName = true;
-        allFields.email = true;
-        allFields.password = true;
-        allFields.membershipPlan = true;
-        allFields.duration = true;
-        allFields.licenseLimit = true;
-        allFields.phone = true;
-        // website and notes are optional - don't mark them as required
-        // allFields.website = true;
-        // allFields.notes = true;
-      } else {
-        allFields.customerName = true;
-        allFields.membershipPlan = true;
-        allFields.extendDays = true;
-        allFields.licenseLimit = true;
-        allFields.phone = true;
-        // website and notes are optional - don't mark them as required
-        // allFields.website = true;
-        // allFields.notes = true;
-      }
+      const allFields =
+        modalMode === "add"
+          ? {
+              customerName: true,
+              email: true,
+              password: true,
+              membershipPlan: true,
+              duration: true,
+              licenseLimit: true,
+              phone: true,
+            }
+          : {
+              customerName: true,
+              membershipPlan: true,
+              licenseLimit: true,
+              phone: true,
+            };
       setTouchedFields(allFields);
       showToast("Please fill in all required fields correctly", "error");
       return;
@@ -1059,6 +1042,7 @@ export default function ClientManagement() {
 
     try {
       if (modalMode === "add") {
+        console.log("➕ Creating client:", formData);
         await addClient({
           customerName: formData.customerName.trim(),
           email: formData.email.trim().toLowerCase(),
@@ -1072,39 +1056,50 @@ export default function ClientManagement() {
         });
         showToast("Client created successfully!");
       } else {
-        await editClient(selectedClient._id, {
+        const updateData = {
           customerName: formData.customerName.trim(),
           membershipPlan: formData.membershipPlan,
-          extendDays: parseInt(formData.extendDays) || 0,
           licenseLimit: parseInt(formData.licenseLimit),
           phone: formData.phone.trim(),
           website: formData.website ? formData.website.trim() : "",
           notes: formData.notes ? formData.notes.trim() : "",
-        });
+        };
+
+        // Only include extendDays if it's positive
+        if (formData.extendDays && parseInt(formData.extendDays) > 0) {
+          updateData.extendDays = parseInt(formData.extendDays);
+        }
+
+        console.log("✏️ Updating client:", selectedClient._id, updateData);
+        await editClient(selectedClient._id, updateData);
         showToast("Client updated successfully");
       }
       setOpenModal(false);
       setFormData(EMPTY_FORM);
       setFormErrors({});
       setTouchedFields({});
-    } catch (error) {
-      showToast(error.message || "An error occurred", "error");
+    } catch (err) {
+      console.error("❌ Submit error:", err);
+      showToast(err.message || "An error occurred", "error");
     }
   };
 
   const handleToggleStatus = async (client) => {
     const newStatus = client.status === "active" ? "inactive" : "active";
+    console.log(`🔄 Changing client ${client._id} status to:`, newStatus);
     try {
       await changeClientStatus(client._id, newStatus);
       showToast(
         `Client ${newStatus === "active" ? "activated" : "deactivated"} successfully`,
       );
-    } catch (error) {
-      showToast(error.message || "Failed to change status", "error");
+    } catch (err) {
+      console.error("❌ Status change error:", err);
+      showToast(err.message || "Failed to change status", "error");
     }
   };
 
   const openAddModal = () => {
+    console.log("📝 Opening add client modal");
     setModalMode("add");
     setFormData(EMPTY_FORM);
     setFormErrors({});
@@ -1113,6 +1108,7 @@ export default function ClientManagement() {
   };
 
   const openEditModal = (client) => {
+    console.log("✏️ Opening edit modal for client:", client._id);
     setSelectedClient(client);
     setFormData({
       customerName: client.customerName || "",
@@ -1179,7 +1175,6 @@ export default function ClientManagement() {
   const hasActiveFilters =
     filters.status !== "all" || filters.membershipPlan !== "all" || searchTerm;
 
-  // Password strength indicator
   const getPasswordStrength = (password) => {
     if (!password) return { strength: 0, label: "", color: "" };
     let strength = 0;
@@ -1188,15 +1183,65 @@ export default function ClientManagement() {
     if (/[a-z]/.test(password)) strength++;
     if (/[0-9]/.test(password)) strength++;
     if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
-
     if (strength <= 2) return { strength, label: "Weak", color: C.error };
     if (strength <= 4) return { strength, label: "Medium", color: C.warning };
     return { strength, label: "Strong", color: C.success };
   };
 
-  // Show error state
-  if (error && !initialLoading) {
-    return <ErrorState message={error} onRetry={() => fetchClients()} />;
+  // ─── Render ───────────────────────────────────────────────────────────────
+  console.log(
+    "🎨 Rendering ClientManagement - clients length:",
+    clients?.length || 0,
+  );
+
+  if (initialLoading && (!clients || clients.length === 0)) {
+    console.log("⏳ Showing skeleton loader");
+    return (
+      <Box
+        sx={{
+          bgcolor: C.surface,
+          minHeight: "100%",
+          p: { xs: 1.5, sm: 2, md: 3 },
+        }}
+      >
+        <Box sx={{ mb: 3 }}>
+          <Skeleton variant="text" width={200} height={40} />
+          <Skeleton variant="text" width={300} height={20} />
+        </Box>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={6} sm={6} md={3} key={i}>
+              <StatCard loading={true} />
+            </Grid>
+          ))}
+        </Grid>
+        <Grid container spacing={2}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Grid item xs={12} sm={6} md={6} lg={4} xl={3} key={i}>
+              <ClientCardSkeleton />
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    );
+  }
+
+  if (
+    error &&
+    (!clients || clients.length === 0) &&
+    !loading &&
+    !initialLoading
+  ) {
+    console.log("❌ Showing error state:", error);
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          clearError();
+          fetchClients();
+        }}
+      />
+    );
   }
 
   return (
@@ -1262,11 +1307,27 @@ export default function ClientManagement() {
         </Button>
       </Box>
 
-      {/* Loading Indicator */}
-      {loading && !initialLoading && (
-        <Box sx={{ mb: 2 }}>
-          <LinearProgress sx={{ borderRadius: 1, height: 3 }} />
-        </Box>
+      {/* Error Banner */}
+      {error && clients && clients.length > 0 && (
+        <Alert
+          severity="error"
+          onClose={clearError}
+          sx={{ mb: 2, borderRadius: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                clearError();
+                fetchClients();
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
       )}
 
       {/* Search and Filters */}
@@ -1321,7 +1382,6 @@ export default function ClientManagement() {
               )}
             </Paper>
           </Grid>
-
           <Grid item xs={12} md={5}>
             <Box
               sx={{
@@ -1350,7 +1410,6 @@ export default function ClientManagement() {
               >
                 {getStatusDisplayText()}
               </Button>
-
               <Button
                 variant="outlined"
                 size="small"
@@ -1373,7 +1432,6 @@ export default function ClientManagement() {
               >
                 {getMembershipDisplayText()}
               </Button>
-
               {hasActiveFilters && (
                 <Button
                   variant="text"
@@ -1389,10 +1447,12 @@ export default function ClientManagement() {
                   Clear
                 </Button>
               )}
-
               <Tooltip title="Refresh">
                 <IconButton
-                  onClick={() => fetchClients()}
+                  onClick={() => {
+                    console.log("🔄 Manual refresh triggered");
+                    fetchClients();
+                  }}
                   sx={{
                     bgcolor: C.card,
                     border: `1px solid ${C.border}`,
@@ -1424,37 +1484,27 @@ export default function ClientManagement() {
       </Grid>
 
       {/* Results Count */}
-      {!initialLoading && (
-        <Box
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Typography
+          variant="caption"
           sx={{
-            mb: 2,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
+            color: C.text.secondary,
+            fontSize: { xs: "0.65rem", sm: "0.7rem" },
           }}
         >
-          <Typography
-            variant="caption"
-            sx={{
-              color: C.text.secondary,
-              fontSize: { xs: "0.65rem", sm: "0.7rem" },
-            }}
-          >
-            Showing {clients.length} of {pagination.total || 0} clients
-          </Typography>
-        </Box>
-      )}
+          Showing {clients?.length || 0} of {pagination?.total || 0} clients
+        </Typography>
+      </Box>
 
       {/* Client Grid */}
-      {initialLoading ? (
-        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
-              <ClientCardSkeleton />
-            </Grid>
-          ))}
-        </Grid>
-      ) : clients.length === 0 ? (
+      {(!clients || clients.length === 0) && !loading ? (
         <EmptyState
           title="No clients found"
           description={
@@ -1477,25 +1527,32 @@ export default function ClientManagement() {
         />
       ) : (
         <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-          {clients.map((client) => (
-            <Grid item xs={12} sm={6} md={6} lg={4} xl={3} key={client._id}>
-              <ClientCard
-                client={client}
-                onEdit={openEditModal}
-                onDelete={handleToggleStatus}
-                onViewDetails={(id) =>
-                  navigate(`/admin/clients-details/${id}`, {
-                    state: { clientId: id },
-                  })
-                }
-              />
-            </Grid>
-          ))}
+          {clients &&
+            clients.map((client) => (
+              <Grid item xs={12} sm={6} md={6} lg={4} xl={3} key={client._id}>
+                <ClientCard
+                  client={client}
+                  onEdit={openEditModal}
+                  onDelete={handleToggleStatus}
+                  onViewDetails={(id) =>
+                    navigate(`/admin/clients-details/${id}`, {
+                      state: { clientId: id },
+                    })
+                  }
+                />
+              </Grid>
+            ))}
         </Grid>
       )}
 
+      {loading && clients && clients.length > 0 && (
+        <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
+          <CircularProgress size={30} />
+        </Box>
+      )}
+
       {/* Pagination */}
-      {pagination.pages > 1 && (
+      {pagination?.pages > 1 && (
         <Box
           sx={{
             display: "flex",
@@ -1553,7 +1610,6 @@ export default function ClientManagement() {
           </MenuItem>
         ))}
       </Menu>
-
       <Menu
         anchorEl={membershipAnchorEl}
         open={Boolean(membershipAnchorEl)}
@@ -1573,12 +1629,12 @@ export default function ClientManagement() {
         ))}
       </Menu>
 
-      {/* Add/Edit Modal */}
+      {/* Modal */}
       <Modal
         open={openModal}
         onClose={() => setOpenModal(false)}
         closeAfterTransition
-        BackdropComponent={Backdrop}
+        slots={{ backdrop: Backdrop }}
         sx={{
           display: "flex",
           alignItems: "center",
@@ -1601,7 +1657,7 @@ export default function ClientManagement() {
               flexDirection: "column",
             }}
           >
-            {/* Gradient Header */}
+            {/* Modal Header */}
             <Box
               sx={{
                 background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
@@ -1640,7 +1696,6 @@ export default function ClientManagement() {
                   ? "Please fill in all required fields below. Website and notes are optional."
                   : "Update customer information. Website and notes are optional."}
               </Typography>
-
               <IconButton
                 onClick={() => setOpenModal(false)}
                 size="small"
@@ -1657,343 +1712,192 @@ export default function ClientManagement() {
               </IconButton>
             </Box>
 
-            {/* Form Content */}
+            {/* Modal Body */}
             <Box
               sx={{
                 p: { xs: 2, sm: 2.5, md: 3.5 },
                 overflowY: "auto",
                 flex: 1,
-                "&::-webkit-scrollbar": { width: "6px" },
-                "&::-webkit-scrollbar-track": {
-                  bgcolor: "#f1f1f1",
-                  borderRadius: "10px",
-                },
-                "&::-webkit-scrollbar-thumb": {
-                  bgcolor: "#c1c1c1",
-                  borderRadius: "10px",
-                  "&:hover": { bgcolor: "#a8a8a8" },
-                },
               }}
             >
               <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
-                {/* Required Fields Indicator */}
-                <Alert
-                  severity="info"
-                  icon={<CheckCircleIcon />}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <Typography variant="caption">
-                    Fields marked with{" "}
-                    <span style={{ color: C.error }}>*</span> are required. 
-                    Website and Notes are optional.
-                  </Typography>
-                </Alert>
+                {/* Customer Name */}
+                <TextField
+                  name="customerName"
+                  label="Customer Name *"
+                  fullWidth
+                  required
+                  value={formData.customerName}
+                  onChange={handleInput}
+                  onBlur={() => handleFieldBlur("customerName")}
+                  error={
+                    !!formErrors.customerName && touchedFields.customerName
+                  }
+                  helperText={
+                    touchedFields.customerName && formErrors.customerName
+                  }
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PersonIcon
+                          sx={{ color: C.text.disabled, fontSize: "1rem" }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
 
-                {/* Customer Basic Information */}
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 700, color: C.primary, mb: -1 }}
-                >
-                  Basic Information
-                </Typography>
+                {/* Email (Add mode only) */}
+                {modalMode === "add" && (
+                  <TextField
+                    name="email"
+                    label="Email Address *"
+                    type="email"
+                    fullWidth
+                    required
+                    value={formData.email}
+                    onChange={handleInput}
+                    onBlur={() => handleFieldBlur("email")}
+                    error={!!formErrors.email && touchedFields.email}
+                    helperText={touchedFields.email && formErrors.email}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailIcon
+                            sx={{ color: C.text.disabled, fontSize: "1rem" }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
 
-                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Customer Name *"
-                      name="customerName"
-                      value={formData.customerName}
-                      onChange={handleInput}
-                      onBlur={() => handleFieldBlur("customerName")}
-                      size="small"
-                      fullWidth
-                      required
-                      error={
-                        !!formErrors.customerName && touchedFields.customerName
-                      }
-                      helperText={
-                        touchedFields.customerName && formErrors.customerName
-                      }
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <PersonIcon
-                              sx={{ fontSize: "1rem", color: C.text.disabled }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Email Address *"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInput}
-                      onBlur={() => handleFieldBlur("email")}
-                      size="small"
-                      fullWidth
-                      required
-                      disabled={modalMode === "edit"}
-                      error={!!formErrors.email && touchedFields.email}
-                      helperText={touchedFields.email && formErrors.email}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <EmailIcon
-                              sx={{ fontSize: "1rem", color: C.text.disabled }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                </Grid>
-
-                {/* Password Field (Add Mode Only) */}
+                {/* Password (Add mode only) */}
                 {modalMode === "add" && (
                   <Box>
                     <TextField
-                      label="Password *"
                       name="password"
+                      label="Password *"
                       type="password"
+                      fullWidth
+                      required
                       value={formData.password}
                       onChange={handleInput}
                       onBlur={() => handleFieldBlur("password")}
-                      size="small"
-                      fullWidth
-                      required
                       error={!!formErrors.password && touchedFields.password}
                       helperText={touchedFields.password && formErrors.password}
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
                             <VpnKeyIcon
-                              sx={{ fontSize: "1rem", color: C.text.disabled }}
+                              sx={{ color: C.text.disabled, fontSize: "1rem" }}
                             />
                           </InputAdornment>
                         ),
                       }}
                     />
-                    {formData.password && (
-                      <Box sx={{ mt: 1 }}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Box sx={{ flex: 1 }}>
-                            <LinearProgress
-                              variant="determinate"
-                              value={
-                                (getPasswordStrength(formData.password)
-                                  .strength /
-                                  5) *
-                                100
-                              }
-                              sx={{
-                                height: 4,
-                                borderRadius: 2,
-                                bgcolor: C.border,
-                                "& .MuiLinearProgress-bar": {
-                                  bgcolor: getPasswordStrength(
-                                    formData.password,
-                                  ).color,
-                                },
-                              }}
-                            />
-                          </Box>
+                    {formData.password &&
+                      touchedFields.password &&
+                      !formErrors.password && (
+                        <Box sx={{ mt: 1 }}>
                           <Typography
                             variant="caption"
-                            sx={{
-                              color: getPasswordStrength(formData.password)
-                                .color,
-                              fontWeight: 600,
-                            }}
+                            sx={{ color: C.text.secondary }}
                           >
-                            {getPasswordStrength(formData.password).label}
+                            Password strength:{" "}
+                            <span
+                              style={{
+                                color: getPasswordStrength(formData.password)
+                                  .color,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {getPasswordStrength(formData.password).label}
+                            </span>
                           </Typography>
-                        </Stack>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: C.text.disabled,
-                            mt: 0.5,
-                            display: "block",
-                          }}
-                        >
-                          Password must contain: 8+ chars, uppercase, lowercase,
-                          number, special character
-                        </Typography>
-                      </Box>
-                    )}
+                        </Box>
+                      )}
                   </Box>
                 )}
 
-                {/* Subscription Details */}
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 700, color: C.primary, mb: -1, mt: 1 }}
-                >
-                  Subscription Details
-                </Typography>
+                {/* Membership Plan */}
+                <FormControl fullWidth>
+                  <InputLabel>Membership Plan *</InputLabel>
+                  <Select
+                    name="membershipPlan"
+                    value={formData.membershipPlan}
+                    onChange={handleInput}
+                    label="Membership Plan *"
+                  >
+                    <MenuItem value="free">Free</MenuItem>
+                    <MenuItem value="standard">Standard</MenuItem>
+                    <MenuItem value="premium">Premium</MenuItem>
+                    <MenuItem value="enterprise">Enterprise</MenuItem>
+                  </Select>
+                </FormControl>
 
-                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl
-                      fullWidth
-                      size="small"
-                      required
-                      error={
-                        !!formErrors.membershipPlan &&
-                        touchedFields.membershipPlan
-                      }
-                    >
-                      <InputLabel>Subscription Plan *</InputLabel>
-                      <Select
-                        name="membershipPlan"
-                        value={formData.membershipPlan}
-                        onChange={handleInput}
-                        onBlur={() => handleFieldBlur("membershipPlan")}
-                        label="Subscription Plan *"
-                        startAdornment={
-                          <InputAdornment position="start">
-                            <BusinessCenterIcon
-                              sx={{
-                                fontSize: "1rem",
-                                color: C.text.disabled,
-                                ml: 1,
-                              }}
-                            />
-                          </InputAdornment>
-                        }
-                      >
-                        {[
-                          {
-                            value: "free",
-                            label: "Free",
-                            color: "#10b981",
-                            bg: "#d1fae5",
-                          },
-                          {
-                            value: "standard",
-                            label: "Standard",
-                            color: "#3b82f6",
-                            bg: "#dbeafe",
-                          },
-                          {
-                            value: "premium",
-                            label: "Premium",
-                            color: "#8b5cf6",
-                            bg: "#ede9fe",
-                          },
-                          {
-                            value: "enterprise",
-                            label: "Enterprise",
-                            color: "#f59e0b",
-                            bg: "#fed7aa",
-                          },
-                        ].map((plan) => (
-                          <MenuItem key={plan.value} value={plan.value}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: "50%",
-                                  bgcolor: plan.color,
-                                  display: "inline-block",
-                                }}
-                              />
-                              {plan.label}
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {touchedFields.membershipPlan &&
-                        formErrors.membershipPlan && (
-                          <FormHelperText error>
-                            {formErrors.membershipPlan}
-                          </FormHelperText>
-                        )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label={
-                        modalMode === "add"
-                          ? "Duration (Days) *"
-                          : "Extend Days *"
-                      }
-                      name={modalMode === "add" ? "duration" : "extendDays"}
-                      type="number"
-                      value={
-                        formData[
-                          modalMode === "add" ? "duration" : "extendDays"
-                        ]
-                      }
-                      onChange={handleInput}
-                      onBlur={() =>
-                        handleFieldBlur(
-                          modalMode === "add" ? "duration" : "extendDays",
-                        )
-                      }
-                      size="small"
-                      fullWidth
-                      required
-                      error={
-                        !!formErrors[
-                          modalMode === "add" ? "duration" : "extendDays"
-                        ] &&
-                        touchedFields[
-                          modalMode === "add" ? "duration" : "extendDays"
-                        ]
-                      }
-                      helperText={
-                        touchedFields[
-                          modalMode === "add" ? "duration" : "extendDays"
-                        ] &&
-                        formErrors[
-                          modalMode === "add" ? "duration" : "extendDays"
-                        ]
-                      }
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <CalendarIcon
-                              sx={{ fontSize: "1rem", color: C.text.disabled }}
-                            />
-                          </InputAdornment>
-                        ),
-                        endAdornment: modalMode === "add" && (
-                          <Typography
-                            variant="caption"
-                            sx={{ color: "text.secondary", mr: 1 }}
-                          >
-                            days
-                          </Typography>
-                        ),
-                        inputProps: { min: 1, max: 365 },
-                      }}
-                    />
-                  </Grid>
-                </Grid>
+                {/* Duration (Add mode only) */}
+                {modalMode === "add" && (
+                  <TextField
+                    name="duration"
+                    label="Duration (days) *"
+                    type="number"
+                    fullWidth
+                    required
+                    value={formData.duration}
+                    onChange={handleInput}
+                    onBlur={() => handleFieldBlur("duration")}
+                    error={!!formErrors.duration && touchedFields.duration}
+                    helperText={touchedFields.duration && formErrors.duration}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <CalendarIcon
+                            sx={{ color: C.text.disabled, fontSize: "1rem" }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
 
-                {/* License Information */}
+                {/* Extend Days (Edit mode only) */}
+                {modalMode === "edit" && (
+                  <TextField
+                    name="extendDays"
+                    label="Extend Membership (days)"
+                    type="number"
+                    fullWidth
+                    value={formData.extendDays}
+                    onChange={handleInput}
+                    onBlur={() => handleFieldBlur("extendDays")}
+                    error={!!formErrors.extendDays && touchedFields.extendDays}
+                    helperText={
+                      (touchedFields.extendDays && formErrors.extendDays) ||
+                      "Leave as 0 to keep current duration"
+                    }
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <CalendarIcon
+                            sx={{ color: C.text.disabled, fontSize: "1rem" }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+
+                {/* License Limit */}
                 <TextField
-                  label="License Limit *"
                   name="licenseLimit"
+                  label="License Limit *"
                   type="number"
+                  fullWidth
+                  required
                   value={formData.licenseLimit}
                   onChange={handleInput}
                   onBlur={() => handleFieldBlur("licenseLimit")}
-                  size="small"
-                  fullWidth
-                  required
                   error={
                     !!formErrors.licenseLimit && touchedFields.licenseLimit
                   }
@@ -2004,207 +1908,121 @@ export default function ClientManagement() {
                     startAdornment: (
                       <InputAdornment position="start">
                         <PeopleIcon
-                          sx={{ fontSize: "1rem", color: C.text.disabled }}
+                          sx={{ color: C.text.disabled, fontSize: "1rem" }}
                         />
                       </InputAdornment>
                     ),
-                    inputProps: { min: 1, max: 10000 },
                   }}
                 />
 
-                {/* License Visual Meter */}
-                {formData.licenseLimit &&
-                  parseInt(formData.licenseLimit) <= 50 && (
-                    <Box sx={{ mt: -1 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min(
-                          (parseInt(formData.licenseLimit) / 50) * 100,
-                          100,
-                        )}
-                        sx={{ height: 4, borderRadius: 2, bgcolor: C.border }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: C.text.disabled,
-                          mt: 0.5,
-                          display: "block",
-                        }}
-                      >
-                        {parseInt(formData.licenseLimit) <= 10
-                          ? "Small Business Plan"
-                          : "Growing Business Plan"}
-                      </Typography>
-                    </Box>
-                  )}
-
-                {/* Contact Information */}
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 700, color: C.primary, mb: -1, mt: 1 }}
-                >
-                  Contact Information
-                </Typography>
-
-                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Phone Number *"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInput}
-                      onBlur={() => handleFieldBlur("phone")}
-                      size="small"
-                      fullWidth
-                      required
-                      placeholder="+1 (555) 000-0000"
-                      error={!!formErrors.phone && touchedFields.phone}
-                      helperText={touchedFields.phone && formErrors.phone}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <PhoneIcon
-                              sx={{ fontSize: "1rem", color: C.text.disabled }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Website (Optional)"
-                      name="website"
-                      value={formData.website}
-                      onChange={handleInput}
-                      onBlur={() => handleFieldBlur("website")}
-                      size="small"
-                      fullWidth
-                      placeholder="https://example.com"
-                      error={!!formErrors.website && touchedFields.website}
-                      helperText={touchedFields.website && formErrors.website}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <LanguageIcon
-                              sx={{ fontSize: "1rem", color: C.text.disabled }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                </Grid>
-
-                {/* Notes Section - Made Optional */}
+                {/* Phone */}
                 <TextField
-                  label="Additional Notes (Optional)"
+                  name="phone"
+                  label="Phone Number *"
+                  fullWidth
+                  required
+                  value={formData.phone}
+                  onChange={handleInput}
+                  onBlur={() => handleFieldBlur("phone")}
+                  error={!!formErrors.phone && touchedFields.phone}
+                  helperText={touchedFields.phone && formErrors.phone}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon
+                          sx={{ color: C.text.disabled, fontSize: "1rem" }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {/* Website */}
+                <TextField
+                  name="website"
+                  label="Website (Optional)"
+                  fullWidth
+                  value={formData.website}
+                  onChange={handleInput}
+                  onBlur={() => handleFieldBlur("website")}
+                  error={!!formErrors.website && touchedFields.website}
+                  helperText={touchedFields.website && formErrors.website}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LanguageIcon
+                          sx={{ color: C.text.disabled, fontSize: "1rem" }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {/* Notes */}
+                <TextField
                   name="notes"
+                  label="Notes (Optional)"
                   multiline
                   rows={3}
+                  fullWidth
                   value={formData.notes}
                   onChange={handleInput}
                   onBlur={() => handleFieldBlur("notes")}
-                  size="small"
-                  fullWidth
-                  placeholder="Any additional information you'd like to add..."
                   error={!!formErrors.notes && touchedFields.notes}
                   helperText={touchedFields.notes && formErrors.notes}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
                         <DescriptionIcon
-                          sx={{ fontSize: "1rem", color: C.text.disabled }}
+                          sx={{ color: C.text.disabled, fontSize: "1rem" }}
                         />
                       </InputAdornment>
                     ),
                   }}
                 />
-
-                {/* Validation Summary */}
-                {Object.keys(formErrors).length > 0 &&
-                  Object.values(formErrors).some((err) => err) && (
-                    <Alert
-                      severity="error"
-                      icon={<ErrorOutlineIcon />}
-                      sx={{ borderRadius: 2 }}
-                    >
-                      <Typography
-                        variant="subtitle2"
-                        fontWeight={700}
-                        gutterBottom
-                      >
-                        Please fix the following errors before submitting:
-                      </Typography>
-                      <ul style={{ margin: "8px 0 0 20px", padding: 0 }}>
-                        {Object.entries(formErrors).map(
-                          ([key, error]) =>
-                            error && (
-                              <li key={key} style={{ fontSize: "0.75rem" }}>
-                                {error}
-                              </li>
-                            ),
-                        )}
-                      </ul>
-                    </Alert>
-                  )}
-
-                {/* Action Buttons */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: { xs: "column", sm: "row" },
-                    justifyContent: "flex-end",
-                    gap: { xs: 1.5, sm: 2 },
-                    pt: { xs: 2, sm: 2.5 },
-                    mt: 1,
-                    borderTop: `1px solid ${C.border}`,
-                  }}
-                >
-                  <Button
-                    variant="outlined"
-                    onClick={() => setOpenModal(false)}
-                    disabled={actionLoading}
-                    fullWidth={isMobile}
-                    sx={{
-                      textTransform: "none",
-                      fontWeight: 500,
-                      px: 3,
-                      py: { xs: 0.75, sm: 1 },
-                      order: { xs: 2, sm: 1 },
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    disabled={actionLoading}
-                    onClick={handleSubmit}
-                    fullWidth={isMobile}
-                    sx={{
-                      bgcolor: C.primary,
-                      "&:hover": { bgcolor: C.primaryDark },
-                      textTransform: "none",
-                      fontWeight: 600,
-                      px: 3,
-                      py: { xs: 0.75, sm: 1 },
-                      order: { xs: 1, sm: 2 },
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    {actionLoading ? (
-                      <CircularProgress size={20} sx={{ color: "white" }} />
-                    ) : modalMode === "add" ? (
-                      <>
-                        <CheckIcon sx={{ mr: 0.5 }} /> Create Client
-                      </>
-                    ) : (
-                      "Save Changes"
-                    )}
-                  </Button>
-                </Box>
               </Stack>
+            </Box>
+
+            {/* Modal Footer */}
+            <Box
+              sx={{
+                p: { xs: 2, sm: 2.5, md: 3 },
+                borderTop: `1px solid ${C.border}`,
+                display: "flex",
+                gap: 2,
+                justifyContent: "flex-end",
+                flexShrink: 0,
+              }}
+            >
+              <Button
+                onClick={() => setOpenModal(false)}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 500,
+                  color: C.text.secondary,
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSubmit}
+                disabled={actionLoading}
+                sx={{
+                  bgcolor: C.primary,
+                  textTransform: "none",
+                  fontWeight: 600,
+                  "&:hover": { bgcolor: C.primaryDark },
+                }}
+              >
+                {actionLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : modalMode === "add" ? (
+                  "Create Client"
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
             </Box>
           </Box>
         </Fade>

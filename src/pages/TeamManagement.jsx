@@ -1,5 +1,13 @@
-// pages/admin/TeamManagement.js
-import React, { useState, useEffect, useRef } from "react";
+// pages/admin/TeamManagement.js - Redesigned: Clean Enterprise UI
+// Fixed: Removed duplicate TableCell imports, improved responsive layout
+
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Box,
   Container,
@@ -33,6 +41,10 @@ import {
   MenuItem,
   Badge,
   Divider,
+  alpha,
+  Grid,
+  useMediaQuery,
+  useTheme as useMuiTheme,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -45,6 +57,11 @@ import {
   FilterList as FilterIcon,
   Clear as ClearIcon,
   Sort as SortIcon,
+  PersonAddOutlined,
+  MoreVert,
+  CheckCircle as CheckCircleIcon,
+  Pending as PendingIcon,
+  HomeWork as WorkIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useTeam } from "../context/TeamContext";
@@ -52,52 +69,174 @@ import AddMemberModal from "./AddMemberModal";
 import EditMemberModal from "./EditMemberModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 
-// ─── Palette ────────────────────────────────────────────────────────────────
+// ─── Google Fonts injection ───────────────────────────────────────────────────
+const FONT_LINK = document.createElement("link");
+FONT_LINK.rel = "stylesheet";
+FONT_LINK.href =
+  "https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap";
+if (!document.head.querySelector('[href*="Inter"]')) {
+  document.head.appendChild(FONT_LINK);
+}
+
+// ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
   primary: "#0d4a5c",
   primaryDark: "#0a3a49",
-  primaryLight: "#e8f2f5",
-  success: "#2e7d32",
-  successBg: "#e8f5e9",
-  warning: "#b45309",
-  warningBg: "#fef3c7",
-  error: "#d32f2f",
-  errorBg: "#ffebea",
-  surface: "#f1f4f8",
-  card: "#ffffff",
-  border: "#e2e8f0",
-  text: { primary: "#1e293b", secondary: "#64748b", disabled: "#94a3b8" },
+  primaryLight: "#eff6ff",
+  primaryBg: alpha("#0a3a49", 0.08),
+  success: "#10b981",
+  successBg: "#ecfdf5",
+  warning: "#f59e0b",
+  warningBg: "#fffbeb",
+  error: "#ef4444",
+  errorBg: "#fef2f2",
+  info: "#8b5cf6",
+  infoBg: "#f5f3ff",
+  surface: "#ffffff",
+  bg: "#f9fafb",
+  border: "#e5e7eb",
+  borderLight: "#f3f4f6",
+  text: {
+    primary: "#111827",
+    secondary: "#6b7280",
+    muted: "#9ca3af",
+    disabled: "#d1d5db",
+  },
 };
 
 // ─── Role options ──────────────────────────────────────────────────────────
-const ROLE_OPTIONS = ["Inspector", "Senior Inspector", "Supervisor", "Manager", "Admin"];
+const ROLE_OPTIONS = [
+  "Inspector",
+  "Senior Inspector",
+  "Supervisor",
+  "Manager",
+  "Admin",
+];
 const STATUS_OPTIONS = ["active", "inactive", "onLeave"];
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
 const getStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
     case "active":
-      return { bg: C.primary, color: "#fff", label: "Active" };
+      return {
+        bg: C.successBg,
+        color: C.success,
+        label: "Active",
+        icon: CheckCircleIcon,
+      };
     case "inactive":
-      return { bg: C.errorBg, color: C.error, label: "Inactive" };
+      return {
+        bg: C.border,
+        color: C.text.muted,
+        label: "Inactive",
+        icon: CloseIcon,
+      };
     case "onleave":
     case "on leave":
-      return { bg: "#dbeafe", color: "#1d4ed8", label: "On Leave" };
+      return { bg: C.infoBg, color: C.info, label: "On Leave", icon: WorkIcon };
     default:
-      return { bg: C.border, color: C.text.disabled, label: status || "—" };
+      return {
+        bg: C.border,
+        color: C.text.muted,
+        label: status || "—",
+        icon: null,
+      };
   }
 };
 
 const getPerformanceColor = (score) => {
-  if (score >= 80) return C.primary;
-  if (score >= 60) return "#0891b2";
+  if (score >= 80) return C.success;
+  if (score >= 60) return C.primary;
   if (score >= 40) return C.warning;
   return C.error;
 };
 
+// ─── Stat Card Component ─────────────────────────────────────────────────────
+function StatCard({ title, value, icon: Icon, color, trend, trendValue }) {
+  return (
+    <Card
+      elevation={0}
+      sx={{
+        borderRadius: "14px",
+        width:"282px",
+        border: `1px solid ${C.border}`,
+        transition: "all 0.2s",
+        "&:hover": {
+          borderColor: color,
+          boxShadow: `0 4px 12px ${alpha(color, 0.1)}`,
+        },
+      }}
+    >
+      <CardContent sx={{ p: 2.5 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1.5,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              color: C.text.secondary,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+            }}
+          >
+            {title}
+          </Typography>
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: "10px",
+              bgcolor: alpha(color, 0.1),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon sx={{ fontSize: 16, color }} />
+          </Box>
+        </Box>
+        <Typography
+          sx={{
+            fontSize: "1.75rem",
+            fontWeight: 700,
+            color: C.text.primary,
+            lineHeight: 1.2,
+            mb: 0.5,
+          }}
+        >
+          {value?.toLocaleString() ?? 0}
+        </Typography>
+        {trend && (
+          <Typography
+            sx={{
+              fontSize: "0.7rem",
+              color: trend > 0 ? C.success : C.error,
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+            }}
+          >
+            {trend > 0 ? "↑" : "↓"} {Math.abs(trend)}% from last month
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Filter Bar Component ───────────────────────────────────────────────────
-function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount }) {
+function FilterBar({
+  filters,
+  onFilterChange,
+  onClearFilters,
+  activeFilterCount,
+}) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [localFilters, setLocalFilters] = useState(filters);
 
@@ -106,9 +245,7 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
     setLocalFilters(filters);
   };
 
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
+  const handleClose = () => setAnchorEl(null);
 
   const handleApply = () => {
     onFilterChange(localFilters);
@@ -116,7 +253,12 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
   };
 
   const handleReset = () => {
-    const resetFilters = { role: "", status: "", performanceMin: "", performanceMax: "" };
+    const resetFilters = {
+      role: "",
+      status: "",
+      performanceMin: "",
+      performanceMax: "",
+    };
     setLocalFilters(resetFilters);
     onFilterChange(resetFilters);
     handleClose();
@@ -127,24 +269,36 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
       <Button
         variant={activeFilterCount > 0 ? "contained" : "outlined"}
         startIcon={
-          <Badge badgeContent={activeFilterCount} color="primary" sx={{ "& .MuiBadge-badge": { fontSize: "0.7rem", height: 18, minWidth: 18 } }}>
-            <FilterIcon sx={{ fontSize: "1.1rem" }} />
+          <Badge
+            badgeContent={activeFilterCount}
+            color="primary"
+            sx={{
+              "& .MuiBadge-badge": {
+                fontSize: "0.6rem",
+                height: 16,
+                minWidth: 16,
+              },
+            }}
+          >
+            <FilterIcon sx={{ fontSize: 18 }} />
           </Badge>
         }
         onClick={handleOpen}
         sx={{
           textTransform: "none",
           fontSize: "0.85rem",
-          borderRadius: 2,
+          fontWeight: 500,
+          borderRadius: "10px",
           borderColor: C.border,
           color: activeFilterCount > 0 ? "#fff" : C.text.primary,
           bgcolor: activeFilterCount > 0 ? C.primary : "transparent",
           "&:hover": {
-            bgcolor: activeFilterCount > 0 ? C.primaryDark : C.surface,
+            bgcolor:
+              activeFilterCount > 0 ? C.primaryDark : alpha(C.primary, 0.05),
             borderColor: C.primary,
           },
-          px: 1.5,
-          py: 0.8,
+          px: 2,
+          py: 0.75,
         }}
       >
         Filters
@@ -157,10 +311,23 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         PaperProps={{
-          sx: { width: 280, p: 2, borderRadius: 2, mt: 1, border: `1px solid ${C.border}` },
+          sx: {
+            width: 280,
+            p: 2.5,
+            borderRadius: "14px",
+            mt: 1,
+            border: `1px solid ${C.border}`,
+          },
         }}
       >
-        <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", mb: 2 }}>
+        <Typography
+          sx={{
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            mb: 2,
+            color: C.text.primary,
+          }}
+        >
           Filter Team Members
         </Typography>
 
@@ -169,12 +336,18 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
           <Select
             value={localFilters.role}
             label="Role"
-            onChange={(e) => setLocalFilters({ ...localFilters, role: e.target.value })}
-            sx={{ fontSize: "0.85rem" }}
+            onChange={(e) =>
+              setLocalFilters({ ...localFilters, role: e.target.value })
+            }
+            sx={{ fontSize: "0.85rem", borderRadius: "8px" }}
           >
-            <MenuItem value="" sx={{ fontSize: "0.85rem" }}>All Roles</MenuItem>
-            {ROLE_OPTIONS.map(role => (
-              <MenuItem key={role} value={role} sx={{ fontSize: "0.85rem" }}>{role}</MenuItem>
+            <MenuItem value="" sx={{ fontSize: "0.85rem" }}>
+              All Roles
+            </MenuItem>
+            {ROLE_OPTIONS.map((role) => (
+              <MenuItem key={role} value={role} sx={{ fontSize: "0.85rem" }}>
+                {role}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -184,13 +357,25 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
           <Select
             value={localFilters.status}
             label="Status"
-            onChange={(e) => setLocalFilters({ ...localFilters, status: e.target.value })}
-            sx={{ fontSize: "0.85rem" }}
+            onChange={(e) =>
+              setLocalFilters({ ...localFilters, status: e.target.value })
+            }
+            sx={{ fontSize: "0.85rem", borderRadius: "8px" }}
           >
-            <MenuItem value="" sx={{ fontSize: "0.85rem" }}>All Statuses</MenuItem>
-            {STATUS_OPTIONS.map(status => (
-              <MenuItem key={status} value={status} sx={{ fontSize: "0.85rem" }}>
-                {status === "active" ? "Active" : status === "inactive" ? "Inactive" : "On Leave"}
+            <MenuItem value="" sx={{ fontSize: "0.85rem" }}>
+              All Statuses
+            </MenuItem>
+            {STATUS_OPTIONS.map((status) => (
+              <MenuItem
+                key={status}
+                value={status}
+                sx={{ fontSize: "0.85rem" }}
+              >
+                {status === "active"
+                  ? "Active"
+                  : status === "inactive"
+                    ? "Inactive"
+                    : "On Leave"}
               </MenuItem>
             ))}
           </Select>
@@ -202,8 +387,15 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
           type="number"
           label="Min Performance (%)"
           value={localFilters.performanceMin}
-          onChange={(e) => setLocalFilters({ ...localFilters, performanceMin: e.target.value })}
-          sx={{ mb: 2, "& input": { fontSize: "0.85rem" }, "& label": { fontSize: "0.8rem" } }}
+          onChange={(e) =>
+            setLocalFilters({ ...localFilters, performanceMin: e.target.value })
+          }
+          sx={{
+            mb: 2,
+            "& input": { fontSize: "0.85rem" },
+            "& label": { fontSize: "0.8rem" },
+          }}
+          InputProps={{ inputProps: { min: 0, max: 100 } }}
         />
 
         <TextField
@@ -212,17 +404,28 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
           type="number"
           label="Max Performance (%)"
           value={localFilters.performanceMax}
-          onChange={(e) => setLocalFilters({ ...localFilters, performanceMax: e.target.value })}
-          sx={{ mb: 2, "& input": { fontSize: "0.85rem" }, "& label": { fontSize: "0.8rem" } }}
+          onChange={(e) =>
+            setLocalFilters({ ...localFilters, performanceMax: e.target.value })
+          }
+          sx={{
+            mb: 2,
+            "& input": { fontSize: "0.85rem" },
+            "& label": { fontSize: "0.8rem" },
+          }}
+          InputProps={{ inputProps: { min: 0, max: 100 } }}
         />
 
-        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Stack direction="row" spacing={1.5} sx={{ mt: 1 }}>
           <Button
             variant="outlined"
             onClick={handleReset}
             fullWidth
-            startIcon={<ClearIcon sx={{ fontSize: "1rem" }} />}
-            sx={{ textTransform: "none", fontSize: "0.8rem", borderRadius: 1.5 }}
+            startIcon={<ClearIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              textTransform: "none",
+              fontSize: "0.8rem",
+              borderRadius: "8px",
+            }}
           >
             Reset
           </Button>
@@ -230,7 +433,12 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
             variant="contained"
             onClick={handleApply}
             fullWidth
-            sx={{ textTransform: "none", fontSize: "0.8rem", borderRadius: 1.5, bgcolor: C.primary }}
+            sx={{
+              textTransform: "none",
+              fontSize: "0.8rem",
+              borderRadius: "8px",
+              bgcolor: C.primary,
+            }}
           >
             Apply
           </Button>
@@ -240,9 +448,402 @@ function FilterBar({ filters, onFilterChange, onClearFilters, activeFilterCount 
   );
 }
 
+// ─── Member Row Component ─────────────────────────────────────────────────────
+function MemberRow({ member, onView, onEdit, onDelete }) {
+  const statusStyle = getStatusStyle(member.status);
+  const perfColor = getPerformanceColor(member.performanceScore);
+  const StatusIcon = statusStyle.icon;
+
+  return (
+    <TableRow
+      hover
+      sx={{
+        "&:hover": { bgcolor: alpha(C.primary, 0.02) },
+        transition: "background 0.15s",
+      }}
+    >
+      {/* Member Info */}
+      <TableCell sx={{ py: 1.8, pl: 2.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Avatar
+            sx={{
+              width: 42,
+              height: 42,
+              bgcolor: C.primaryBg,
+              color: C.primary,
+              fontWeight: 600,
+              fontSize: "0.9rem",
+            }}
+          >
+            {member.initials || member.name?.charAt(0)?.toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                color: C.text.primary,
+              }}
+            >
+              {member.name}
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", color: C.text.secondary }}>
+              {member.email}
+            </Typography>
+          </Box>
+        </Box>
+      </TableCell>
+
+      {/* Role */}
+      <TableCell>
+        <Chip
+          label={member.role}
+          size="small"
+          sx={{
+            bgcolor: alpha(C.primary, 0.08),
+            color: C.primary,
+            fontWeight: 500,
+            fontSize: "0.75rem",
+            height: 24,
+            borderRadius: "6px",
+          }}
+        />
+      </TableCell>
+
+      {/* Assigned */}
+      <TableCell>
+        <Typography
+          sx={{ fontSize: "0.85rem", fontWeight: 500, color: C.text.primary }}
+        >
+          {member.assigned ?? "—"}
+        </Typography>
+      </TableCell>
+
+      {/* Completed */}
+      <TableCell>
+        <Typography
+          sx={{ fontSize: "0.85rem", fontWeight: 500, color: C.text.primary }}
+        >
+          {member.completed ?? "—"}
+        </Typography>
+      </TableCell>
+
+      {/* Performance */}
+      <TableCell>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            minWidth: 110,
+          }}
+        >
+          <LinearProgress
+            variant="determinate"
+            value={member.performanceScore ?? 0}
+            sx={{
+              flex: 1,
+              height: 5,
+              borderRadius: 3,
+              bgcolor: C.border,
+              "& .MuiLinearProgress-bar": {
+                bgcolor: perfColor,
+                borderRadius: 3,
+              },
+            }}
+          />
+          <Typography
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.8rem",
+              color: perfColor,
+              minWidth: 35,
+            }}
+          >
+            {member.performanceScore ?? 0}%
+          </Typography>
+        </Box>
+      </TableCell>
+
+      {/* Status */}
+      <TableCell>
+        <Chip
+          label={statusStyle.label}
+          size="small"
+          icon={StatusIcon ? <StatusIcon sx={{ fontSize: 12 }} /> : undefined}
+          sx={{
+            bgcolor: statusStyle.bg,
+            color: statusStyle.color,
+            fontWeight: 500,
+            fontSize: "0.7rem",
+            height: 26,
+            borderRadius: "6px",
+            "& .MuiChip-icon": { fontSize: 12, color: statusStyle.color },
+          }}
+        />
+      </TableCell>
+
+      {/* Actions */}
+      <TableCell align="center" sx={{ pr: 2.5 }}>
+        <Stack direction="row" spacing={1} justifyContent="center">
+          <Tooltip title="View Details" arrow>
+            <IconButton
+              size="small"
+              onClick={() => onView(member)}
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "8px",
+                color: C.text.secondary,
+                "&:hover": {
+                  bgcolor: alpha(C.primary, 0.08),
+                  color: C.primary,
+                },
+              }}
+            >
+              <VisibilityIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit Member" arrow>
+            <IconButton
+              size="small"
+              onClick={() => onEdit(member)}
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "8px",
+                color: C.text.secondary,
+                "&:hover": {
+                  bgcolor: alpha(C.primary, 0.08),
+                  color: C.primary,
+                },
+              }}
+            >
+              <EditIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Member" arrow>
+            <IconButton
+              size="small"
+              onClick={() => onDelete(member)}
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "8px",
+                color: C.text.secondary,
+                "&:hover": { bgcolor: alpha(C.error, 0.08), color: C.error },
+              }}
+            >
+              <DeleteIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ─── Mobile Card Component ────────────────────────────────────────────────────
+function MobileMemberCard({ member, onView, onEdit, onDelete }) {
+  const statusStyle = getStatusStyle(member.status);
+  const perfColor = getPerformanceColor(member.performanceScore);
+  const StatusIcon = statusStyle.icon;
+
+  return (
+    <Paper
+      sx={{
+        p: 2,
+        mb: 1.5,
+        borderRadius: "14px",
+        border: `1px solid ${C.border}`,
+        borderLeft: `3px solid ${perfColor}`,
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          mb: 1.5,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Avatar
+            sx={{
+              width: 44,
+              height: 44,
+              bgcolor: C.primaryBg,
+              color: C.primary,
+              fontWeight: 600,
+            }}
+          >
+            {member.initials || member.name?.charAt(0)?.toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                color: C.text.primary,
+              }}
+            >
+              {member.name}
+            </Typography>
+            <Typography sx={{ fontSize: "0.7rem", color: C.text.secondary }}>
+              {member.email}
+            </Typography>
+          </Box>
+        </Box>
+        <Stack direction="row" spacing={0.5}>
+          <IconButton
+            size="small"
+            onClick={() => onView(member)}
+            sx={{ color: C.text.secondary }}
+          >
+            <VisibilityIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => onEdit(member)}
+            sx={{ color: C.text.secondary }}
+          >
+            <EditIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => onDelete(member)}
+            sx={{ color: C.error }}
+          >
+            <DeleteIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Stack>
+      </Box>
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 1.5,
+          mb: 1.5,
+        }}
+      >
+        <Box>
+          <Typography
+            sx={{
+              fontSize: "0.6rem",
+              fontWeight: 600,
+              color: C.text.muted,
+              textTransform: "uppercase",
+              mb: 0.3,
+            }}
+          >
+            Role
+          </Typography>
+          <Chip
+            label={member.role}
+            size="small"
+            sx={{
+              bgcolor: alpha(C.primary, 0.08),
+              color: C.primary,
+              fontSize: "0.7rem",
+            }}
+          />
+        </Box>
+        <Box>
+          <Typography
+            sx={{
+              fontSize: "0.6rem",
+              fontWeight: 600,
+              color: C.text.muted,
+              textTransform: "uppercase",
+              mb: 0.3,
+            }}
+          >
+            Status
+          </Typography>
+          <Chip
+            label={statusStyle.label}
+            size="small"
+            icon={StatusIcon ? <StatusIcon sx={{ fontSize: 12 }} /> : undefined}
+            sx={{ bgcolor: statusStyle.bg, color: statusStyle.color }}
+          />
+        </Box>
+        <Box>
+          <Typography
+            sx={{
+              fontSize: "0.6rem",
+              fontWeight: 600,
+              color: C.text.muted,
+              textTransform: "uppercase",
+              mb: 0.3,
+            }}
+          >
+            Assigned
+          </Typography>
+          <Typography sx={{ fontSize: "0.85rem", fontWeight: 500 }}>
+            {member.assigned ?? "—"}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            sx={{
+              fontSize: "0.6rem",
+              fontWeight: 600,
+              color: C.text.muted,
+              textTransform: "uppercase",
+              mb: 0.3,
+            }}
+          >
+            Completed
+          </Typography>
+          <Typography sx={{ fontSize: "0.85rem", fontWeight: 500 }}>
+            {member.completed ?? "—"}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Divider sx={{ my: 1 }} />
+
+      <Box sx={{ mt: 1 }}>
+        <Typography
+          sx={{
+            fontSize: "0.6rem",
+            fontWeight: 600,
+            color: C.text.muted,
+            textTransform: "uppercase",
+            mb: 0.8,
+          }}
+        >
+          Performance
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <LinearProgress
+            variant="determinate"
+            value={member.performanceScore ?? 0}
+            sx={{
+              flex: 1,
+              height: 6,
+              borderRadius: 3,
+              bgcolor: C.border,
+              "& .MuiLinearProgress-bar": { bgcolor: perfColor },
+            }}
+          />
+          <Typography
+            sx={{ fontWeight: 600, fontSize: "0.8rem", color: perfColor }}
+          >
+            {member.performanceScore ?? 0}%
+          </Typography>
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function TeamManagement() {
   const navigate = useNavigate();
+  const muiTheme = useMuiTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
 
   const {
     teamMembers,
@@ -257,18 +858,25 @@ export default function TeamManagement() {
     updateTeamMember,
     deleteTeamMember,
     updateFilters,
-    changePage,
     clearError,
   } = useTeam();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState({ role: "", status: "", performanceMin: "", performanceMax: "" });
-  const searchRef = useRef(null);
+  const [filters, setFilters] = useState({
+    role: "",
+    status: "",
+    performanceMin: "",
+    performanceMax: "",
+  });
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [toast, setToast] = useState({ open: false, message: "", severity: "success" });
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -284,35 +892,42 @@ export default function TeamManagement() {
 
   // Apply filters and search
   useEffect(() => {
-    const combinedFilters = {
-      search: searchTerm,
-      role: filters.role,
-      status: filters.status,
-      performanceMin: filters.performanceMin,
-      performanceMax: filters.performanceMax,
-      page: currentPage + 1,
-      limit: rowsPerPage,
-    };
-    updateFilters(combinedFilters);
-  }, [searchTerm, filters, currentPage, rowsPerPage]);
+    const debounceTimer = setTimeout(() => {
+      const combinedFilters = {
+        search: searchTerm,
+        role: filters.role,
+        status: filters.status,
+        performanceMin: filters.performanceMin,
+        performanceMax: filters.performanceMax,
+        page: currentPage + 1,
+        limit: rowsPerPage,
+      };
+      updateFilters(combinedFilters);
+    }, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, filters, currentPage, rowsPerPage, updateFilters]);
 
   // Count active filters
-  const activeFilterCount = Object.values(filters).filter(v => v !== "" && v !== null && v !== undefined).length;
+  const activeFilterCount = Object.values(filters).filter(
+    (v) => v !== "" && v !== null && v !== undefined,
+  ).length;
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
-    setCurrentPage(0); // Reset to first page when filters change
-  };
-
-  const handleClearFilters = () => {
-    setFilters({ role: "", status: "", performanceMin: "", performanceMax: "" });
     setCurrentPage(0);
   };
 
-  const handleChangePage = (event, newPage) => {
-    setCurrentPage(newPage);
+  const handleClearFilters = () => {
+    setFilters({
+      role: "",
+      status: "",
+      performanceMin: "",
+      performanceMax: "",
+    });
+    setCurrentPage(0);
   };
 
+  const handleChangePage = (event, newPage) => setCurrentPage(newPage);
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setCurrentPage(0);
@@ -320,37 +935,110 @@ export default function TeamManagement() {
 
   const handleAddMember = async (formData) => {
     const result = await addTeamMember(formData);
-    if (result.success) { showToast(result.message); setAddModalOpen(false); }
-    else showToast(result.error, "error");
+    if (result.success) {
+      showToast(result.message);
+      setAddModalOpen(false);
+    } else showToast(result.error, "error");
     return result;
   };
 
   const handleEditMember = async (memberId, updateData) => {
     const result = await updateTeamMember(memberId, updateData);
-    if (result.success) { showToast(result.message); setEditModalOpen(false); setSelectedMember(null); }
-    else showToast(result.error, "error");
+    if (result.success) {
+      showToast(result.message);
+      setEditModalOpen(false);
+      setSelectedMember(null);
+    } else showToast(result.error, "error");
     return result;
   };
 
   const handleDeleteMember = async () => {
     if (!selectedMember) return;
     const result = await deleteTeamMember(selectedMember.id, true);
-    if (result.success) { showToast(result.message); setDeleteModalOpen(false); setSelectedMember(null); }
-    else showToast(result.error, "error");
+    if (result.success) {
+      showToast(result.message);
+      setDeleteModalOpen(false);
+      setSelectedMember(null);
+    } else showToast(result.error, "error");
     return result;
   };
 
-  return (
-    <Box sx={{ minHeight: "100vh", p: { xs: 2, md: 3 } }}>
-      <Container maxWidth="xl" disableGutters>
+  const handleViewMember = (member) =>
+    navigate(`/admin/team-details/${member.id}`);
+  const handleEditClick = (member) => {
+    setSelectedMember(member);
+    setEditModalOpen(true);
+  };
+  const handleDeleteClick = (member) => {
+    setSelectedMember(member);
+    setDeleteModalOpen(true);
+  };
 
-        {/* ── Header ── */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3.5 }}>
+  // Stats cards data
+  const statCards = [
+    {
+      title: "Total Members",
+      value: teamStats?.total || teamMembers.length,
+      icon: PersonAddOutlined,
+      color: C.primary,
+    },
+    {
+      title: "Active Members",
+      value:
+        teamStats?.active ||
+        teamMembers.filter((m) => m.status === "active").length,
+      icon: CheckCircleIcon,
+      color: C.success,
+    },
+    {
+      title: "On Leave",
+      value:
+        teamStats?.onLeave ||
+        teamMembers.filter((m) => m.status === "onLeave").length,
+      icon: WorkIcon,
+      color: C.warning,
+    },
+    {
+      title: "Avg Performance",
+      value: teamStats?.avgPerformance || "—",
+      icon: BarChartIcon,
+      color: C.info,
+    },
+  ];
+
+  return (
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: C.bg,
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 3.5 } }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", sm: "center" },
+            flexDirection: { xs: "column", sm: "row" },
+            gap: 2,
+            mb: 3,
+          }}
+        >
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: C.text.primary, mb: 0.5, fontSize: "1.6rem" }}>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                color: C.text.primary,
+                letterSpacing: "-0.02em",
+                mb: 0.5,
+              }}
+            >
               Team Management
             </Typography>
-            <Typography variant="body2" sx={{ color: C.text.secondary, fontSize: "0.88rem" }}>
+            <Typography sx={{ color: C.text.secondary, fontSize: "0.85rem" }}>
               Manage your inspection team and track performance
             </Typography>
           </Box>
@@ -361,27 +1049,47 @@ export default function TeamManagement() {
             sx={{
               bgcolor: C.primary,
               "&:hover": { bgcolor: C.primaryDark },
-              borderRadius: 2,
+              borderRadius: "10px",
               textTransform: "none",
               fontWeight: 600,
               fontSize: "0.8rem",
               px: 2.5,
-              py: 1,
+              py: 0.8,
             }}
           >
             Add Team Member
           </Button>
         </Box>
 
-        {/* ── Search and Filter Bar ── */}
+        {/* Stats Cards */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {statCards.map((card, idx) => (
+            <Grid item xs={6} sm={3} key={idx}>
+              <StatCard {...card} />
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Search and Filter Bar */}
         <Paper
           elevation={0}
-          sx={{ borderRadius: 3, border: `1px solid ${C.border}`, mb: 2.5, p: 1.5 }}
+          sx={{
+            borderRadius: "14px",
+            border: `1px solid ${C.border}`,
+            mb: 2.5,
+            p: 1.5,
+          }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1.5}
+            alignItems="center"
+            flexWrap="wrap"
+            sx={{ gap: { xs: 1, sm: 1.5 } }}
+          >
             <TextField
               fullWidth
-              placeholder="Search team members by name, email, or role..."
+              placeholder="Search by name, email, or role..."
               variant="standard"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -389,18 +1097,24 @@ export default function TeamManagement() {
                 disableUnderline: true,
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ color: C.text.disabled, fontSize: "1.2rem", mr: 0.5 }} />
+                    <SearchIcon sx={{ color: C.text.muted, fontSize: 20 }} />
                   </InputAdornment>
                 ),
                 endAdornment: searchTerm && (
                   <InputAdornment position="end">
                     <IconButton size="small" onClick={() => setSearchTerm("")}>
-                      <CloseIcon sx={{ fontSize: "1rem" }} />
+                      <CloseIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </InputAdornment>
                 ),
-                sx: { fontSize: "0.9rem", color: C.text.primary, py: 0.8 },
+                sx: {
+                  fontSize: "0.9rem",
+                  color: C.text.primary,
+                  py: 0.8,
+                  px: 1,
+                },
               }}
+              sx={{ flex: 2, minWidth: 200 }}
             />
             <FilterBar
               filters={filters}
@@ -411,12 +1125,18 @@ export default function TeamManagement() {
             {(searchTerm || activeFilterCount > 0) && (
               <Button
                 variant="text"
-                startIcon={<ClearIcon />}
+                startIcon={<ClearIcon sx={{ fontSize: 16 }} />}
                 onClick={() => {
                   setSearchTerm("");
                   handleClearFilters();
                 }}
-                sx={{ textTransform: "none", fontSize: "0.8rem", color: C.text.secondary, whiteSpace: "nowrap" }}
+                sx={{
+                  textTransform: "none",
+                  fontSize: "0.8rem",
+                  color: C.text.secondary,
+                  whiteSpace: "nowrap",
+                  "&:hover": { color: C.error },
+                }}
               >
                 Clear All
               </Button>
@@ -424,302 +1144,156 @@ export default function TeamManagement() {
           </Stack>
         </Paper>
 
-        {/* ── Error ── */}
+        {/* Error Alert */}
         {error && (
-          <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2, fontSize: "0.85rem" }}>
+          <Alert
+            severity="error"
+            onClose={clearError}
+            sx={{ mb: 2, borderRadius: "10px", fontSize: "0.8rem" }}
+          >
             {error}
           </Alert>
         )}
 
-        {/* ── Body: Table + Chart ── */}
+        {/* Content */}
         {loading && !teamMembers.length ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
             <CircularProgress sx={{ color: C.primary }} />
           </Box>
         ) : teamMembers.length === 0 ? (
-          <Paper sx={{ textAlign: "center", py: 8, borderRadius: 3 }}>
-            <Typography sx={{ color: C.text.secondary, fontSize: "0.95rem" }}>
+          <Paper
+            sx={{
+              textAlign: "center",
+              py: 8,
+              borderRadius: "14px",
+              border: `1px solid ${C.border}`,
+            }}
+          >
+            <PersonAddOutlined
+              sx={{ fontSize: 48, color: C.text.muted, mb: 1.5 }}
+            />
+            <Typography sx={{ color: C.text.secondary, fontSize: "0.9rem" }}>
               No team members found
             </Typography>
-            <Button onClick={() => setAddModalOpen(true)} sx={{ mt: 2, fontSize: "0.85rem" }}>
+            <Button
+              onClick={() => setAddModalOpen(true)}
+              sx={{ mt: 2, fontSize: "0.8rem" }}
+            >
               Add your first team member
             </Button>
           </Paper>
-        ) : (
-          <Box sx={{ display: "flex", gap: 2.5, alignItems: "flex-start" }}>
-
-            {/* ── Table ── */}
-            <Paper
-              elevation={0}
-              sx={{
-                flex: 1,
-                borderRadius: 3,
-                border: `1px solid ${C.border}`,
-                overflow: "hidden",
-                minWidth: 0,
-              }}
-            >
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: C.surface }}>
-                      {["Member", "Role", "Assigned", "Completed", "Performance", "Status", "Actions"].map((h) => (
-                        <TableCell
-                          key={h}
-                          align={h === "Actions" ? "center" : "left"}
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: "0.88rem",
-                            color: C.text.secondary,
-                            py: 1.8,
-                            borderBottom: `1px solid ${C.border}`,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {h}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-
-                  <TableBody>
-                    {teamMembers.map((member, idx) => {
-                      const statusStyle = getStatusStyle(member.status);
-                      const perfColor = getPerformanceColor(member.performanceScore);
-
-                      return (
-                        <TableRow
-                          key={member.id}
-                          hover
-                          sx={{
-                            "&:last-child td": { border: 0 },
-                            "& td": { borderBottom: `1px solid ${C.border}` },
-                            "&:hover": { bgcolor: "#f8fafc" },
-                          }}
-                        >
-                          {/* Member */}
-                          <TableCell sx={{ py: 1.8 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                              <Avatar
-                                sx={{
-                                  width: 40,
-                                  height: 40,
-                                  bgcolor: C.primaryLight,
-                                  color: C.primary,
-                                  fontWeight: 700,
-                                  fontSize: "0.9rem",
-                                }}
-                              >
-                                {member.initials}
-                              </Avatar>
-                              <Box>
-                                <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: C.text.primary }}>
-                                  {member.name}
-                                </Typography>
-                                <Typography sx={{ fontSize: "0.82rem", color: C.text.secondary }}>
-                                  {member.email}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </TableCell>
-
-                          {/* Role */}
-                          <TableCell sx={{ fontSize: "0.92rem", color: C.text.primary, py: 1.8 }}>
-                            {member.role}
-                          </TableCell>
-
-                          {/* Assigned */}
-                          <TableCell sx={{ fontSize: "0.92rem", color: C.text.primary, py: 1.8 }}>
-                            {member.assigned ?? "—"}
-                          </TableCell>
-
-                          {/* Completed */}
-                          <TableCell sx={{ fontSize: "0.92rem", color: C.text.primary, py: 1.8 }}>
-                            {member.completed ?? "—"}
-                          </TableCell>
-
-                          {/* Performance */}
-                          <TableCell sx={{ py: 1.8 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                              <Box sx={{ width: 80, position: "relative" }}>
-                                <LinearProgress
-                                  variant="determinate"
-                                  value={member.performanceScore ?? 0}
-                                  sx={{
-                                    height: 6,
-                                    borderRadius: 3,
-                                    bgcolor: C.border,
-                                    "& .MuiLinearProgress-bar": {
-                                      bgcolor: C.primary,
-                                      borderRadius: 3,
-                                    },
-                                  }}
-                                />
-                              </Box>
-                              <Typography
-                                sx={{ fontWeight: 600, fontSize: "0.9rem", color: perfColor }}
-                              >
-                                {member.performanceScore}%
-                              </Typography>
-                            </Box>
-                          </TableCell>
-
-                          {/* Status */}
-                          <TableCell sx={{ py: 1.8 }}>
-                            <Chip
-                              label={statusStyle.label}
-                              size="small"
-                              sx={{
-                                bgcolor: statusStyle.bg,
-                                color: statusStyle.color,
-                                fontWeight: 600,
-                                fontSize: "0.78rem",
-                                height: 26,
-                                borderRadius: 1.5,
-                              }}
-                            />
-                          </TableCell>
-
-                          {/* Actions */}
-                          <TableCell align="center" sx={{ py: 1.8 }}>
-                            <Stack direction="row" spacing={0.8} justifyContent="center">
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => navigate(`/admin/team-details/${member.id}`)}
-                                sx={{
-                                  fontSize: "0.8rem",
-                                  textTransform: "none",
-                                  borderColor: C.border,
-                                  color: C.text.primary,
-                                  borderRadius: 1.5,
-                                  py: 0.5,
-                                  px: 1.8,
-                                  minWidth: 0,
-                                  "&:hover": { borderColor: C.primary, color: C.primary },
-                                }}
-                              >
-                                View
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => { setSelectedMember(member); setEditModalOpen(true); }}
-                                sx={{
-                                  fontSize: "0.8rem",
-                                  textTransform: "none",
-                                  borderColor: C.border,
-                                  color: C.text.primary,
-                                  borderRadius: 1.5,
-                                  py: 0.5,
-                                  px: 1.8,
-                                  minWidth: 0,
-                                  "&:hover": { borderColor: C.primary, color: C.primary },
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <IconButton
-                                size="small"
-                                onClick={() => { setSelectedMember(member); setDeleteModalOpen(true); }}
-                                sx={{ color: C.text.disabled, "&:hover": { color: C.error } }}
-                              >
-                                <DeleteIcon sx={{ fontSize: "1rem" }} />
-                              </IconButton>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* Enhanced Pagination */}
-              <Box sx={{ borderTop: `1px solid ${C.border}`, py: 1, px: 2, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography sx={{ fontSize: "0.8rem", color: C.text.secondary }}>
-                    Rows per page:
-                  </Typography>
-                  <Select
-                    value={rowsPerPage}
-                    onChange={handleChangeRowsPerPage}
-                    size="small"
-                    sx={{
-                      fontSize: "0.8rem",
-                      minWidth: 60,
-                      "& .MuiSelect-select": { py: 0.5 },
-                    }}
-                  >
-                    {[5, 10, 20, 50].map(option => (
-                      <MenuItem key={option} value={option} sx={{ fontSize: "0.8rem" }}>{option}</MenuItem>
-                    ))}
-                  </Select>
-                </Box>
-
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Typography sx={{ fontSize: "0.8rem", color: C.text.secondary }}>
-                    Showing {teamMembers.length > 0 ? currentPage * rowsPerPage + 1 : 0} - {Math.min((currentPage + 1) * rowsPerPage, pagination.total)} of {pagination.total}
-                  </Typography>
-                  <Stack direction="row" spacing={0.5}>
-                    <IconButton
-                      size="small"
-                      disabled={currentPage === 0}
-                      onClick={() => handleChangePage(null, currentPage - 1)}
-                      sx={{ color: C.text.secondary }}
-                    >
-                      ←
-                    </IconButton>
-                    {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                      let pageNum;
-                      if (pagination.pages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage < 2) {
-                        pageNum = i + 1;
-                      } else if (currentPage > pagination.pages - 3) {
-                        pageNum = pagination.pages - 4 + i;
-                      } else {
-                        pageNum = currentPage + i - 1;
-                      }
-                      if (pageNum >= 1 && pageNum <= pagination.pages) {
-                        return (
-                          <Button
-                            key={pageNum}
-                            size="small"
-                            variant={currentPage + 1 === pageNum ? "contained" : "outlined"}
-                            onClick={() => handleChangePage(null, pageNum - 1)}
-                            sx={{
-                              minWidth: 32,
-                              height: 32,
-                              fontSize: "0.8rem",
-                              borderRadius: 1.5,
-                              bgcolor: currentPage + 1 === pageNum ? C.primary : "transparent",
-                              "&:hover": { bgcolor: currentPage + 1 === pageNum ? C.primaryDark : C.surface },
-                            }}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      }
-                      return null;
-                    })}
-                    <IconButton
-                      size="small"
-                      disabled={currentPage + 1 >= pagination.pages}
-                      onClick={() => handleChangePage(null, currentPage + 1)}
-                      sx={{ color: C.text.secondary }}
-                    >
-                      →
-                    </IconButton>
-                  </Stack>
-                </Box>
-              </Box>
-            </Paper>
+        ) : isMobile ? (
+          /* Mobile View */
+          <Box>
+            {teamMembers.map((member) => (
+              <MobileMemberCard
+                key={member.id}
+                member={member}
+                onView={handleViewMember}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+              />
+            ))}
+            {/* Pagination for mobile */}
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+              <TablePagination
+                component="div"
+                count={pagination.total || teamMembers.length}
+                page={currentPage}
+                onPageChange={handleChangePage}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={[5, 10, 20]}
+                sx={{ border: "none" }}
+              />
+            </Box>
           </Box>
+        ) : (
+          /* Desktop Table View */
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: "14px",
+              border: `1px solid ${C.border}`,
+              overflow: "hidden",
+            }}
+          >
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: C.bg }}>
+                    {[
+                      "Member",
+                      "Role",
+                      "Assigned",
+                      "Completed",
+                      "Performance",
+                      "Status",
+                      "Actions",
+                    ].map((h) => (
+                      <TableCell
+                        key={h}
+                        align={h === "Actions" ? "center" : "left"}
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: "0.75rem",
+                          color: C.text.secondary,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          py: 1.8,
+                          borderBottom: `1px solid ${C.border}`,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {h}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {teamMembers.map((member) => (
+                    <MemberRow
+                      key={member.id}
+                      member={member}
+                      onView={handleViewMember}
+                      onEdit={handleEditClick}
+                      onDelete={handleDeleteClick}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            {/* Pagination */}
+            <Box
+              sx={{ borderTop: `1px solid ${C.border}`, bgcolor: C.surface }}
+            >
+              <TablePagination
+                component="div"
+                count={pagination.total || teamMembers.length}
+                page={currentPage}
+                onPageChange={handleChangePage}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={[5, 10, 20, 50]}
+                sx={{
+                  "& .MuiTablePagination-toolbar": {
+                    fontSize: "0.8rem",
+                    minHeight: 52,
+                  },
+                  "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+                    {
+                      fontSize: "0.75rem",
+                      color: C.text.secondary,
+                    },
+                }}
+              />
+            </Box>
+          </Paper>
         )}
       </Container>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       <AddMemberModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
@@ -728,23 +1302,29 @@ export default function TeamManagement() {
       />
       <EditMemberModal
         open={editModalOpen}
-        onClose={() => { setEditModalOpen(false); setSelectedMember(null); }}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedMember(null);
+        }}
         member={selectedMember}
         onSubmit={handleEditMember}
         loading={actionLoading}
       />
       <DeleteConfirmModal
         open={deleteModalOpen}
-        onClose={() => { setDeleteModalOpen(false); setSelectedMember(null); }}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setSelectedMember(null);
+        }}
         member={selectedMember}
         onConfirm={handleDeleteMember}
         loading={actionLoading}
       />
 
-      {/* ── Toast ── */}
+      {/* Toast */}
       <Snackbar
         open={toast.open}
-        autoHideDuration={5000}
+        autoHideDuration={4000}
         onClose={closeToast}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
@@ -752,7 +1332,7 @@ export default function TeamManagement() {
           onClose={closeToast}
           severity={toast.severity}
           variant="filled"
-          sx={{ borderRadius: 2, fontSize: "0.85rem" }}
+          sx={{ borderRadius: "10px", fontSize: "0.8rem" }}
         >
           {toast.message}
         </Alert>

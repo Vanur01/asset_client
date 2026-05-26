@@ -1,1028 +1,816 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+// TaskDetail.jsx
+import React, { useState, useEffect } from "react";
 import {
   Box,
+  Container,
   Typography,
+  Paper,
+  Avatar,
+  Chip,
   Button,
-  Card,
-  CardContent,
-  Grid,
-  TextField,
-  Stack,
+  IconButton,
   Divider,
-  LinearProgress,
-  Rating,
-  Select,
-  MenuItem,
-  FormControl,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  Alert,
+  Stack,
   CircularProgress,
   Snackbar,
-  Skeleton,
-  IconButton,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Grid,
+  Card,
+  CardContent,
+  LinearProgress,
 } from "@mui/material";
-import { ThemeProvider } from "@mui/material/styles";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
-import DrawIcon from "@mui/icons-material/Draw";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import { theme } from "./MyTask";
-import { useAssignment } from "../context/TeamAssignmentcontext";
+import {
+  ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
+  Pending as PendingIcon,
+  Error as ErrorIcon,
+  Schedule as ScheduleIcon,
+  Person as PersonIcon,
+  LocationOn as LocationOnIcon,
+  Description as DescriptionIcon,
+  Image as ImageIcon,
+  Close as CloseIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Assignment as AssignmentIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
+} from "@mui/icons-material";
+import { useNavigate, useParams } from "react-router-dom";
+import { useTasks } from "../context/TeamContext";
 
-/* ═══════════ UPLOAD ZONE ════════════════════════════════════════════════════ */
-const UploadZone = ({
-  accept = "image/*",
-  multiple = true,
-  files = [],
-  onChange,
-  disabled,
-}) => {
-  const ref = useRef();
-
-  const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    onChange(selectedFiles);
-  };
-
-  const removeFile = (indexToRemove) => {
-    const newFiles = files.filter((_, idx) => idx !== indexToRemove);
-    onChange(newFiles);
-  };
-
-  return (
-    <Box>
-      <Box
-        onClick={() => !disabled && ref.current?.click()}
-        sx={{
-          border: "2px dashed #d1d5db",
-          borderRadius: 3,
-          p: { xs: 3, md: 4 },
-          textAlign: "center",
-          cursor: disabled ? "not-allowed" : "pointer",
-          transition: "border-color .15s",
-          opacity: disabled ? 0.6 : 1,
-          "&:hover": { borderColor: disabled ? "#d1d5db" : "#0d3d52" },
-        }}
-      >
-        <FileUploadOutlinedIcon
-          sx={{ color: "#9ca3af", fontSize: 28, mb: 0.5 }}
-        />
-        <Typography variant="body2" color="text.secondary">
-          Click to upload or drag and drop
-        </Typography>
-        <Typography sx={{ fontSize: "0.72rem", color: "#9ca3af", mt: 0.3 }}>
-          {accept.includes("image")
-            ? "PNG, JPG up to 10MB"
-            : "PDF, DOC, XLS up to 10MB"}
-        </Typography>
-        <input
-          ref={ref}
-          type="file"
-          hidden
-          accept={accept}
-          multiple={multiple}
-          onChange={handleFileChange}
-        />
-      </Box>
-      {files?.length > 0 && (
-        <Box mt={1.2} display="flex" flexWrap="wrap" gap={1}>
-          {files.map((f, i) => (
-            <Box
-              key={i}
-              sx={{
-                background: "#f3f4f6",
-                borderRadius: "8px",
-                px: 1.5,
-                py: 0.5,
-                fontSize: "0.75rem",
-                color: "#374151",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.8,
-              }}
-            >
-              {f.name}
-              <IconButton
-                size="small"
-                onClick={() => removeFile(i)}
-                sx={{ p: 0, color: "#9ca3af", "&:hover": { color: "#ef4444" } }}
-              >
-                <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Box>
-          ))}
-        </Box>
-      )}
-    </Box>
-  );
+// ─── Palette ────────────────────────────────────────────────────────────────
+const C = {
+  primary: "#0d4a5c",
+  primaryDark: "#0a3a49",
+  primaryLight: "#e8f2f5",
+  success: "#16a34a",
+  successBg: "#dcfce7",
+  warning: "#f59e0b",
+  warningBg: "#fef3c7",
+  error: "#d32f2f",
+  errorBg: "#ffebea",
+  info: "#3b82f6",
+  infoBg: "#dbeafe",
+  surface: "#f1f4f8",
+  card: "#ffffff",
+  border: "#e2e8f0",
+  text: { primary: "#1e293b", secondary: "#64748b", disabled: "#94a3b8" },
 };
 
-/* ═══════════ SIGNATURE PAD ═════════════════════════════════════════════════ */
-const SignaturePad = ({ onSave, disabled, existing }) => {
-  const canvasRef = useRef();
-  const drawing = useRef(false);
-  const [hasSignature, setHasSignature] = useState(!!existing);
-  const [showPad, setShowPad] = useState(!existing);
-
-  const getPos = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    const src = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const getStatusConfig = (status) => {
+  const statusMap = {
+    completed: {
+      icon: <CheckCircleIcon />,
+      color: C.success,
+      bg: C.successBg,
+      label: "Completed",
+    },
+    in_progress: {
+      icon: <PendingIcon />,
+      color: C.warning,
+      bg: C.warningBg,
+      label: "In Progress",
+    },
+    pending: {
+      icon: <ScheduleIcon />,
+      color: C.info,
+      bg: C.infoBg,
+      label: "Pending",
+    },
+    cancelled: {
+      icon: <ErrorIcon />,
+      color: C.error,
+      bg: C.errorBg,
+      label: "Cancelled",
+    },
+    overdue: {
+      icon: <ErrorIcon />,
+      color: C.error,
+      bg: C.errorBg,
+      label: "Overdue",
+    },
   };
+  return statusMap[status?.toLowerCase()] || statusMap.pending;
+};
 
-  const start = (e) => {
-    if (disabled) return;
-    e.preventDefault();
-    drawing.current = true;
-    const c = canvasRef.current;
-    const ctx = c.getContext("2d");
-    const { x, y } = getPos(e, c);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
+const getPriorityConfig = (priority) => {
+  const priorityMap = {
+    high: { color: C.error, bg: C.errorBg, label: "High" },
+    medium: { color: C.warning, bg: C.warningBg, label: "Medium" },
+    low: { color: C.success, bg: C.successBg, label: "Low" },
   };
+  return priorityMap[priority?.toLowerCase()] || priorityMap.medium;
+};
 
-  const draw = (e) => {
-    if (!drawing.current || disabled) return;
-    e.preventDefault();
-    const c = canvasRef.current;
-    const ctx = c.getContext("2d");
-    const { x, y } = getPos(e, c);
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "#0d3d52";
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
+const formatDate = (dateStr) => {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
 
-  const stop = () => {
-    drawing.current = false;
-    if (canvasRef.current && hasSignature) {
-      canvasRef.current.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], "signature.png", { type: "image/png" });
-          onSave(file);
-        }
-      });
-    }
-  };
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
-  const clearSignature = () => {
-    const c = canvasRef.current;
-    if (c) {
-      c.getContext("2d").clearRect(0, 0, c.width, c.height);
-      setHasSignature(false);
-      onSave(null);
-    }
-  };
-
-  const replaceSignature = () => {
-    setShowPad(true);
-    setHasSignature(false);
-    setTimeout(() => {
-      if (canvasRef.current) {
-        canvasRef.current
-          .getContext("2d")
-          .clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
-    }, 100);
-  };
-
-  if (!showPad && existing && !disabled) {
-    return (
+// ─── Info Row Component ──────────────────────────────────────────────────────
+function InfoRow({ icon, label, value }) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 1.5 }}>
       <Box
         sx={{
-          border: "2px dashed #d1d5db",
-          borderRadius: 3,
-          p: 2,
-          textAlign: "center",
+          width: 36,
+          height: 36,
+          borderRadius: 2,
+          bgcolor: C.surface,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
         }}
       >
-        <CheckCircleIcon sx={{ color: "#16a34a", fontSize: 36, mb: 1 }} />
-        <Typography variant="body2" color="text.secondary" mb={1.5}>
-          Signature already recorded
-        </Typography>
-        <Button
-          size="small"
-          onClick={replaceSignature}
-          sx={{
-            textTransform: "none",
-            color: "#6b7280",
-            fontSize: "0.75rem",
-          }}
-        >
-          Replace signature
-        </Button>
+        {icon}
       </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ border: "2px dashed #d1d5db", borderRadius: 3, p: 2 }}>
-      <canvas
-        ref={canvasRef}
-        width={600}
-        height={160}
-        style={{
-          width: "100%",
-          height: 160,
-          borderRadius: 8,
-          background: "#fafafa",
-          touchAction: "none",
-          cursor: disabled ? "not-allowed" : "crosshair",
-        }}
-        onMouseDown={start}
-        onMouseMove={draw}
-        onMouseUp={stop}
-        onMouseLeave={stop}
-        onTouchStart={start}
-        onTouchMove={draw}
-        onTouchEnd={stop}
-      />
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        mt={1.2}
-      >
+      <Box>
         <Typography
-          sx={{
-            fontSize: "0.72rem",
-            color: "#9ca3af",
-            display: "flex",
-            alignItems: "center",
-            gap: 0.5,
-          }}
+          sx={{ fontSize: "0.72rem", color: C.text.secondary, mb: 0.2 }}
         >
-          <DrawIcon sx={{ fontSize: 13 }} /> Draw your signature above
+          {label}
         </Typography>
-        <Button
-          size="small"
-          onClick={clearSignature}
-          sx={{
-            textTransform: "none",
-            color: "#6b7280",
-            fontSize: "0.75rem",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-          }}
+        <Typography
+          sx={{ fontSize: "0.85rem", fontWeight: 600, color: C.text.primary }}
         >
-          Clear
-        </Button>
+          {value || "—"}
+        </Typography>
       </Box>
     </Box>
   );
-};
+}
 
-/* ═══════════ DYNAMIC FIELD RENDERER ════════════════════════════════════════ */
-const DynamicField = ({ field, value, onChange, disabled }) => {
-  const {
-    fieldType,
-    label,
-    placeholder,
-    options,
-    ratingMax,
-    checkboxItems,
-    isRequired,
-  } = field;
-
-  const labelEl = (
-    <Typography
-      variant="body2"
-      fontWeight={600}
-      mb={0.7}
-      sx={{ color: "#111827" }}
+// ─── Checklist Item Component ────────────────────────────────────────────────
+function ChecklistItem({ item, onToggle, disabled }) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.5,
+        p: 1.5,
+        borderRadius: 2,
+        bgcolor: item.completed ? C.successBg : "transparent",
+        border: `1px solid ${C.border}`,
+        cursor: onToggle ? "pointer" : "default",
+      }}
+      onClick={() => onToggle && !disabled && onToggle(item.id)}
     >
-      {label}
-      {isRequired && <span style={{ color: "#ef4444" }}> *</span>}
-    </Typography>
-  );
-
-  switch (fieldType) {
-    case "text_input":
-      return (
-        <Box>
-          {labelEl}
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={placeholder}
-            value={value || ""}
-            disabled={disabled}
-            onChange={(e) => onChange(e.target.value)}
-            sx={{ "& .MuiOutlinedInput-root": { background: "#fafafa" } }}
-          />
-        </Box>
-      );
-
-    case "text_area":
-      return (
-        <Box>
-          {labelEl}
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            placeholder={placeholder}
-            value={value || ""}
-            disabled={disabled}
-            onChange={(e) => onChange(e.target.value)}
-            sx={{ "& .MuiOutlinedInput-root": { background: "#fafafa" } }}
-          />
-        </Box>
-      );
-
-    case "dropdown":
-      return (
-        <Box>
-          {labelEl}
-          <FormControl fullWidth size="small">
-            <Select
-              value={value || ""}
-              onChange={(e) => onChange(e.target.value)}
-              displayEmpty
-              disabled={disabled}
-              sx={{
-                background: "#fafafa",
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#e5e7eb",
-                },
-              }}
-            >
-              <MenuItem value="" disabled>
-                <em style={{ color: "#9ca3af" }}>{placeholder || "Select…"}</em>
-              </MenuItem>
-              {options?.map((o) => (
-                <MenuItem key={o} value={o} sx={{ fontSize: "0.85rem" }}>
-                  {o}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      );
-
-    case "date_picker":
-      return (
-        <Box>
-          {labelEl}
-          <TextField
-            fullWidth
-            size="small"
-            type="date"
-            value={value || ""}
-            disabled={disabled}
-            onChange={(e) => onChange(e.target.value)}
-            sx={{ "& .MuiOutlinedInput-root": { background: "#fafafa" } }}
-          />
-        </Box>
-      );
-
-    case "checkbox":
-      return (
-        <Box>
-          {labelEl}
-          <FormGroup>
-            {checkboxItems?.map((item) => (
-              <FormControlLabel
-                key={item}
-                disabled={disabled}
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={
-                      Array.isArray(value) ? value.includes(item) : false
-                    }
-                    onChange={(e) => {
-                      const arr = Array.isArray(value) ? [...value] : [];
-                      onChange(
-                        e.target.checked
-                          ? [...arr, item]
-                          : arr.filter((v) => v !== item),
-                      );
-                    }}
-                    sx={{ "&.Mui-checked": { color: "#0d3d52" } }}
-                  />
-                }
-                label={<Typography variant="body2">{item}</Typography>}
-              />
-            ))}
-          </FormGroup>
-        </Box>
-      );
-
-    case "rating":
-      return (
-        <Box>
-          {labelEl}
-          <Rating
-            value={value || 0}
-            max={ratingMax || 5}
-            disabled={disabled}
-            onChange={(_, v) => onChange(v)}
-            sx={{
-              color: "#fbbf24",
-              "& .MuiRating-iconEmpty": { color: "#d1d5db" },
-            }}
-            size="large"
-          />
-        </Box>
-      );
-
-    default:
-      return (
-        <Box>
-          {labelEl}
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={placeholder}
-            value={value || ""}
-            disabled={disabled}
-            onChange={(e) => onChange(e.target.value)}
-            sx={{ "& .MuiOutlinedInput-root": { background: "#fafafa" } }}
-          />
-        </Box>
-      );
-  }
-};
-
-/* ═══════════ SECTION CARD ═══════════════════════════════════════════════════ */
-const SectionCard = ({ section, responses, onFieldChange, disabled }) => (
-  <Card sx={{ mb: 2, borderRadius: "14px" }}>
-    <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "24px" }}>
+      {item.completed ? (
+        <CheckCircleIcon sx={{ color: C.success, fontSize: "1.2rem" }} />
+      ) : (
+        <CheckCircleOutlineIcon
+          sx={{ color: C.text.disabled, fontSize: "1.2rem" }}
+        />
+      )}
       <Typography
-        sx={{ fontWeight: 700, fontSize: "1rem", color: "#0d3d52", mb: 0.5 }}
+        sx={{
+          flex: 1,
+          fontSize: "0.85rem",
+          color: item.completed ? C.text.secondary : C.text.primary,
+          textDecoration: item.completed ? "line-through" : "none",
+        }}
       >
-        {section.sectionTitle}
+        {item.name}
       </Typography>
-      {section.sectionDescription && (
-        <Typography variant="body2" color="text.secondary" mb={2.2}>
-          {section.sectionDescription}
+      {item.notes && (
+        <Typography sx={{ fontSize: "0.72rem", color: C.text.disabled }}>
+          {item.notes}
         </Typography>
       )}
-      <Divider sx={{ mb: 2.5 }} />
-      <Grid container spacing={2.5}>
-        {section.fields.map((field) => (
-          <Grid
-            item
-            xs={12}
-            sm={
-              ["text_input", "date_picker", "dropdown"].includes(
-                field.fieldType,
-              )
-                ? 6
-                : 12
-            }
-            key={field._id}
-          >
-            <DynamicField
-              field={field}
-              value={responses[field._id]}
-              onChange={(val) => onFieldChange(field._id, val)}
-              disabled={disabled}
-            />
-          </Grid>
-        ))}
-      </Grid>
-    </CardContent>
-  </Card>
-);
-
-/* ═══════════ PROGRESS TRACKER ══════════════════════════════════════════════ */
-const computeProgress = (checklist, responses) => {
-  if (!checklist?.sections) return 0;
-  const required = [];
-  checklist.sections.forEach((s) =>
-    s.fields.forEach((f) => {
-      if (f.isRequired) required.push(f._id);
-    }),
+    </Box>
   );
-  if (!required.length) return 100;
-  const answered = required.filter((id) => {
-    const v = responses[id];
-    if (v === undefined || v === null || v === "") return false;
-    if (Array.isArray(v)) return v.length > 0;
-    return true;
-  }).length;
-  return Math.round((answered / required.length) * 100);
-};
+}
 
-/* ═══════════ MAIN COMPONENT ════════════════════════════════════════════════ */
+// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+function TaskDetailSkeleton() {
+  return (
+    <Box sx={{ bgcolor: C.surface, minHeight: "100vh", p: { xs: 2, md: 3 } }}>
+      <Container maxWidth="lg">
+        <Box sx={{ mb: 3 }}>
+          <Skeleton variant="rounded" height={60} sx={{ mb: 2 }} />
+          <Skeleton variant="rounded" height={400} />
+        </Box>
+      </Container>
+    </Box>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 export default function TaskDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const {
-    fetchAssignmentDetail,
-    saveDraft,
-    submitAssignment,
-    detailLoading,
-    submitting,
-  } = useAssignment();
+    selectedTask,
+    loading,
+    actionLoading,
+    fetchTaskDetails,
+    updateTask,
+    deleteTask,
+  } = useTasks();
 
-  const [task, setTask] = useState(null);
-  const [checklist, setChecklist] = useState(null);
-  const [responses, setResponses] = useState({});
-  const [photos, setPhotos] = useState([]);
-  const [attachments, setAttachments] = useState([]);
-  const [signature, setSignature] = useState(null);
-  const [inspNotes, setInspNotes] = useState("");
-  const [addNotes, setAddNotes] = useState("");
-  const [snack, setSnack] = useState({ open: false, msg: "", sev: "success" });
-  const [loadErr, setLoadErr] = useState(null);
-  const [overallRating, setOverallRating] = useState(0);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    status: "",
+    priority: "",
+    assignedTo: "",
+    dueDate: "",
+  });
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
-  /* ─── load detail ─── */
+  const showToast = (msg, sev = "success") =>
+    setToast({ open: true, message: msg, severity: sev });
+  const closeToast = () => setToast((p) => ({ ...p, open: false }));
+
   useEffect(() => {
-    const load = async () => {
-      const detail = await fetchAssignmentDetail(id);
-      if (!detail) {
-        setLoadErr("Could not load assignment details.");
-        return;
-      }
-      setTask(detail);
-      const cl = detail.checklist;
-      setChecklist(cl);
+    if (id) fetchTaskDetails(id);
+  }, [id, fetchTaskDetails]);
 
-      if (detail.responses?.length) {
-        const seed = {};
-        detail.responses.forEach((r) => {
-          seed[r.fieldId] = r.value;
-        });
-        setResponses(seed);
-      }
-
-      setInspNotes(detail.inspectorNotes || "");
-      setAddNotes(detail.additionalNotes || "");
-      setOverallRating(detail.overallRating || 0);
-
-      if (detail.uploadedPhotos?.length) {
-        setPhotos(detail.uploadedPhotos);
-      }
-      if (detail.attachments?.length) {
-        setAttachments(detail.attachments);
-      }
-    };
-    if (id) load();
-  }, [id, fetchAssignmentDetail]);
-
-  const progress = computeProgress(checklist, responses);
-
-  const fieldChange = useCallback((fieldId, value) => {
-    setResponses((prev) => ({ ...prev, [fieldId]: value }));
-  }, []);
-
-  const buildResponsesArr = () => {
-    if (!checklist?.sections) return [];
-    const arr = [];
-    checklist.sections.forEach((s) =>
-      s.fields.forEach((f) => {
-        const v = responses[f._id];
-        if (v !== undefined && v !== null && v !== "") {
-          arr.push({
-            fieldId: f._id,
-            value: Array.isArray(v) ? v : String(v),
-          });
-        }
-      }),
-    );
-    return arr;
-  };
-
-  const handleDraft = async () => {
-    const payload = {
-      responses: buildResponsesArr(),
-      inspectorNotes: inspNotes,
-      additionalNotes: addNotes,
-      overallRating: overallRating,
-    };
-
-    const result = await saveDraft(id, payload);
-    setSnack({
-      open: true,
-      msg: result.success ? result.message || "Draft saved!" : result.error,
-      sev: result.success ? "success" : "error",
-    });
-    if (result.success) {
-      await fetchAssignmentDetail(id);
-    }
-  };
-
-  const handleSubmit = async () => {
-    const missingRequired = [];
-    if (checklist?.sections) {
-      checklist.sections.forEach((section) => {
-        section.fields.forEach((field) => {
-          if (field.isRequired) {
-            const value = responses[field._id];
-            if (!value || (Array.isArray(value) && value.length === 0)) {
-              missingRequired.push(field.label);
-            }
-          }
-        });
+  useEffect(() => {
+    if (selectedTask) {
+      setEditForm({
+        title: selectedTask.title || "",
+        description: selectedTask.description || "",
+        status: selectedTask.status || "pending",
+        priority: selectedTask.priority || "medium",
+        assignedTo:
+          selectedTask.assignedTo?.id || selectedTask.assignedTo || "",
+        dueDate: selectedTask.dueDate || "",
       });
     }
+  }, [selectedTask]);
 
-    if (missingRequired.length > 0) {
-      setSnack({
-        open: true,
-        msg: `Please fill required fields: ${missingRequired.join(", ")}`,
-        sev: "error",
-      });
-      return;
-    }
-
-    const formData = new FormData();
-
-    const submissionData = {
-      responses: buildResponsesArr(),
-      inspectorNotes: inspNotes,
-      notes: addNotes,
-      overallRating: overallRating,
-    };
-
-    formData.append("data", JSON.stringify(submissionData));
-
-    photos.forEach((photo) => {
-      if (photo instanceof File) {
-        formData.append("photos", photo);
-      }
-    });
-
-    attachments.forEach((attachment) => {
-      if (attachment instanceof File) {
-        formData.append("attachments", attachment);
-      }
-    });
-
-    if (signature instanceof File) {
-      formData.append("signature", signature);
-    }
-
-    const result = await submitAssignment(id, formData);
-    setSnack({
-      open: true,
-      msg: result.success
-        ? result.message || "Submitted successfully!"
-        : result.error,
-      sev: result.success ? "success" : "error",
-    });
-
+  const handleUpdate = async () => {
+    const result = await updateTask(id, editForm);
     if (result.success) {
-      // Redirect to /team after successful submission
-      setTimeout(() => {
-        navigate("/team");
-      }, 1500);
+      showToast(result.message);
+      setEditDialogOpen(false);
+      fetchTaskDetails(id);
+    } else {
+      showToast(result.error, "error");
     }
   };
 
-  const handleBackToTasks = () => {
-    // Check user role and redirect accordingly
-    // You can get user role from auth context if needed
-    navigate("/team");
+  const handleDelete = async () => {
+    const result = await deleteTask(id);
+    if (result.success) {
+      showToast(result.message);
+      setDeleteDialogOpen(false);
+      setTimeout(() => navigate("/tasks"), 1200);
+    } else {
+      showToast(result.error, "error");
+    }
   };
 
-  const isSubmitted =
-    task?.rawStatus === "submitted" ||
-    task?.rawStatus === "completed" ||
-    task?.rawStatus === "approved";
+  const handleChecklistToggle = async (itemId) => {
+    // Implementation for toggling checklist items
+    console.log("Toggle item:", itemId);
+  };
 
-  if (detailLoading && !task) {
+  if (loading && !selectedTask) return <TaskDetailSkeleton />;
+
+  if (!selectedTask && !loading) {
     return (
-      <ThemeProvider theme={theme}>
-        <Box sx={{ minHeight: "100vh", px: { xs: 2, md: 4 }, pt: 3 }}>
-          <Skeleton width={120} height={36} sx={{ mb: 2 }} />
-          <Skeleton width="40%" height={38} sx={{ mb: 1 }} />
-          <Skeleton width="30%" height={24} sx={{ mb: 3 }} />
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i} sx={{ mb: 2, borderRadius: "14px" }}>
-              <CardContent sx={{ p: "24px 28px" }}>
-                <Skeleton width="30%" height={28} sx={{ mb: 2 }} />
-                <Grid container spacing={2}>
-                  {[1, 2, 3, 4].map((j) => (
-                    <Grid item xs={12} sm={6} key={j}>
-                      <Skeleton height={56} />
-                    </Grid>
-                  ))}
-                </Grid>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-      </ThemeProvider>
-    );
-  }
-
-  return (
-    <ThemeProvider theme={theme}>
-      <link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      <Box sx={{ minHeight: "100vh", pb: 8 }}>
-        <Box px={{ xs: 2, md: 4 }} pt={3}>
+      <Box
+        sx={{
+          bgcolor: C.surface,
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
+          <Typography sx={{ fontWeight: 600, mb: 2, color: C.text.secondary }}>
+            Task not found
+          </Typography>
           <Button
-            startIcon={<ArrowBackIcon sx={{ fontSize: 17 }} />}
-            onClick={handleBackToTasks}
-            sx={{
-              color: "text.secondary",
-              textTransform: "none",
-              fontWeight: 400,
-              mb: 1.5,
-              pl: 0,
-              "&:hover": { background: "transparent", color: "text.primary" },
-            }}
+            variant="contained"
+            onClick={() => navigate("/tasks")}
+            sx={{ bgcolor: C.primary, textTransform: "none" }}
           >
             Back to Tasks
           </Button>
+        </Paper>
+      </Box>
+    );
+  }
 
-          {loadErr && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {loadErr}
-            </Alert>
-          )}
+  const statusConfig = getStatusConfig(selectedTask?.status);
+  const priorityConfig = getPriorityConfig(selectedTask?.priority);
+  const isOverdue =
+    selectedTask?.dueDate &&
+    new Date(selectedTask.dueDate) < new Date() &&
+    selectedTask?.status !== "completed";
 
-          <Typography
+  return (
+    <Box sx={{ bgcolor: C.surface, minHeight: "100vh", p: { xs: 2, md: 3 } }}>
+      <Container maxWidth="lg" disableGutters>
+        {/* Header */}
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            border: `1px solid ${C.border}`,
+            bgcolor: C.card,
+            mb: 3,
+            overflow: "hidden",
+          }}
+        >
+          <Box sx={{ p: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                mb: 2,
+              }}
+            >
+              <IconButton
+                onClick={() => navigate("/tasks")}
+                sx={{ color: C.text.primary, bgcolor: C.surface, mr: 2 }}
+              >
+                <ArrowBackIcon />
+              </IconButton>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  startIcon={<EditIcon />}
+                  onClick={() => setEditDialogOpen(true)}
+                  variant="outlined"
+                  size="small"
+                  sx={{ textTransform: "none" }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteDialogOpen(true)}
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  sx={{ textTransform: "none" }}
+                >
+                  Delete
+                </Button>
+              </Box>
+            </Box>
+
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                flexWrap: "wrap",
+                mb: 2,
+              }}
+            >
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700, color: C.text.primary }}
+              >
+                {selectedTask?.title}
+              </Typography>
+              <Chip
+                icon={statusConfig.icon}
+                label={statusConfig.label}
+                sx={{
+                  bgcolor: statusConfig.bg,
+                  color: statusConfig.color,
+                  fontWeight: 600,
+                }}
+              />
+              <Chip
+                label={`${priorityConfig.label} Priority`}
+                sx={{
+                  bgcolor: priorityConfig.bg,
+                  color: priorityConfig.color,
+                  fontWeight: 600,
+                }}
+              />
+              {isOverdue && (
+                <Chip
+                  label="Overdue"
+                  icon={<ErrorIcon />}
+                  sx={{ bgcolor: C.errorBg, color: C.error, fontWeight: 600 }}
+                />
+              )}
+            </Box>
+
+            <Typography
+              sx={{ color: C.text.secondary, fontSize: "0.9rem", mt: 1 }}
+            >
+              {selectedTask?.description}
+            </Typography>
+          </Box>
+        </Paper>
+
+        <Grid container spacing={3}>
+          {/* Left Column - Task Details */}
+          <Grid item xs={12} md={8}>
+            <Paper
+              elevation={0}
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${C.border}`,
+                bgcolor: C.card,
+                overflow: "hidden",
+                mb: 3,
+              }}
+            >
+              <Box sx={{ p: 3 }}>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "1rem",
+                    mb: 2,
+                    color: C.text.primary,
+                  }}
+                >
+                  Task Details
+                </Typography>
+
+                <InfoRow
+                  icon={<AssignmentIcon sx={{ fontSize: "1rem" }} />}
+                  label="Task ID"
+                  value={selectedTask?.taskId || selectedTask?.id}
+                />
+
+                <Divider sx={{ borderColor: C.border }} />
+
+                <InfoRow
+                  icon={<PersonIcon sx={{ fontSize: "1rem" }} />}
+                  label="Assigned To"
+                  value={
+                    selectedTask?.assignedTo?.name ||
+                    selectedTask?.assignedTo ||
+                    "Unassigned"
+                  }
+                />
+
+                <Divider sx={{ borderColor: C.border }} />
+
+                <InfoRow
+                  icon={<ScheduleIcon sx={{ fontSize: "1rem" }} />}
+                  label="Due Date"
+                  value={formatDate(selectedTask?.dueDate)}
+                />
+
+                <Divider sx={{ borderColor: C.border }} />
+
+                <InfoRow
+                  icon={<LocationOnIcon sx={{ fontSize: "1rem" }} />}
+                  label="Location"
+                  value={selectedTask?.location || "—"}
+                />
+
+                {selectedTask?.createdAt && (
+                  <>
+                    <Divider sx={{ borderColor: C.border }} />
+                    <InfoRow
+                      icon={<DescriptionIcon sx={{ fontSize: "1rem" }} />}
+                      label="Created"
+                      value={formatDateTime(selectedTask?.createdAt)}
+                    />
+                  </>
+                )}
+              </Box>
+            </Paper>
+
+            {/* Checklist Section */}
+            {selectedTask?.checklist && selectedTask.checklist.length > 0 && (
+              <Paper
+                elevation={0}
+                sx={{
+                  borderRadius: 3,
+                  border: `1px solid ${C.border}`,
+                  bgcolor: C.card,
+                  overflow: "hidden",
+                }}
+              >
+                <Box sx={{ p: 3 }}>
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: "1rem",
+                      mb: 2,
+                      color: C.text.primary,
+                    }}
+                  >
+                    Checklist (
+                    {selectedTask.checklist.filter((i) => i.completed).length}/
+                    {selectedTask.checklist.length})
+                  </Typography>
+                  <Stack spacing={1.5}>
+                    {selectedTask.checklist.map((item) => (
+                      <ChecklistItem
+                        key={item.id}
+                        item={item}
+                        onToggle={handleChecklistToggle}
+                        disabled={selectedTask.status === "completed"}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              </Paper>
+            )}
+          </Grid>
+
+          {/* Right Column - Progress & Attachments */}
+          <Grid item xs={12} md={4}>
+            <Paper
+              elevation={0}
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${C.border}`,
+                bgcolor: C.card,
+                overflow: "hidden",
+                mb: 3,
+              }}
+            >
+              <Box sx={{ p: 3 }}>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "1rem",
+                    mb: 2,
+                    color: C.text.primary,
+                  }}
+                >
+                  Progress
+                </Typography>
+                <Box sx={{ mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      sx={{ fontSize: "0.8rem", color: C.text.secondary }}
+                    >
+                      Completion
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        color: C.text.primary,
+                      }}
+                    >
+                      {selectedTask?.progress || 0}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={selectedTask?.progress || 0}
+                    sx={{
+                      height: 8,
+                      borderRadius: 4,
+                      bgcolor: C.border,
+                      "& .MuiLinearProgress-bar": {
+                        bgcolor: C.primary,
+                        borderRadius: 4,
+                      },
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Paper>
+
+            {/* Attachments Section */}
+            {selectedTask?.attachments &&
+              selectedTask.attachments.length > 0 && (
+                <Paper
+                  elevation={0}
+                  sx={{
+                    borderRadius: 3,
+                    border: `1px solid ${C.border}`,
+                    bgcolor: C.card,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box sx={{ p: 3 }}>
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: "1rem",
+                        mb: 2,
+                        color: C.text.primary,
+                      }}
+                    >
+                      Attachments ({selectedTask.attachments.length})
+                    </Typography>
+                    <Stack spacing={1.5}>
+                      {selectedTask.attachments.map((attachment, index) => (
+                        <Box
+                          key={index}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
+                            p: 1.5,
+                            borderRadius: 2,
+                            border: `1px solid ${C.border}`,
+                            cursor: "pointer",
+                            "&:hover": { bgcolor: C.surface },
+                          }}
+                          onClick={() => window.open(attachment.url, "_blank")}
+                        >
+                          <ImageIcon
+                            sx={{ color: C.text.secondary, fontSize: "1.2rem" }}
+                          />
+                          <Typography
+                            sx={{
+                              fontSize: "0.85rem",
+                              color: C.text.primary,
+                              flex: 1,
+                            }}
+                          >
+                            {attachment.name}
+                          </Typography>
+                          <Typography
+                            sx={{ fontSize: "0.72rem", color: C.text.disabled }}
+                          >
+                            {attachment.size}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                </Paper>
+              )}
+          </Grid>
+        </Grid>
+      </Container>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{ borderBottom: `1px solid ${C.border}`, pb: 1.5, pt: 2 }}
+        >
+          <Box
             sx={{
-              fontWeight: 700,
-              fontSize: { xs: "1.1rem", md: "1.35rem" },
-              color: "#0d3d52",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            {task?.title || checklist?.name || "Inspection Task"}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" mt={0.3} mb={3}>
-            {task?.assetName} — {task?.location}
-          </Typography>
-
-          <Card sx={{ mb: 2, borderRadius: "14px" }}>
-            <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "22px" }}>
-              <Box display="flex" justifyContent="space-between" mb={1.2}>
-                <Typography variant="body2" fontWeight={600}>
-                  Overall Rating
-                </Typography>
-                <Rating
-                  value={overallRating}
-                  onChange={(_, v) => setOverallRating(v || 0)}
-                  disabled={isSubmitted}
-                  size="large"
-                  sx={{ color: "#fbbf24" }}
-                />
-              </Box>
-              <Box display="flex" justifyContent="space-between" mb={1.2}>
-                <Typography variant="body2" fontWeight={600}>
-                  Checklist Progress
-                </Typography>
-                <Typography variant="body2" fontWeight={600}>
-                  {progress}%
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={progress}
-                sx={{
-                  height: 8,
-                  borderRadius: 100,
-                  background: "#e5e7eb",
-                  "& .MuiLinearProgress-bar": {
-                    background: "linear-gradient(90deg,#0d3d52,#1a5a78)",
-                    borderRadius: 100,
-                  },
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          <Card sx={{ mb: 2, borderRadius: "14px" }}>
-            <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "24px" }}>
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  color: "#0d3d52",
-                  mb: 2.2,
-                }}
-              >
-                Asset Information
-              </Typography>
-              <Grid container spacing={2}>
-                {[
-                  ["Asset Name", task?.assetName || "—"],
-                  ["Asset ID", task?.assetId || "—"],
-                  ["Tag Number", task?.tagNumber || "—"],
-                  ["Location", task?.location || "—"],
-                  ["Category", task?.category || "—"],
-                  ["Customer", task?.customerName || "—"],
-                  ["Due Date", task?.due || "—"],
-                  ["Checklist Type", checklist?.category || "—"],
-                ].map(([lbl, val]) => (
-                  <Grid item xs={12} sm={6} key={lbl}>
-                    <Typography variant="body2" fontWeight={600} mb={0.7}>
-                      {lbl}
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={val}
-                      disabled
-                      sx={{
-                        "& .MuiOutlinedInput-root": { background: "#fafafa" },
-                      }}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </CardContent>
-          </Card>
-
-          {checklist?.sections?.map((section) => (
-            <SectionCard
-              key={section._id}
-              section={section}
-              responses={responses}
-              onFieldChange={fieldChange}
-              disabled={isSubmitted}
+            <Typography sx={{ fontWeight: 700, fontSize: "1rem" }}>
+              Edit Task
+            </Typography>
+            <IconButton size="small" onClick={() => setEditDialogOpen(false)}>
+              <CloseIcon sx={{ fontSize: "1rem" }} />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Title"
+              value={editForm.title}
+              onChange={(e) =>
+                setEditForm({ ...editForm, title: e.target.value })
+              }
+              fullWidth
+              size="small"
             />
-          ))}
+            <TextField
+              label="Description"
+              value={editForm.description}
+              onChange={(e) =>
+                setEditForm({ ...editForm, description: e.target.value })
+              }
+              multiline
+              rows={3}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Due Date"
+              type="date"
+              value={editForm.dueDate?.split("T")[0] || ""}
+              onChange={(e) =>
+                setEditForm({ ...editForm, dueDate: e.target.value })
+              }
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions
+          sx={{ p: 2, pt: 1.5, borderTop: `1px solid ${C.border}` }}
+        >
+          <Button
+            onClick={() => setEditDialogOpen(false)}
+            disabled={actionLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdate}
+            variant="contained"
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={24} /> : "Save Changes"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-          <Card sx={{ mb: 2, borderRadius: "14px" }}>
-            <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "24px" }}>
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  color: "#0d3d52",
-                  mb: 2,
-                }}
-              >
-                Inspector Notes
-              </Typography>
+      {/* Delete Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1, pt: 2 }}>
+          <Typography
+            sx={{ fontWeight: 700, color: C.error, fontSize: "1rem" }}
+          >
+            Delete Task
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.text.secondary, fontSize: "0.8rem" }}>
+            Are you sure you want to delete "
+            <strong>{selectedTask?.title}</strong>"? This action cannot be
+            undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 1 }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={actionLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            variant="contained"
+            color="error"
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={24} /> : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-              <Typography variant="body2" fontWeight={600} mb={0.7}>
-                Inspector Notes
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                placeholder="Any notes from inspector…"
-                value={inspNotes}
-                onChange={(e) => setInspNotes(e.target.value)}
-                disabled={isSubmitted}
-                sx={{
-                  mb: 2.5,
-                  "& .MuiOutlinedInput-root": { background: "#fafafa" },
-                }}
-              />
-
-              <Typography variant="body2" fontWeight={600} mb={0.7}>
-                Additional Notes
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                placeholder="Enter any additional observations, issues, or recommendations…"
-                value={addNotes}
-                onChange={(e) => setAddNotes(e.target.value)}
-                disabled={isSubmitted}
-                sx={{ "& .MuiOutlinedInput-root": { background: "#fafafa" } }}
-              />
-            </CardContent>
-          </Card>
-
-          <Card sx={{ mb: 2, borderRadius: "14px" }}>
-            <CardContent sx={{ px: { xs: "18px", md: "28px" }, py: "24px" }}>
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  color: "#0d3d52",
-                  mb: 2.2,
-                }}
-              >
-                Documentation
-              </Typography>
-
-              <Typography variant="body2" fontWeight={600} sx={{ mb: 1.2 }}>
-                Upload Photos
-              </Typography>
-              <UploadZone
-                files={photos}
-                onChange={setPhotos}
-                disabled={isSubmitted}
-                accept="image/*"
-                multiple
-              />
-
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                sx={{ mt: 2.5, mb: 1.2 }}
-              >
-                Upload Attachments
-              </Typography>
-              <UploadZone
-                files={attachments}
-                onChange={setAttachments}
-                disabled={isSubmitted}
-                accept=".pdf,.doc,.docx,.xls,.xlsx"
-                multiple
-              />
-
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                sx={{ mt: 2.5, mb: 1.2 }}
-              >
-                Digital Signature
-              </Typography>
-              <SignaturePad
-                onSave={setSignature}
-                disabled={isSubmitted}
-                existing={task?.signaturePath}
-              />
-            </CardContent>
-          </Card>
-
-          {isSubmitted && (
-            <Alert
-              severity="success"
-              icon={<CheckCircleIcon />}
-              sx={{ mb: 2, borderRadius: "12px" }}
-            >
-              This inspection has been <strong>{task?.rawStatus}</strong> and is
-              no longer editable.
-            </Alert>
-          )}
-
-          {!isSubmitted && (
-            <Card sx={{ borderRadius: "14px" }}>
-              <CardContent sx={{ px: { xs: "18px", md: "24px" }, py: "18px" }}>
-                <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    disabled={submitting}
-                    onClick={handleDraft}
-                    sx={{
-                      borderColor: "#e5e7eb",
-                      color: "text.primary",
-                      borderRadius: "10px",
-                      py: 1.3,
-                      textTransform: "none",
-                      fontWeight: 500,
-                      "&:hover": { background: "#f9fafb" },
-                    }}
-                  >
-                    {submitting ? <CircularProgress size={18} /> : "Save Draft"}
-                  </Button>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    disabled={submitting || progress < 100}
-                    onClick={handleSubmit}
-                    sx={{
-                      py: 1.3,
-                      textTransform: "none",
-                      fontWeight: 600,
-                      flex: 2,
-                      fontSize: "0.95rem",
-                      background:
-                        "linear-gradient(135deg,#0d3d52 0%,#1a5a78 100%)",
-                      borderRadius: "10px",
-                    }}
-                  >
-                    {submitting ? (
-                      <CircularProgress size={18} sx={{ color: "#fff" }} />
-                    ) : (
-                      "Submit Inspection"
-                    )}
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-        </Box>
-      </Box>
-
+      {/* Toast Notifications */}
       <Snackbar
-        open={snack.open}
-        autoHideDuration={4000}
-        onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        open={toast.open}
+        autoHideDuration={5000}
+        onClose={closeToast}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
-          severity={snack.sev}
+          onClose={closeToast}
+          severity={toast.severity}
           variant="filled"
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+          sx={{ borderRadius: 2 }}
         >
-          {snack.msg}
+          {toast.message}
         </Alert>
       </Snackbar>
-    </ThemeProvider>
+    </Box>
   );
 }

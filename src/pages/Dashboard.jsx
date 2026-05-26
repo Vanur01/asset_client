@@ -1,4 +1,6 @@
-// pages/Dashboard.jsx - Fully Responsive with Enhanced Adaptability
+/* eslint-disable */
+// pages/Dashboard.jsx
+// Recharts bar + donut charts · PDF table export · exact screenshot design
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
@@ -13,7 +15,6 @@ import {
   TableHead,
   TableRow,
   Avatar,
-  Chip,
   Stack,
   useTheme,
   useMediaQuery,
@@ -28,23 +29,17 @@ import {
   Tooltip,
   Skeleton,
   alpha,
-  Divider,
-  Card,
-  CardContent,
   LinearProgress,
   Fade,
-  Grow,
   Zoom,
 } from "@mui/material";
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  MoreVert as MoreVertIcon,
   History as HistoryIcon,
   Bolt as BoltIcon,
   Group as GroupIcon,
   Payments as PaymentsIcon,
-  EventBusy as EventBusyIcon,
   AddCircle as AddCircleIcon,
   PersonAdd as PersonAddIcon,
   Analytics as AnalyticsIcon,
@@ -56,301 +51,267 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
-  CurrencyRupee as RupeeIcon,
 } from "@mui/icons-material";
+import TaskIcon from "@mui/icons-material/Task";
 import { useNavigate } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useAuth } from "../context/AuthContexts";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import TaskIcon from "@mui/icons-material/Task";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
-// ─────────────────────────────────────────────
-// Custom color palette
-// ─────────────────────────────────────────────
-const colors = {
+// ─── palette ────────────────────────────────────────────────────────────────
+const C = {
   primary: "#002631",
   primaryContainer: "#003d4d",
   onPrimaryContainer: "#79a8ba",
   secondary: "#516072",
   secondaryContainer: "#d2e1f7",
   onSecondaryContainer: "#556477",
-  tertiary: "#331d00",
-  tertiaryContainer: "#503000",
   onTertiaryContainer: "#df8f00",
   errorContainer: "#ffdad6",
   onErrorContainer: "#93000a",
   success: "#2e7d32",
-  warning: "#ed6c02",
   surface: "#f7f9fb",
   surfaceContainerLow: "#f2f4f6",
-  surfaceContainerLowest: "#ffffff",
   surfaceVariant: "#e0e3e5",
   outline: "#71787c",
   outlineVariant: "#c0c8cc",
 };
 
-// ─────────────────────────────────────────────
-// Enhanced Stat Card Component with better responsiveness
-// ─────────────────────────────────────────────
-const StatCard = ({
-  icon: Icon,
-  title,
-  value,
-  trend,
-  trendUp = true,
-  bgColor,
-  iconBg,
-  trendColor,
-  loading,
-  error,
-}) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+const PIE_COLORS = ["#003d4d", "#df8f00", "#516072", "#c0c8cc"];
 
-  if (error) {
-    return (
-      <Fade in>
-        <Paper
-          elevation={0}
-          sx={{
-            p: isMobile ? 1.5 : 2.5,
-            borderRadius: { xs: 2, sm: 2.5, md: 3 },
-            bgcolor: colors.errorContainer,
-            border: `1px solid ${alpha(colors.onErrorContainer, 0.2)}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            height: "100%",
-            minHeight: { xs: 100, sm: 120 },
-          }}
-        >
-          <ErrorIcon sx={{ color: colors.onErrorContainer, fontSize: { xs: 18, sm: 20 } }} />
-          <Typography variant="caption" sx={{ color: colors.onErrorContainer, fontSize: { xs: "0.65rem", sm: "0.7rem" } }}>
-            Failed to load {title}
-          </Typography>
-        </Paper>
-      </Fade>
-    );
-  }
-
-  return (
-    <Zoom in style={{ transitionDelay: "100ms" }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
-          borderRadius: { xs: 2, sm: 2.5, md: 3 },
-          bgcolor: bgColor || "background.paper",
-          border: "1px solid",
-          borderColor: bgColor ? "transparent" : alpha(colors.outlineVariant, 0.5),
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          "&:hover": bgColor
-            ? { transform: "translateY(-4px)", boxShadow: 6 }
-            : {
-                borderColor: colors.outlineVariant,
-                transform: "translateY(-4px)",
-                boxShadow: `0 8px 24px ${alpha(colors.primary, 0.12)}`,
-              },
-          position: "relative",
-          overflow: "hidden",
-          cursor: "default",
-          height: "100%",
-          minHeight: { xs: 110, sm: 130, md: 140 },
-        }}
-      >
-        {/* Decorative circle for colored cards */}
-        {bgColor && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: -20,
-              right: -20,
-              width: { xs: 70, sm: 90, md: 110 },
-              height: { xs: 70, sm: 90, md: 110 },
-              borderRadius: "50%",
-              bgcolor: "rgba(255,255,255,0.06)",
-              pointerEvents: "none",
-            }}
-          />
-        )}
-
-        <Box sx={{ position: "relative", zIndex: 1, height: "100%", width: "230px", display: "flex", flexDirection: "column" }}>
-          {/* Icon + Trend Badge Row */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              mb: { xs: 1, sm: 1.5, md: 2 },
-            }}
-          >
-            <Box
-              sx={{
-                p: { xs: 0.7, sm: 1, md: 1.2 },
-                borderRadius: { xs: 1.5, sm: 2 },
-                bgcolor:
-                  iconBg ||
-                  (bgColor
-                    ? "rgba(255,255,255,0.15)"
-                    : colors.secondaryContainer),
-                color: bgColor ? "white" : colors.onSecondaryContainer,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Icon sx={{ fontSize: { xs: 14, sm: 16, md: 18, lg: 20 } }} />
-            </Box>
-
-            {trend && (
-              <Fade in>
-                <Box
-                  sx={{
-                    px: { xs: 0.6, sm: 0.8, md: 1 },
-                    py: 0.3,
-                    borderRadius: 1,
-                    bgcolor: bgColor
-                      ? "rgba(255,255,255,0.15)"
-                      : colors.surfaceContainerLow,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.3,
-                  }}
-                >
-                  {trendUp ? (
-                    <TrendingUpIcon
-                      sx={{
-                        fontSize: { xs: 9, sm: 10, md: 11 },
-                        color: bgColor ? "white" : colors.success,
-                      }}
-                    />
-                  ) : (
-                    <TrendingDownIcon
-                      sx={{
-                        fontSize: { xs: 9, sm: 10, md: 11 },
-                        color: bgColor ? "white" : colors.onErrorContainer,
-                      }}
-                    />
-                  )}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: 700,
-                      color: bgColor
-                        ? "white"
-                        : trendUp
-                        ? colors.success
-                        : colors.onErrorContainer,
-                      fontSize: { xs: "0.55rem", sm: "0.6rem", md: "0.65rem" },
-                    }}
-                  >
-                    {trend}
-                  </Typography>
-                </Box>
-              </Fade>
-            )}
-          </Box>
-
-          {/* Label */}
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: 600,
-              letterSpacing: "0.05em",
-              color: bgColor ? alpha("#fff", 0.8) : colors.secondary,
-              textTransform: "uppercase",
-              fontSize: { xs: "0.55rem", sm: "0.6rem", md: "0.65rem", lg: "0.68rem" },
-              mb: 0.5,
-              display: "block",
-            }}
-          >
-            {title}
-          </Typography>
-
-          {/* Value */}
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 800,
-              color: bgColor ? "white" : colors.primary,
-              fontSize: {
-                xs: "1rem",
-                sm: "1.1rem",
-                md: "1.25rem",
-                lg: "1.5rem",
-              },
-              lineHeight: 1.2,
-              wordBreak: "break-word",
-              mt: "auto",
-            }}
-          >
-            {value ?? 0}
-          </Typography>
-        </Box>
-      </Paper>
-    </Zoom>
-  );
+// ─── helpers ─────────────────────────────────────────────────────────────────
+const fmtINR = (v) => {
+  const n = Number(v);
+  if (!n && n !== 0) return "₹0";
+  if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(1)}Cr`;
+  if (n >= 100_000) return `₹${(n / 100_000).toFixed(1)}L`;
+  if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
+  return `₹${n.toLocaleString("en-IN")}`;
 };
 
-// ─────────────────────────────────────────────
-// Enhanced Loading Skeleton Component
-// ─────────────────────────────────────────────
-const DashboardSkeleton = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+const safe = (v) => (v === undefined || v === null ? "—" : String(v));
 
+// ─── CSV export ──────────────────────────────────────────────────────────────
+const doCSV = (data, filename) => {
+  const flat = (obj, pre = "") => {
+    const r = {};
+    for (const k in obj) {
+      if (
+        typeof obj[k] === "object" &&
+        !Array.isArray(obj[k]) &&
+        obj[k] !== null
+      )
+        Object.assign(r, flat(obj[k], `${pre}${k}_`));
+      else
+        r[`${pre}${k}`] = Array.isArray(obj[k])
+          ? JSON.stringify(obj[k])
+          : obj[k];
+    }
+    return r;
+  };
+  const fd = flat(data);
+  const hdrs = Object.keys(fd);
+  const rows = [
+    hdrs.join(","),
+    hdrs
+      .map((h) => {
+        const val = fd[h];
+        return typeof val === "string"
+          ? `"${val.replace(/"/g, '""')}"`
+          : (val ?? "");
+      })
+      .join(","),
+  ];
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// ─── PDF export — full table layout ──────────────────────────────────────────
+const doPDF = async (payload, filename) => {
+  const { default: html2pdf } = await import("html2pdf.js");
+
+  const stamp = new Date().toLocaleString("en-IN", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+
+  const tbl = (headers, rows, empty = "No data available") => {
+    if (!rows.length)
+      return `<p style="font-size:11px;color:#516072;margin:0 0 16px">${empty}</p>`;
+    const ths = headers
+      .map(
+        (h) =>
+          `<th style="background:#002631;color:#fff;padding:8px 12px;text-align:left;font-size:11px;font-weight:600;border:none">${h}</th>`,
+      )
+      .join("");
+    const trs = rows
+      .map(
+        (row, i) =>
+          `<tr style="background:${i % 2 === 0 ? "#ffffff" : "#f7f9fb"}">${row
+            .map(
+              (c) =>
+                `<td style="padding:7px 12px;font-size:11px;color:#002631;border-bottom:1px solid #e0e3e5">${c}</td>`,
+            )
+            .join("")}</tr>`,
+      )
+      .join("");
+    return `<table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+      <thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  };
+
+  const sec = (title, content) =>
+    `<h2 style="color:#002631;font-size:13px;font-weight:700;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #003d4d">${title}</h2>${content}`;
+
+  // ── data ──
+  const ov = payload.overview || {};
+  const rev = payload.revenueTrend || payload.chartData?.revenueTrend || [];
+  const sub =
+    payload.subscriptionDistribution ||
+    payload.chartData?.subscriptionDistribution ||
+    [];
+  const acts = payload.activities || [];
+
+  const ovRows = [
+    ["Total Customers", safe(ov.totalClients)],
+    ["Active Customers", safe(ov.activeClients)],
+    ["Total Revenue", fmtINR(ov.totalRevenue || 0)],
+    ["Expiring Soon", safe(ov.expiringSoon)],
+    ["Total Team Members", safe(ov.totalTeamMembers)],
+    ["Active Team Members", safe(ov.activeTeamMembers)],
+    ["Total Assets", safe(ov.totalAssets)],
+    ["Total Inspections", safe(ov.totalInspections)],
+    ["Total Tasks", safe(ov.totalTasks)],
+    ["Completed Tasks", safe(ov.completedTasks)],
+    ["Completion Rate", `${ov.completionRate || 0}%`],
+    ["Performance Score", `${ov.performanceScore || 0}%`],
+    ["Client Growth", `${ov.clientGrowth || 0}%`],
+  ].filter(([, v]) => v !== "—");
+
+  const revRows = rev.map((r) => [r.month || "—", fmtINR(r.revenue || 0)]);
+  const subRows = sub.map((s) => [
+    s.plan || "—",
+    safe(s.count),
+    fmtINR(s.potentialRevenue || 0),
+  ]);
+  const actRows = acts
+    .slice(0, 20)
+    .map((a) => [
+      a.title || "—",
+      a.details || "—",
+      a.timestamp ? new Date(a.timestamp).toLocaleDateString("en-IN") : "—",
+    ]);
+
+  const el = document.createElement("div");
+  el.style.cssText =
+    "padding:36px 40px;font-family:Arial,sans-serif;max-width:860px;";
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:16px;border-bottom:3px solid #002631">
+      <div>
+        <h1 style="color:#002631;font-size:22px;font-weight:800;margin:0 0 4px">Dashboard Report</h1>
+        <p style="color:#516072;font-size:11px;margin:0">Generated: ${stamp}</p>
+      </div>
+      <div style="background:#003d4d;color:#fff;padding:5px 14px;border-radius:20px;font-size:10px;font-weight:600">CONFIDENTIAL</div>
+    </div>
+    ${ovRows.length ? sec("Overview Metrics", tbl(["Metric", "Value"], ovRows, "No overview data")) : ""}
+    ${revRows.length ? sec("Revenue Trend", tbl(["Month", "Revenue"], revRows, "No revenue data")) : ""}
+    ${subRows.length ? sec("Subscription Distribution", tbl(["Plan", "Customers", "Potential Revenue/mo"], subRows, "No subscription data")) : ""}
+    ${actRows.length ? sec("Recent Activity", tbl(["Activity", "Details", "Date"], actRows, "No activity data")) : ""}
+    <p style="color:#71787c;font-size:10px;text-align:center;margin-top:36px;padding-top:12px;border-top:1px solid #e0e3e5">
+      Confidential — Internal Use Only &nbsp;|&nbsp; ${stamp}
+    </p>`;
+
+  document.body.appendChild(el);
+  await html2pdf()
+    .set({
+      margin: [0.5, 0.5, 0.5, 0.5],
+      filename: `${filename}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    })
+    .from(el)
+    .save();
+  document.body.removeChild(el);
+};
+
+// ─── Revenue tooltip ─────────────────────────────────────────────────────────
+const RevTip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 } }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: { xs: 2, sm: 2.5, md: 3 },
-          flexWrap: "wrap",
-          gap: 1.5,
-        }}
+    <Box
+      sx={{
+        bgcolor: "background.paper",
+        border: `1px solid ${alpha(C.outlineVariant, 0.6)}`,
+        borderRadius: 1.5,
+        px: 1.5,
+        py: 1,
+        boxShadow: `0 4px 16px ${alpha(C.primary, 0.1)}`,
+      }}
+    >
+      <Typography
+        sx={{ fontSize: "0.7rem", fontWeight: 700, color: C.primary, mb: 0.25 }}
       >
-        <Skeleton variant="text" width={isMobile ? 100 : 150} height={isMobile ? 32 : 40} />
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Skeleton variant="circular" width={isMobile ? 32 : 36} height={isMobile ? 32 : 36} />
-          <Skeleton variant="circular" width={isMobile ? 32 : 36} height={isMobile ? 32 : 36} />
-        </Box>
-      </Box>
-
-      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
-        {[1, 2, 3, 4].map((i) => (
-          <Grid item xs={12} sm={6} lg={3} key={i}>
-            <Skeleton
-              variant="rounded"
-              height={isMobile ? 110 : isTablet ? 125 : 140}
-              sx={{ borderRadius: { xs: 2, sm: 2.5, md: 3 } }}
-            />
-          </Grid>
-        ))}
-      </Grid>
-
-      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
-        <Grid item xs={12} lg={6}>
-          <Skeleton variant="rounded" height={isMobile ? 220 : isTablet ? 250 : 280} sx={{ borderRadius: { xs: 2, sm: 2.5, md: 3 } }} />
-        </Grid>
-        <Grid item xs={12} lg={6}>
-          <Skeleton variant="rounded" height={isMobile ? 220 : isTablet ? 250 : 280} sx={{ borderRadius: { xs: 2, sm: 2.5, md: 3 } }} />
-        </Grid>
-      </Grid>
-
-      <Skeleton variant="rounded" height={isMobile ? 180 : isTablet ? 200 : 220} sx={{ borderRadius: { xs: 2, sm: 2.5, md: 3 } }} />
+        {label}
+      </Typography>
+      <Typography
+        sx={{ fontSize: "0.75rem", color: C.primaryContainer, fontWeight: 700 }}
+      >
+        {fmtINR(payload[0]?.value)}
+      </Typography>
     </Box>
   );
 };
 
-// ─────────────────────────────────────────────
-// Enhanced Empty State Component
-// ─────────────────────────────────────────────
-const EmptyState = ({ icon: Icon, title, description, action }) => (
+// ─── Subscription tooltip ─────────────────────────────────────────────────────
+const SubTip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const it = payload[0];
+  return (
+    <Box
+      sx={{
+        bgcolor: "background.paper",
+        border: `1px solid ${alpha(C.outlineVariant, 0.6)}`,
+        borderRadius: 1.5,
+        px: 1.5,
+        py: 1,
+        boxShadow: `0 4px 16px ${alpha(C.primary, 0.1)}`,
+      }}
+    >
+      <Typography
+        sx={{ fontSize: "0.7rem", fontWeight: 700, color: C.primary, mb: 0.25 }}
+      >
+        {it.name}
+      </Typography>
+      <Typography sx={{ fontSize: "0.72rem", color: C.secondary }}>
+        {it.value} customers
+      </Typography>
+      <Typography sx={{ fontSize: "0.68rem", color: C.outline, mt: 0.25 }}>
+        {fmtINR(it.payload?.potentialRevenue || 0)}/mo
+      </Typography>
+    </Box>
+  );
+};
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+const EmptyState = ({ icon: Icon, title, description }) => (
   <Fade in>
     <Box
       sx={{
@@ -358,7 +319,7 @@ const EmptyState = ({ icon: Icon, title, description, action }) => (
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        py: { xs: 3, sm: 4, md: 5, lg: 6 },
+        py: { xs: 3, sm: 4 },
         px: 2,
         textAlign: "center",
       }}
@@ -366,44 +327,83 @@ const EmptyState = ({ icon: Icon, title, description, action }) => (
       {Icon && (
         <Icon
           sx={{
-            fontSize: { xs: 40, sm: 48, md: 56, lg: 64 },
-            color: alpha(colors.outline, 0.4),
-            mb: { xs: 1.5, sm: 2 },
+            fontSize: { xs: 40, sm: 48 },
+            color: alpha(C.outline, 0.35),
+            mb: 1.5,
           }}
         />
       )}
       <Typography
-        variant="h6"
         sx={{
-          color: colors.primary,
           fontWeight: 600,
+          color: C.primary,
           mb: 0.5,
-          fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
+          fontSize: { xs: "0.9rem", sm: "1rem" },
         }}
       >
         {title}
       </Typography>
       <Typography
-        variant="body2"
         sx={{
-          color: colors.secondary,
-          mb: action ? 2.5 : 0,
-          maxWidth: { xs: 280, sm: 320, md: 360 },
-          fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
+          color: C.secondary,
+          fontSize: { xs: "0.75rem", sm: "0.8rem" },
           lineHeight: 1.5,
+          maxWidth: 320,
         }}
       >
         {description}
       </Typography>
-      {action && action}
     </Box>
   </Fade>
 );
 
-// ─────────────────────────────────────────────
-// Enhanced Error Display Component
-// ─────────────────────────────────────────────
-const ErrorDisplay = ({ message, onRetry }) => (
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+const DashSkeleton = () => {
+  const theme = useTheme();
+  const sm = useMediaQuery(theme.breakpoints.down("sm"));
+  return (
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+        <Skeleton variant="text" width={150} height={40} />
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Skeleton variant="circular" width={36} height={36} />
+          <Skeleton variant="circular" width={36} height={36} />
+        </Box>
+      </Box>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <Grid item xs={12} sm={6} lg={3} key={i}>
+            <Skeleton
+              variant="rounded"
+              height={sm ? 110 : 140}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} lg={6}>
+          <Skeleton
+            variant="rounded"
+            height={sm ? 220 : 280}
+            sx={{ borderRadius: 3 }}
+          />
+        </Grid>
+        <Grid item xs={12} lg={6}>
+          <Skeleton
+            variant="rounded"
+            height={sm ? 220 : 280}
+            sx={{ borderRadius: 3 }}
+          />
+        </Grid>
+      </Grid>
+      <Skeleton variant="rounded" height={220} sx={{ borderRadius: 3 }} />
+    </Box>
+  );
+};
+
+// ─── Error display ────────────────────────────────────────────────────────────
+const ErrDisplay = ({ message, onRetry }) => (
   <Fade in>
     <Box
       sx={{
@@ -411,54 +411,42 @@ const ErrorDisplay = ({ message, onRetry }) => (
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: { xs: "40vh", sm: "50vh", md: "60vh" },
+        minHeight: "50vh",
         px: 2,
       }}
     >
-      <ErrorIcon
-        sx={{
-          fontSize: { xs: 40, sm: 48, md: 56, lg: 64 },
-          color: colors.onErrorContainer,
-          mb: { xs: 1.5, sm: 2 },
-        }}
-      />
+      <ErrorIcon sx={{ fontSize: 56, color: C.onErrorContainer, mb: 2 }} />
       <Typography
-        variant="h6"
         sx={{
           fontWeight: 600,
-          color: colors.onErrorContainer,
+          color: C.onErrorContainer,
           mb: 1,
           textAlign: "center",
-          fontSize: { xs: "0.95rem", sm: "1rem", md: "1.1rem" },
         }}
       >
         Something went wrong
       </Typography>
       <Typography
-        variant="body2"
         sx={{
-          color: colors.secondary,
+          color: C.secondary,
           mb: 2.5,
           textAlign: "center",
-          maxWidth: { xs: 300, sm: 340, md: 380 },
-          fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
+          maxWidth: 340,
+          fontSize: "0.85rem",
         }}
       >
-        {message || "Failed to load dashboard data. Please try again."}
+        {message || "Failed to load dashboard data."}
       </Typography>
       <Button
         variant="contained"
         onClick={onRetry}
         startIcon={<RefreshIcon />}
-        size="medium"
         sx={{
-          bgcolor: colors.onErrorContainer,
-          "&:hover": { bgcolor: alpha(colors.onErrorContainer, 0.85) },
+          bgcolor: C.onErrorContainer,
+          "&:hover": { bgcolor: alpha(C.onErrorContainer, 0.85) },
           borderRadius: 2,
           textTransform: "none",
           fontWeight: 600,
-          px: { xs: 2, sm: 3 },
-          py: { xs: 0.75, sm: 1 },
         }}
       >
         Retry
@@ -467,228 +455,244 @@ const ErrorDisplay = ({ message, onRetry }) => (
   </Fade>
 );
 
-// ─────────────────────────────────────────────
-// Export Helper — CSV
-// ─────────────────────────────────────────────
-const exportToCSV = (data, filename) => {
-  try {
-    if (!data) return;
+// ─── StatCard ─────────────────────────────────────────────────────────────────
+const StatCard = ({
+  icon: Icon,
+  title,
+  value,
+  trend,
+  trendUp = true,
+  bgColor,
+  iconBg,
+  loading,
+}) => (
+  <Zoom in style={{ transitionDelay: "80ms" }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
+        borderRadius: { xs: 2, sm: 2.5, md: 3 },
+        bgcolor: bgColor || "background.paper",
+        border: "1px solid",
+        width:"277px",
+        borderColor: bgColor ? "transparent" : alpha(C.outlineVariant, 0.5),
+        transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
+        "&:hover": bgColor
+          ? { transform: "translateY(-4px)", boxShadow: 6 }
+          : {
+              borderColor: C.outlineVariant,
+              transform: "translateY(-4px)",
+              boxShadow: `0 8px 24px ${alpha(C.primary, 0.12)}`,
+            },
+        position: "relative",
+        overflow: "hidden",
+        height: "100%",
+        minHeight: { xs: 110, sm: 130, md: 140 },
+      }}
+    >
+      {bgColor && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: -20,
+            right: -20,
+            width: { xs: 70, md: 110 },
+            height: { xs: 70, md: 110 },
+            borderRadius: "50%",
+            bgcolor: "rgba(255,255,255,0.06)",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      <Box
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: { xs: 1, sm: 1.5, md: 2 },
+          }}
+        >
+          <Box
+            sx={{
+              p: { xs: 0.7, sm: 1, md: 1.2 },
+              borderRadius: { xs: 1.5, sm: 2 },
+              bgcolor:
+                iconBg ||
+                (bgColor ? "rgba(255,255,255,0.15)" : C.secondaryContainer),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon
+              sx={{
+                fontSize: { xs: 14, sm: 16, md: 18, lg: 20 },
+                color: bgColor ? "white" : C.onSecondaryContainer,
+              }}
+            />
+          </Box>
+          {trend && (
+            <Box
+              sx={{
+                px: { xs: 0.6, sm: 0.8 },
+                py: 0.3,
+                borderRadius: 1,
+                bgcolor: bgColor
+                  ? "rgba(255,255,255,0.15)"
+                  : C.surfaceContainerLow,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.3,
+              }}
+            >
+              {trendUp ? (
+                <TrendingUpIcon
+                  sx={{
+                    fontSize: { xs: 9, md: 11 },
+                    color: bgColor ? "white" : C.success,
+                  }}
+                />
+              ) : (
+                <TrendingDownIcon
+                  sx={{
+                    fontSize: { xs: 9, md: 11 },
+                    color: bgColor ? "white" : C.onErrorContainer,
+                  }}
+                />
+              )}
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: "0.55rem", md: "0.65rem" },
+                  color: bgColor
+                    ? "white"
+                    : trendUp
+                      ? C.success
+                      : C.onErrorContainer,
+                }}
+              >
+                {trend}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+        <Typography
+          sx={{
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            color: bgColor ? alpha("#fff", 0.8) : C.secondary,
+            textTransform: "uppercase",
+            fontSize: { xs: "0.55rem", sm: "0.6rem", md: "0.65rem" },
+            mb: 0.5,
+          }}
+        >
+          {loading ? <Skeleton width={70} /> : title}
+        </Typography>
+        <Typography
+          sx={{
+            fontWeight: 800,
+            color: bgColor ? "white" : C.primary,
+            fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem", lg: "1.5rem" },
+            lineHeight: 1.2,
+            wordBreak: "break-word",
+            mt: "auto",
+          }}
+        >
+          {loading ? <Skeleton width={60} /> : (value ?? 0)}
+        </Typography>
+      </Box>
+    </Paper>
+  </Zoom>
+);
 
-    const flattenData = (obj, prefix = "") => {
-      const result = {};
-      for (const key in obj) {
-        if (
-          typeof obj[key] === "object" &&
-          obj[key] !== null &&
-          !Array.isArray(obj[key])
-        ) {
-          Object.assign(result, flattenData(obj[key], `${prefix}${key}_`));
-        } else if (Array.isArray(obj[key])) {
-          result[`${prefix}${key}`] = JSON.stringify(obj[key]);
-        } else {
-          result[`${prefix}${key}`] = obj[key];
-        }
-      }
-      return result;
-    };
-
-    const flatData = flattenData(data);
-    const headers = Object.keys(flatData);
-    const csvRows = [headers.join(",")];
-    const values = headers.map((header) => {
-      const value = flatData[header];
-      const escaped =
-        typeof value === "string"
-          ? `"${value.replace(/"/g, '""')}"`
-          : value ?? "";
-      return escaped;
-    });
-    csvRows.push(values.join(","));
-
-    const blob = new Blob([csvRows.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("CSV export error:", error);
-    throw new Error("Failed to export CSV");
-  }
-};
-
-// ─────────────────────────────────────────────
-// Export Helper — PDF
-// ─────────────────────────────────────────────
-const exportToPDF = async (data, filename) => {
-  try {
-    const html2pdf = (await import("html2pdf.js")).default;
-    const element = document.createElement("div");
-    element.style.padding = "20px";
-    element.style.fontFamily = "Arial, sans-serif";
-    element.innerHTML = `
-      <h1 style="color:#002631;text-align:center;">Dashboard Report</h1>
-      <p style="text-align:center;color:#666;">Generated on ${new Date().toLocaleString()}</p>
-      <pre style="background:#f5f5f5;padding:15px;border-radius:8px;overflow-x:auto;font-size:12px;">${JSON.stringify(
-        data,
-        null,
-        2
-      )}</pre>
-    `;
-    document.body.appendChild(element);
-    await html2pdf()
-      .set({
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `${filename}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-      })
-      .from(element)
-      .save();
-    document.body.removeChild(element);
-  } catch (error) {
-    console.error("PDF export error:", error);
-    throw new Error("Failed to export PDF");
-  }
-};
-
-// ─────────────────────────────────────────────
-// Enhanced Revenue Bar Chart with responsive sizing
-// ─────────────────────────────────────────────
-const RevenueBarChart = ({ data, loading, formatCurrency }) => {
+// ─── Revenue Bar Chart ────────────────────────────────────────────────────────
+const RevenueBarChart = ({ data, loading }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
-
-  if (loading) {
+  const sm = useMediaQuery(theme.breakpoints.down("sm"));
+  if (loading)
     return (
       <Box
         sx={{
-          height: { xs: 160, sm: 180, md: 200 },
+          height: { xs: 200, md: 260 },
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <CircularProgress size={isMobile ? 24 : 28} sx={{ color: colors.primaryContainer }} />
+        <CircularProgress size={28} sx={{ color: C.primaryContainer }} />
       </Box>
     );
-  }
-
-  if (!data || data.length === 0) {
+  if (!data?.length)
     return (
       <EmptyState
         icon={AnalyticsIcon}
         title="No revenue data"
-        description="Revenue trends will appear here once data is available."
+        description="Revenue trends will appear once data is available."
       />
     );
-  }
-
-  const maxRevenue = Math.max(...data.map((r) => r.revenue || 0));
-
   return (
-    <Box
-      sx={{
-        overflowX: "auto",
-        width: "100%",
-        pb: 1,
-        "&::-webkit-scrollbar": { height: 4 },
-        "&::-webkit-scrollbar-thumb": {
-          background: alpha(colors.outline, 0.3),
-          borderRadius: 2,
-        },
-      }}
-    >
-      <Box
-        sx={{
-          minWidth: { xs: 320, sm: 400, md: 460 },
-          display: "flex",
-          alignItems: "flex-end",
-          gap: { xs: 0.6, sm: 0.8, md: 1 },
-          height: { xs: 140, sm: 160, md: 180 },
-          px: 0.5,
-        }}
-      >
-        {data.map((item, idx) => {
-          const heightPercent =
-            maxRevenue > 0 ? ((item.revenue || 0) / maxRevenue) * 100 : 0;
-          return (
-            <Box
-              key={idx}
-              sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                minWidth: { xs: 28, sm: 32, md: 36 },
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  mb: 0.5,
-                  fontSize: { xs: "0.48rem", sm: "0.52rem", md: "0.55rem" },
-                  color: colors.outline,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                ₹{((item.revenue || 0) / 1000).toFixed(0)}k
-              </Typography>
-              <Box
-                sx={{
-                  width: "380px",
-                  maxWidth: { xs: 28, sm: 32, md: 44 },
-                  bgcolor: colors.primaryContainer,
-                  height: `${heightPercent}%`,
-                  minHeight: 3,
-                  borderRadius: "4px 4px 0 0",
-                  transition: "height 0.6s ease, background-color 0.2s",
-                  cursor: "default",
-                  "&:hover": { bgcolor: alpha(colors.primaryContainer, 0.7) },
-                }}
-              />
-              <Typography
-                variant="caption"
-                sx={{
-                  mt: 0.75,
-                  fontSize: { xs: "0.48rem", sm: "0.52rem", md: "0.55rem" },
-                  color: colors.outline,
-                  transform: isMobile ? "rotate(-30deg)" : "none",
-                  transformOrigin: "top left",
-                  whiteSpace: "nowrap",
-                  display: "block",
-                  ml: isMobile ? 1 : 0,
-                }}
-              >
-                {item.month}
-              </Typography>
-            </Box>
-          );
-        })}
-      </Box>
+    <Box sx={{ width: "550px", height: { xs: 200, sm: 240, md: 260 } }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 8, left: sm ? 0 : 8, bottom: 4 }}
+          barCategoryGap="30%"
+        >
+          <CartesianGrid
+            vertical={false}
+            stroke="rgba(112,120,124,0.12)"
+            strokeDasharray="4 4"
+          />
+          <XAxis
+            dataKey="month"
+            axisLine={false}
+            tickLine={false}
+            tick={{
+              fontSize: sm ? 10 : 11,
+              fill: C.secondary,
+              fontWeight: 500,
+            }}
+            interval={sm ? 1 : 0}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: sm ? 9 : 10, fill: C.secondary }}
+            tickFormatter={fmtINR}
+            width={sm ? 44 : 58}
+          />
+          <RTooltip
+            content={<RevTip />}
+            cursor={{ fill: alpha(C.primaryContainer, 0.08), radius: 4 }}
+          />
+          <Bar
+            dataKey="revenue"
+            fill={C.primaryContainer}
+            radius={[5, 5, 0, 0]}
+            maxBarSize={sm ? 28 : 44}
+            animationDuration={700}
+            animationEasing="ease-out"
+          />
+        </BarChart>
+      </ResponsiveContainer>
     </Box>
   );
 };
 
-// ─────────────────────────────────────────────
-// Enhanced Subscription Distribution Chart
-// ─────────────────────────────────────────────
-const SubscriptionDistChart = ({ data, loading, formatCurrency }) => {
-  const distColors = [
-    colors.primaryContainer,
-    colors.onTertiaryContainer,
-    colors.tertiaryContainer,
-    colors.secondary,
-  ];
-
-  if (loading) {
+// ─── Subscription Donut Chart ─────────────────────────────────────────────────
+const SubDonutChart = ({ data, loading }) => {
+  const theme = useTheme();
+  const sm = useMediaQuery(theme.breakpoints.down("sm"));
+  if (loading)
     return (
       <Stack spacing={1.5}>
         {[1, 2, 3].map((i) => (
@@ -699,9 +703,7 @@ const SubscriptionDistChart = ({ data, loading, formatCurrency }) => {
         ))}
       </Stack>
     );
-  }
-
-  if (!data || data.length === 0) {
+  if (!data?.length)
     return (
       <EmptyState
         icon={PaymentsIcon}
@@ -709,107 +711,138 @@ const SubscriptionDistChart = ({ data, loading, formatCurrency }) => {
         description="Subscription distribution will appear here."
       />
     );
-  }
 
-  const maxCount = Math.max(...data.map((s) => s.count || 0));
+  const pieData = data.map((d) => ({
+    name: d.plan || "Unknown",
+    value: d.count || 0,
+    potentialRevenue: d.potentialRevenue || 0,
+  }));
+  const total = pieData.reduce((s, d) => s + d.value, 0);
 
   return (
-    <Stack spacing={{ xs: 1.5, sm: 2 }}>
-      {data.map((item, idx) => {
-        const percentage = maxCount > 0 ? ((item.count || 0) / maxCount) * 100 : 0;
-        const dotColor = distColors[idx % distColors.length];
-
-        return (
-          <Box key={idx}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: { xs: "column", sm: "row" },
+        alignItems: "center",
+        gap: { xs: 0, sm: 2 },
+        width: "510px",
+      }}
+    >
+      {/* donut */}
+      <Box
+        sx={{
+          position: "relative",
+          width: { xs: "100%", sm: "55%" },
+          height: { xs: 190, sm: 210, md: 230 },
+          flexShrink: 0,
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%,-50%)",
+            textAlign: "center",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: { xs: "1.15rem", sm: "1.3rem" },
+              fontWeight: 800,
+              color: C.primary,
+              lineHeight: 1,
+            }}
+          >
+            {total}
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: "0.55rem",
+              color: C.secondary,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              mt: 0.25,
+            }}
+          >
+            Total
+          </Typography>
+        </Box>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={pieData}
+              cx="50%"
+              cy="50%"
+              innerRadius={sm ? "52%" : "55%"}
+              outerRadius={sm ? "72%" : "78%"}
+              dataKey="value"
+              paddingAngle={3}
+              animationDuration={700}
+              animationEasing="ease-out"
+            >
+              {pieData.map((_, i) => (
+                <Cell
+                  key={i}
+                  fill={PIE_COLORS[i % PIE_COLORS.length]}
+                  stroke="transparent"
+                />
+              ))}
+            </Pie>
+            <RTooltip content={<SubTip />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </Box>
+      {/* legend */}
+      <Stack spacing={1} sx={{ mt: { xs: 0.5, sm: 0 }, minWidth: { sm: 120 } }}>
+        {pieData.map((e, i) => (
+          <Box
+            key={i}
+            sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}
+          >
             <Box
               sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                mb: 0.5,
-                width:"445px",
-                flexWrap: "wrap",
-                gap: 0.5,
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                <Box
-                  sx={{
-                    width: { xs: 8, sm: 9, md: 10 },
-                    height: { xs: 8, sm: 9, md: 10 },
-                    borderRadius: "50%",
-                    bgcolor: dotColor,
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
-                    color: colors.primary,
-                  }}
-                >
-                  {item.plan || "Unknown"}
-                </Typography>
-              </Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem" },
-                  color: colors.secondary,
-                }}
-              >
-                {item.count || 0} customers
-              </Typography>
-            </Box>
-
-            <LinearProgress
-              variant="determinate"
-              value={percentage}
-              sx={{
-                height: { xs: 5, sm: 6, md: 8 },
-                borderRadius: 4,
-                bgcolor: alpha(colors.primary, 0.07),
-                "& .MuiLinearProgress-bar": {
-                  bgcolor: dotColor,
-                  borderRadius: 4,
-                },
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                bgcolor: PIE_COLORS[i % PIE_COLORS.length],
+                flexShrink: 0,
+                mt: 0.3,
               }}
             />
-
-            <Typography
-              variant="caption"
-              sx={{
-                color: colors.outline,
-                fontSize: { xs: "0.52rem", sm: "0.55rem", md: "0.6rem" },
-                mt: 0.3,
-                display: "block",
-              }}
-            >
-              {formatCurrency(item.potentialRevenue || 0)}/mo
-            </Typography>
+            <Box>
+              <Typography
+                sx={{
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  color: C.primary,
+                  lineHeight: 1.2,
+                }}
+              >
+                {e.name}
+              </Typography>
+              <Typography sx={{ fontSize: "0.6rem", color: C.secondary }}>
+                {e.value} • {fmtINR(e.potentialRevenue)}/mo
+              </Typography>
+            </Box>
           </Box>
-        );
-      })}
-    </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 };
 
-// ─────────────────────────────────────────────
-// Main Dashboard Component with Enhanced Responsiveness
-// ─────────────────────────────────────────────
-const Dashboard = () => {
+// ─── Dashboard (default export) ───────────────────────────────────────────────
+export default function Dashboard() {
   const theme = useTheme();
   const navigate = useNavigate();
-
-  // Enhanced responsive breakpoints
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));       // < 600px
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md")); // 600–900px
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));         // ≥ 900px
-  const isLarge = useMediaQuery(theme.breakpoints.up("lg"));           // ≥ 1200px
-  const isExtraLarge = useMediaQuery(theme.breakpoints.up("xl"));      // ≥ 1536px
+  const sm = useMediaQuery(theme.breakpoints.down("sm"));
+  const md = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const lg = useMediaQuery(theme.breakpoints.up("lg"));
+  const xl = useMediaQuery(theme.breakpoints.up("xl"));
 
   const { user } = useAuth();
   const {
@@ -824,273 +857,238 @@ const Dashboard = () => {
     clearError,
   } = useDashboard();
 
-  const [exportAnchorEl, setExportAnchorEl] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
   const [exporting, setExporting] = useState(false);
-  const [toast, setToast] = useState({ open: false, message: "", severity: "success" });
-  const [retryCount, setRetryCount] = useState(0);
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     loadDashboard();
-  }, [retryCount]);
+  }, [retry]);
 
-  // ── Toast ──
-  const showToast = useCallback((msg, sev = "success") => {
-    setToast({ open: true, message: msg, severity: sev });
-  }, []);
+  const toast$ = useCallback(
+    (msg, sev = "success") =>
+      setToast({ open: true, message: msg, severity: sev }),
+    [],
+  );
+  const closeToast = useCallback(
+    () => setToast((p) => ({ ...p, open: false })),
+    [],
+  );
 
-  const closeToast = useCallback(() => {
-    setToast((prev) => ({ ...prev, open: false }));
-  }, []);
-
-  // ── Refresh ──
   const handleRefresh = useCallback(() => {
-    setRetryCount((prev) => prev + 1);
-    showToast("Refreshing dashboard…", "info");
-  }, [showToast]);
-
-  // ── Retry on error ──
+    setRetry((p) => p + 1);
+    toast$("Refreshing dashboard…", "info");
+  }, [toast$]);
   const handleRetry = useCallback(() => {
-    setRetryCount((prev) => prev + 1);
+    setRetry((p) => p + 1);
     clearError();
   }, [clearError]);
 
-  // ── Export ──
   const handleExport = useCallback(
     async (type) => {
       setExporting(true);
-      setExportAnchorEl(null);
+      setAnchorEl(null);
       try {
-        const exportBlob = await exportDashboardReport();
-        if (!exportBlob) throw new Error("No data received");
-
-        const text = await exportBlob.text();
-        let data;
+        const blob = await exportDashboardReport();
+        if (!blob) throw new Error("No data received");
+        let parsed;
         try {
-          data = JSON.parse(text);
+          parsed = JSON.parse(await blob.text());
         } catch {
-          data = { raw: text };
+          parsed = {};
         }
 
-        const filename = `dashboard_report_${new Date().toISOString().split("T")[0]}`;
+        // enrich with local context
+        const payload = {
+          ...parsed,
+          overview:
+            parsed.overview ||
+            statsData?.overview ||
+            dashboardData?.overview ||
+            {},
+          revenueTrend: parsed.revenueTrend || chartData?.revenueTrend || [],
+          subscriptionDistribution:
+            parsed.subscriptionDistribution ||
+            chartData?.subscriptionDistribution ||
+            [],
+          activities: parsed.activities || activities || [],
+        };
 
+        const name = `dashboard_report_${new Date().toISOString().split("T")[0]}`;
         if (type === "csv") {
-          exportToCSV(data, filename);
-          showToast("CSV exported successfully", "success");
-        } else if (type === "pdf") {
-          await exportToPDF(data, filename);
-          showToast("PDF exported successfully", "success");
+          doCSV(payload, name);
+          toast$("CSV exported successfully");
+        } else {
+          await doPDF(payload, name);
+          toast$("PDF exported successfully");
         }
-      } catch (err) {
-        console.error("Export error:", err);
-        showToast(err.message || "Failed to export dashboard", "error");
+      } catch (e) {
+        console.error(e);
+        toast$(e.message || "Export failed", "error");
       } finally {
         setExporting(false);
       }
     },
-    [exportDashboardReport, showToast]
+    [
+      exportDashboardReport,
+      statsData,
+      dashboardData,
+      chartData,
+      activities,
+      toast$,
+    ],
   );
 
-  // ── Indian currency formatter ──
-  const formatIndianCurrency = useCallback((amount) => {
-    if (amount === undefined || amount === null) return "₹0";
-    const num = Number(amount);
-    if (isNaN(num)) return "₹0";
-    if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`;
-    if (num >= 100000)   return `₹${(num / 100000).toFixed(1)}L`;
-    if (num >= 1000)     return `₹${(num / 1000).toFixed(1)}K`;
-    return `₹${num.toLocaleString("en-IN")}`;
-  }, []);
-
-  // ── Overview data ──
   const overview = useMemo(() => {
-    if (user?.role === "super_admin" || user?.role === "admin") {
-      return dashboardData?.overview || {};
-    }
-    return statsData?.overview || {};
-  }, [user?.role, dashboardData, statsData]);
+    if (statsData?.overview && Object.keys(statsData.overview).length)
+      return statsData.overview;
+    if (dashboardData?.overview && Object.keys(dashboardData.overview).length)
+      return dashboardData.overview;
+    return {
+      totalClients: 0,
+      activeClients: 0,
+      totalRevenue: 0,
+      expiringSoon: 0,
+      totalTeamMembers: 0,
+      activeTeamMembers: 0,
+      totalAssets: 0,
+      totalInspections: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+      completionRate: 0,
+      performanceScore: 0,
+      clientGrowth: 0,
+    };
+  }, [statsData, dashboardData]);
 
-  // ── Stats config ──
-  const statsToShow = useMemo(() => {
-    if (user?.role === "super_admin") {
-      return [
-        {
-          icon: GroupIcon,
-          title: "Total Customers",
-          value: overview.totalClients,
-          trend: `${overview.clientGrowth || 0}%`,
-          trendUp: (overview.clientGrowth || 0) >= 0,
-          bgColor: colors.primaryContainer,
-        },
-        {
-          icon: CheckCircleIcon,
-          title: "Active Customers",
-          value: overview.activeClients,
-          trend: "8.2%",
-          trendUp: true,
-          iconBg: colors.secondaryContainer,
-        },
-        {
-          icon: PaymentsIcon,
-          title: "Total Revenue",
-          value: formatIndianCurrency(overview.totalRevenue || 0),
-          trend: "15.3%",
-          trendUp: true,
-        },
-        {
-          icon: WarningIcon,
-          title: "Expiring Soon",
-          value: overview.expiringSoon || 0,
-          trend: "3.1%",
-          trendUp: false,
-          iconBg: colors.errorContainer,
-          trendColor: colors.onErrorContainer,
-        },
-      ];
-    } else if (user?.role === "admin") {
-      return [
-        {
-          icon: GroupIcon,
-          title: "Team Members",
-          value: overview.totalTeamMembers,
-          bgColor: colors.primaryContainer,
-        },
-        {
-          icon: CheckCircleIcon,
-          title: "Active Team",
-          value: overview.activeTeamMembers,
-          iconBg: colors.secondaryContainer,
-        },
-        {
-          icon: Inventory2Icon,
-          title: "Total Assets",
-          value: overview.totalAssets,
-        },
-        {
-          icon: WarningIcon,
-          title: "Inspections",
-          value: overview.totalInspections,
-          iconBg: colors.errorContainer,
-        },
-      ];
-    } else {
-      return [
-        {
-          icon: TaskIcon,
-          title: "Total Tasks",
-          value: overview.totalTasks,
-          bgColor: colors.primaryContainer,
-        },
-        {
-          icon: CheckCircleIcon,
-          title: "Completed",
-          value: overview.completedTasks,
-          iconBg: colors.secondaryContainer,
-        },
-        {
-          icon: AnalyticsIcon,
-          title: "Completion Rate",
-          value: `${overview.completionRate || 0}%`,
-        },
-        {
-          icon: TrendingUpIcon,
-          title: "Performance",
-          value: `${overview.performanceScore || 0}%`,
-          iconBg: colors.errorContainer,
-        },
-      ];
-    }
-  }, [user?.role, overview, formatIndianCurrency]);
+  const isAdminRole = user?.role === "super_admin" || user?.role === "admin";
 
-  // ── Chart data ──
-  const revenueTrend = useMemo(() => chartData?.revenueTrend || [], [chartData]);
-  const subscriptionDistribution = useMemo(
-    () => chartData?.subscriptionDistribution || [],
-    [chartData]
+  const stats = useMemo(
+    () =>
+      isAdminRole
+        ? [
+            {
+              icon: GroupIcon,
+              title: "Total Customers",
+              value: overview.totalClients,
+              trend: `${overview.clientGrowth || 0}%`,
+              trendUp: (overview.clientGrowth || 0) >= 0,
+              bgColor: C.primaryContainer,
+            },
+            {
+              icon: CheckCircleIcon,
+              title: "Active Customers",
+              value: overview.activeClients,
+              trend: "8.2%",
+              trendUp: true,
+              iconBg: C.secondaryContainer,
+            },
+            {
+              icon: PaymentsIcon,
+              title: "Total Revenue",
+              value: fmtINR(overview.totalRevenue || 0),
+              trend: "15.3%",
+              trendUp: true,
+            },
+            {
+              icon: WarningIcon,
+              title: "Expiring Soon",
+              value: overview.expiringSoon || 0,
+              trend: "3.1%",
+              trendUp: false,
+              iconBg: C.errorContainer,
+            },
+          ]
+        : [
+            {
+              icon: TaskIcon,
+              title: "Total Tasks",
+              value: overview.totalTasks,
+              bgColor: C.primaryContainer,
+            },
+            {
+              icon: CheckCircleIcon,
+              title: "Completed",
+              value: overview.completedTasks,
+              iconBg: C.secondaryContainer,
+            },
+            {
+              icon: AnalyticsIcon,
+              title: "Completion %",
+              value: `${overview.completionRate || 0}%`,
+            },
+            {
+              icon: TrendingUpIcon,
+              title: "Performance",
+              value: `${overview.performanceScore || 0}%`,
+              iconBg: C.errorContainer,
+            },
+          ],
+    [isAdminRole, overview],
   );
 
-  // ── Quick actions ──
+  const revenueTrend = useMemo(
+    () => chartData?.revenueTrend || [],
+    [chartData],
+  );
+  const subDist = useMemo(
+    () => chartData?.subscriptionDistribution || [],
+    [chartData],
+  );
+
   const quickActions = useMemo(() => {
-    const actions = [];
-    if (user?.role === "super_admin" || user?.role === "admin") {
-      actions.push({
+    const a = [];
+    if (isAdminRole)
+      a.push({
         icon: AddCircleIcon,
         title: "New Checklist",
         desc: "Create inspection form",
         path: "/admin/checklists",
       });
-    }
-    if (user?.role === "super_admin") {
-      actions.push({
+    if (user?.role === "super_admin")
+      a.push({
         icon: PersonAddIcon,
         title: "Add Client",
         desc: "Register new client",
         path: "/admin/clients",
       });
-    }
-    actions.push({
+    a.push({
       icon: AnalyticsIcon,
       title: "Reports",
       desc: "View analytics",
       path: "/admin/reports",
     });
-    return actions;
-  }, [user?.role]);
+    return a;
+  }, [isAdminRole, user?.role]);
 
-  // ── Responsive activity limit ──
-  const activityLimit = useMemo(() => {
-    if (isMobile) return 3;
-    if (isTablet) return 4;
-    if (isDesktop && !isLarge) return 5;
-    return 6;
-  }, [isMobile, isTablet, isDesktop, isLarge]);
+  const actLimit = sm ? 3 : md ? 4 : lg ? 6 : 5;
+  const gap = sm ? 1.25 : md ? 1.75 : 2.25;
+  const pad = sm ? 1.25 : md ? 1.75 : lg ? 3.5 : 2.5;
 
-  // ── Responsive grid spacing ──
-  const gridSpacing = useMemo(() => {
-    if (isMobile) return 1.25;
-    if (isTablet) return 1.75;
-    return 2.25;
-  }, [isMobile, isTablet]);
+  if (loading && !dashboardData && !statsData) return <DashSkeleton />;
+  if (error && !dashboardData && !statsData)
+    return <ErrDisplay message={error} onRetry={handleRetry} />;
 
-  // ── Responsive padding ──
-  const containerPadding = useMemo(() => {
-    if (isMobile) return 1.25;
-    if (isTablet) return 1.75;
-    if (isDesktop && !isLarge) return 2.5;
-    return 3.5;
-  }, [isMobile, isTablet, isDesktop, isLarge]);
-
-  // ─── Render: initial loading ───
-  if (loading && !dashboardData && !statsData) {
-    return <DashboardSkeleton />;
-  }
-
-  // ─── Render: fatal error ───
-  if (error && !dashboardData && !statsData) {
-    return <ErrorDisplay message={error} onRetry={handleRetry} />;
-  }
-
-  // ─── Main render ───
   return (
     <Box
       sx={{
-        bgcolor: colors.surface,
+        bgcolor: C.surface,
         minHeight: "100%",
-        p: containerPadding,
+        p: pad,
         position: "relative",
         width: "100%",
         overflowX: "hidden",
       }}
     >
-      {/* Loading progress bar */}
+      {/* top progress bar */}
       {loading && (
         <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-          }}
+          sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}
         >
           <LinearProgress sx={{ height: 2 }} />
         </Box>
@@ -1109,20 +1107,23 @@ const Dashboard = () => {
       >
         <Box>
           <Typography
-            variant="h5"
             sx={{
               fontWeight: 700,
-              color: colors.primary,
-              fontSize: { xs: "1.2rem", sm: "1.35rem", md: "1.5rem", lg: "1.65rem" },
+              color: C.primary,
+              fontSize: {
+                xs: "1.2rem",
+                sm: "1.35rem",
+                md: "1.5rem",
+                lg: "1.65rem",
+              },
               lineHeight: 1.2,
             }}
           >
             Dashboard
           </Typography>
           <Typography
-            variant="caption"
             sx={{
-              color: colors.secondary,
+              color: C.secondary,
               fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
               display: "block",
               mt: 0.25,
@@ -1136,91 +1137,91 @@ const Dashboard = () => {
             })}
           </Typography>
         </Box>
-
-        <Stack direction="row" spacing={{ xs: 0.75, sm: 1 }} alignItems="center">
-          <Tooltip title="Refresh data">
-            <IconButton
-              onClick={handleRefresh}
-              disabled={loading}
-              size={isMobile ? "small" : "medium"}
-              sx={{
-                bgcolor: colors.surfaceContainerLow,
-                "&:hover": { bgcolor: colors.surfaceVariant },
-                "&:disabled": { opacity: 0.5 },
-              }}
-            >
-              <RefreshIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-            </IconButton>
+        <Stack
+          direction="row"
+          spacing={{ xs: 0.75, sm: 1 }}
+          alignItems="center"
+        >
+          <Tooltip title="Refresh">
+            <span>
+              <IconButton
+                onClick={handleRefresh}
+                disabled={loading}
+                size={sm ? "small" : "medium"}
+                sx={{
+                  bgcolor: C.surfaceContainerLow,
+                  "&:hover": { bgcolor: C.surfaceVariant },
+                  "&:disabled": { opacity: 0.5 },
+                }}
+              >
+                <RefreshIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              </IconButton>
+            </span>
           </Tooltip>
-
           <Tooltip title="Export report">
-            <IconButton
-              onClick={(e) => setExportAnchorEl(e.currentTarget)}
-              disabled={exporting || loading}
-              size={isMobile ? "small" : "medium"}
-              sx={{
-                bgcolor: colors.surfaceContainerLow,
-                "&:hover": { bgcolor: colors.surfaceVariant },
-                "&:disabled": { opacity: 0.5 },
-              }}
-            >
-              {exporting ? (
-                <CircularProgress size={isMobile ? 14 : 16} />
-              ) : (
-                <DownloadIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-              )}
-            </IconButton>
+            <span>
+              <IconButton
+                onClick={(e) => setAnchorEl(e.currentTarget)}
+                disabled={exporting || loading}
+                size={sm ? "small" : "medium"}
+                sx={{
+                  bgcolor: C.surfaceContainerLow,
+                  "&:hover": { bgcolor: C.surfaceVariant },
+                  "&:disabled": { opacity: 0.5 },
+                }}
+              >
+                {exporting ? (
+                  <CircularProgress size={sm ? 14 : 16} />
+                ) : (
+                  <DownloadIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                )}
+              </IconButton>
+            </span>
           </Tooltip>
-
-          {/* Export menu */}
           <Menu
-            anchorEl={exportAnchorEl}
-            open={Boolean(exportAnchorEl)}
-            onClose={() => setExportAnchorEl(null)}
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={() => setAnchorEl(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             transformOrigin={{ vertical: "top", horizontal: "right" }}
             PaperProps={{
               sx: {
                 borderRadius: 2,
-                boxShadow: `0 4px 20px ${alpha(colors.primary, 0.12)}`,
-                border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
-                minWidth: { xs: 150, sm: 170 },
+                boxShadow: `0 4px 20px ${alpha(C.primary, 0.12)}`,
+                border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
+                minWidth: 170,
               },
             }}
           >
             <MenuItem onClick={() => handleExport("csv")} disabled={exporting}>
               <ListItemIcon>
-                <CsvIcon fontSize="small" sx={{ color: colors.secondary }} />
+                <CsvIcon fontSize="small" sx={{ color: C.secondary }} />
               </ListItemIcon>
               <ListItemText
                 primary="Export as CSV"
-                primaryTypographyProps={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
+                primaryTypographyProps={{ fontSize: "0.8rem" }}
               />
             </MenuItem>
             <MenuItem onClick={() => handleExport("pdf")} disabled={exporting}>
               <ListItemIcon>
-                <PdfIcon fontSize="small" sx={{ color: colors.secondary }} />
+                <PdfIcon fontSize="small" sx={{ color: C.secondary }} />
               </ListItemIcon>
               <ListItemText
                 primary="Export as PDF"
-                primaryTypographyProps={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
+                primaryTypographyProps={{ fontSize: "0.8rem" }}
               />
             </MenuItem>
           </Menu>
         </Stack>
       </Box>
 
-      {/* ── Non-fatal error alert ── */}
+      {/* error banner */}
       {error && (
         <Fade in>
           <Alert
             severity="error"
             onClose={clearError}
-            sx={{ 
-              mb: { xs: 2, sm: 2.5 }, 
-              borderRadius: 2, 
-              fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" } 
-            }}
+            sx={{ mb: 2.5, borderRadius: 2 }}
             action={
               <Button color="inherit" size="small" onClick={handleRetry}>
                 Retry
@@ -1232,72 +1233,62 @@ const Dashboard = () => {
         </Fade>
       )}
 
-      {/* ── Stats Grid ── */}
-      {statsToShow.length > 0 ? (
-        <Grid
-          container
-          spacing={gridSpacing}
-          sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}
-        >
-          {statsToShow.map((stat, idx) => (
-            <Grid 
-              item 
-              xs={12} 
-              sm={6} 
-              md={6} 
-              lg={3} 
-              key={idx}
-            >
-              <StatCard {...stat} loading={loading} />
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        !loading && (
-          <EmptyState
-            icon={InfoIcon}
-            title="No stats available"
-            description="Dashboard statistics will appear here once data is available."
-          />
-        )
-      )}
+      {/* ── Stat cards ── */}
+      <Grid container spacing={gap} sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
+        {stats.map((s, i) => (
+          <Grid item xs={12} sm={6} md={6} lg={3} key={i}>
+            <StatCard {...s} loading={loading} />
+          </Grid>
+        ))}
+      </Grid>
 
-      {/* ── Charts Section (super_admin / admin only) ── */}
-      {(user?.role === "super_admin" || user?.role === "admin") && (
-        <Grid
-          container
-          spacing={gridSpacing}
-          sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}
-        >
+      {/* ── Charts ── */}
+      {isAdminRole && (
+        <Grid container spacing={gap} sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
           {/* Revenue Trend */}
           <Grid item xs={12} lg={6}>
             <Paper
               elevation={0}
               sx={{
                 p: { xs: 1.5, sm: 2, md: 2.5 },
-                borderRadius: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: 2, sm: 3 },
                 height: "100%",
                 bgcolor: "background.paper",
-                border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
+                border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
               }}
             >
-              <Typography
-                variant="h6"
+              <Box
                 sx={{
-                  fontWeight: 700,
-                  color: colors.primary,
-                  fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem", lg: "1.05rem" },
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   mb: { xs: 1.5, sm: 2 },
                 }}
               >
-                Revenue Trend (₹)
-              </Typography>
-
-              <RevenueBarChart
-                data={revenueTrend}
-                loading={loading}
-                formatCurrency={formatIndianCurrency}
-              />
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    color: C.primary,
+                    fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem" },
+                  }}
+                >
+                  Revenue Trend (₹)
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "2px",
+                      bgcolor: C.primaryContainer,
+                    }}
+                  />
+                  <Typography sx={{ fontSize: "0.62rem", color: C.secondary }}>
+                    Monthly revenue (₹)
+                  </Typography>
+                </Box>
+              </Box>
+              <RevenueBarChart data={revenueTrend} loading={loading} />
             </Paper>
           </Grid>
 
@@ -1307,161 +1298,123 @@ const Dashboard = () => {
               elevation={0}
               sx={{
                 p: { xs: 1.5, sm: 2, md: 2.5 },
-                borderRadius: { xs: 2, sm: 2.5, md: 3 },
+                borderRadius: { xs: 2, sm: 3 },
                 height: "100%",
                 bgcolor: "background.paper",
-                border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
+                border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
               }}
             >
               <Typography
-                variant="h6"
                 sx={{
                   fontWeight: 700,
-                  color: colors.primary,
-                  fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem", lg: "1.05rem" },
+                  color: C.primary,
+                  fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem" },
                   mb: { xs: 1.5, sm: 2 },
                 }}
               >
                 Subscription Distribution
               </Typography>
-
-              <SubscriptionDistChart
-                data={subscriptionDistribution}
-                loading={loading}
-                formatCurrency={formatIndianCurrency}
-              />
+              <SubDonutChart data={subDist} loading={loading} />
             </Paper>
           </Grid>
         </Grid>
       )}
 
-      {/* ── Recent Activity Table ── */}
+      {/* ── Recent Activity ── */}
       <Box sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
         <Paper
           elevation={0}
           sx={{
-            borderRadius: { xs: 2, sm: 2.5, md: 3 },
+            borderRadius: { xs: 2, sm: 3 },
             overflow: "hidden",
             bgcolor: "background.paper",
-            border: `1px solid ${alpha(colors.outlineVariant, 0.5)}`,
+            border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
           }}
         >
-          {/* Activity header */}
           <Box
             sx={{
               px: { xs: 1.5, sm: 2, md: 2.5 },
-              py: { xs: 1.25, sm: 1.5, md: 1.75 },
-              borderBottom: `1px solid ${alpha(colors.outlineVariant, 0.3)}`,
+              py: { xs: 1.25, sm: 1.5 },
+              borderBottom: `1px solid ${alpha(C.outlineVariant, 0.3)}`,
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
-              flexWrap: "wrap",
-              gap: 1,
+              gap: 0.75,
             }}
           >
+            <HistoryIcon
+              sx={{ color: C.primaryContainer, fontSize: { xs: 16, sm: 20 } }}
+            />
             <Typography
-              variant="h6"
               sx={{
                 fontWeight: 700,
-                color: colors.primary,
-                display: "flex",
-                alignItems: "center",
-                gap: 0.75,
-                fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem", lg: "1.05rem" },
+                color: C.primary,
+                fontSize: { xs: "0.85rem", sm: "1rem" },
               }}
             >
-              <HistoryIcon
-                sx={{
-                  color: colors.primaryContainer,
-                  fontSize: { xs: 16, sm: 18, md: 20 },
-                }}
-              />
               Recent Activity
             </Typography>
           </Box>
 
-          {/* Activity body */}
           {loading ? (
-            <Box sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
               {[1, 2, 3].map((i) => (
                 <Box
                   key={i}
-                  sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    mb: 2,
+                  }}
                 >
                   <Skeleton variant="circular" width={28} height={28} />
                   <Box sx={{ flex: 1 }}>
                     <Skeleton variant="text" width="55%" height={16} />
-                    <Skeleton variant="text" width="38%" height={12 } />
+                    <Skeleton variant="text" width="38%" height={12} />
                   </Box>
                 </Box>
               ))}
             </Box>
-          ) : activities.length === 0 ? (
+          ) : !activities.length ? (
             <EmptyState
               icon={HistoryIcon}
               title="No recent activity"
               description="Your recent activities will appear here."
             />
           ) : (
-            <TableContainer sx={{ maxHeight: { xs: 260, sm: 300, md: 350, lg: 400 } }}>
+            <TableContainer sx={{ maxHeight: { xs: 260, sm: 300, md: 380 } }}>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell
-                      sx={{
-                        fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem" },
-                        fontWeight: 700,
-                        color: colors.secondary,
-                        py: { xs: 0.75, sm: 1, md: 1.25 },
-                        bgcolor: alpha(colors.surfaceContainerLow, 0.8),
-                        letterSpacing: "0.04em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Activity
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem" },
-                        fontWeight: 700,
-                        color: colors.secondary,
-                        py: { xs: 0.75, sm: 1, md: 1.25 },
-                        bgcolor: alpha(colors.surfaceContainerLow, 0.8),
-                        letterSpacing: "0.04em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Details
-                    </TableCell>
-                    {!isMobile && (
-                      <TableCell
-                        sx={{
-                          fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem" },
-                          fontWeight: 700,
-                          color: colors.secondary,
-                          py: { xs: 0.75, sm: 1, md: 1.25 },
-                          bgcolor: alpha(colors.surfaceContainerLow, 0.8),
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          width: { sm: 100, md: 120 },
-                        }}
-                      >
-                        Date
-                      </TableCell>
-                    )}
+                    {["Activity", "Details", !sm && "Date"]
+                      .filter(Boolean)
+                      .map((h) => (
+                        <TableCell
+                          key={h}
+                          sx={{
+                            fontWeight: 700,
+                            color: C.secondary,
+                            fontSize: { xs: "0.58rem", md: "0.65rem" },
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            bgcolor: alpha(C.surfaceContainerLow, 0.8),
+                            py: { xs: 0.75, sm: 1 },
+                            ...(h === "Date" ? { width: 110 } : {}),
+                          }}
+                        >
+                          {h}
+                        </TableCell>
+                      ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {activities.slice(0, activityLimit).map((activity, idx) => (
+                  {activities.slice(0, actLimit).map((a, i) => (
                     <TableRow
-                      key={idx}
+                      key={i}
                       hover
-                      sx={{
-                        "&:last-child td": { border: 0 },
-                        transition: "background-color 0.15s",
-                      }}
+                      sx={{ "&:last-child td": { border: 0 } }}
                     >
-                      <TableCell sx={{ py: { xs: 0.9, sm: 1, md: 1.25 } }}>
+                      <TableCell sx={{ py: { xs: 0.9, sm: 1 } }}>
                         <Box
                           sx={{
                             display: "flex",
@@ -1471,58 +1424,50 @@ const Dashboard = () => {
                         >
                           <Avatar
                             sx={{
-                              width: { xs: 22, sm: 24, md: 28 },
-                              height: { xs: 22, sm: 24, md: 28 },
-                              bgcolor: alpha(colors.primary, 0.08),
-                              fontSize: { xs: 10, sm: 11, md: 13 },
+                              width: { xs: 22, md: 28 },
+                              height: { xs: 22, md: 28 },
+                              bgcolor: alpha(C.primary, 0.08),
+                              fontSize: { xs: 10, md: 13 },
                             }}
                           >
-                            {activity.icon || "📋"}
+                            {a.icon || "📋"}
                           </Avatar>
                           <Typography
-                            variant="body2"
                             sx={{
                               fontWeight: 600,
-                              color: colors.primary,
-                              fontSize: {
-                                xs: "0.6rem",
-                                sm: "0.65rem",
-                                md: "0.7rem",
-                                lg: "0.75rem",
-                              },
+                              color: C.primary,
+                              fontSize: { xs: "0.6rem", md: "0.72rem" },
                               lineHeight: 1.3,
                             }}
                           >
-                            {activity.title || "Activity"}
+                            {a.title || "Activity"}
                           </Typography>
                         </Box>
                       </TableCell>
-
-                      <TableCell sx={{ py: { xs: 0.9, sm: 1, md: 1.25 } }}>
+                      <TableCell sx={{ py: { xs: 0.9, sm: 1 } }}>
                         <Typography
-                          variant="caption"
                           sx={{
-                            color: colors.secondary,
-                            fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem" },
+                            color: C.secondary,
+                            fontSize: { xs: "0.58rem", md: "0.65rem" },
                             lineHeight: 1.4,
                           }}
                         >
-                          {activity.details || "No details"}
+                          {a.details || "No details"}
                         </Typography>
                       </TableCell>
-
-                      {!isMobile && (
-                        <TableCell sx={{ py: { xs: 0.9, sm: 1, md: 1.25 } }}>
+                      {!sm && (
+                        <TableCell sx={{ py: { xs: 0.9, sm: 1 } }}>
                           <Typography
-                            variant="caption"
                             sx={{
-                              color: colors.outline,
-                              fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem" },
+                              color: C.outline,
+                              fontSize: { xs: "0.58rem", md: "0.65rem" },
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {activity.timestamp
-                              ? new Date(activity.timestamp).toLocaleDateString("en-IN")
+                            {a.timestamp
+                              ? new Date(a.timestamp).toLocaleDateString(
+                                  "en-IN",
+                                )
                               : "N/A"}
                           </Typography>
                         </TableCell>
@@ -1539,103 +1484,90 @@ const Dashboard = () => {
       {/* ── Quick Actions ── */}
       {quickActions.length > 0 && (
         <Box>
-          <Typography
-            variant="h6"
+          <Box
             sx={{
-              fontWeight: 700,
-              color: colors.primary,
               display: "flex",
               alignItems: "center",
               gap: 0.75,
               mb: { xs: 1.5, sm: 2 },
-              fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem", lg: "1.05rem" },
             }}
           >
             <BoltIcon
               sx={{
-                color: colors.onTertiaryContainer,
-                fontSize: { xs: 16, sm: 18, md: 20 },
+                color: C.onTertiaryContainer,
+                fontSize: { xs: 16, sm: 20 },
               }}
             />
-            Quick Actions
-          </Typography>
-
-          <Grid
-            container
-            spacing={gridSpacing}
-          >
-            {quickActions.map((action, idx) => (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                color: C.primary,
+                fontSize: { xs: "0.85rem", sm: "1rem" },
+              }}
+            >
+              Quick Actions
+            </Typography>
+          </Box>
+          <Grid container spacing={gap}>
+            {quickActions.map((act, i) => (
+              <Grid item xs={12} sm={6} md={4} key={i}>
                 <Button
                   fullWidth
-                  onClick={() => navigate(action.path)}
+                  onClick={() => navigate(act.path)}
                   sx={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "flex-start",
-                    p: { xs: 1.5, sm: 1.75, md: 2, lg: 2.5 },
-                    bgcolor: colors.primaryContainer,
-                    borderRadius: { xs: 2, sm: 2.5, md: 3 },
+                    width:"377px",
+                    p: { xs: 1.5, sm: 2, lg: 2.5 },
+                    bgcolor: C.primaryContainer,
+                    borderRadius: { xs: 2, sm: 3 },
                     textTransform: "none",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
                     height: "100%",
-                    width:"375px",
-                    minHeight: { xs: 90, sm: 100, md: 110, lg: 120 },
+                    minHeight: { xs: 90, sm: 110 },
                     "&:hover": {
                       transform: "translateY(-4px)",
-                      bgcolor: alpha(colors.primaryContainer, 0.88),
-                      boxShadow: `0 8px 24px ${alpha(colors.primary, 0.2)}`,
+                      bgcolor: alpha(C.primaryContainer, 0.88),
+                      boxShadow: `0 8px 24px ${alpha(C.primary, 0.2)}`,
                     },
-                    boxShadow: `0 2px 8px ${alpha(colors.primary, 0.1)}`,
+                    boxShadow: `0 2px 8px ${alpha(C.primary, 0.1)}`,
                   }}
                 >
                   <Box
                     sx={{
-                      p: { xs: 0.7, sm: 0.8, md: 0.9, lg: 1 },
+                      p: { xs: 0.7, sm: 0.9 },
                       bgcolor: "rgba(255,255,255,0.13)",
                       borderRadius: 1.5,
-                      mb: { xs: 0.75, sm: 1, md: 1.25 },
+                      mb: { xs: 0.75, sm: 1 },
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <action.icon
-                      sx={{
-                        color: "white",
-                        fontSize: { xs: 14, sm: 16, md: 18, lg: 20 },
-                      }}
+                    <act.icon
+                      sx={{ color: "white", fontSize: { xs: 14, sm: 18 } }}
                     />
                   </Box>
-
                   <Typography
-                    variant="subtitle1"
                     sx={{
                       color: "white",
                       fontWeight: 700,
-                      fontSize: {
-                        xs: "0.75rem",
-                        sm: "0.8rem",
-                        md: "0.85rem",
-                        lg: "0.9rem",
-                      },
+                      fontSize: { xs: "0.75rem", sm: "0.85rem" },
                       mb: 0.25,
                       lineHeight: 1.2,
                     }}
                   >
-                    {action.title}
+                    {act.title}
                   </Typography>
-
                   <Typography
-                    variant="caption"
                     sx={{
-                      color: colors.onPrimaryContainer,
-                      textAlign: "left",
-                      fontSize: { xs: "0.58rem", sm: "0.62rem", md: "0.65rem", lg: "0.68rem" },
+                      color: C.onPrimaryContainer,
+                      fontSize: { xs: 10, sm: "0.65rem" },
                       lineHeight: 1.4,
                     }}
                   >
-                    {action.desc}
+                    {act.desc}
                   </Typography>
                 </Button>
               </Grid>
@@ -1644,18 +1576,16 @@ const Dashboard = () => {
         </Box>
       )}
 
-      {/* ── Toast Notifications ── */}
+      {/* ── Toast ── */}
       <Snackbar
         open={toast.open}
         autoHideDuration={4000}
         onClose={closeToast}
         anchorOrigin={{
           vertical: "bottom",
-          horizontal: isMobile ? "center" : "right",
+          horizontal: sm ? "center" : "right",
         }}
-        sx={{
-          bottom: { xs: 70, sm: 80, md: 24 },
-        }}
+        sx={{ bottom: { xs: 70, sm: 80, md: 24 } }}
       >
         <Alert
           onClose={closeToast}
@@ -1663,7 +1593,7 @@ const Dashboard = () => {
           variant="filled"
           sx={{
             borderRadius: 2,
-            fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
+            fontSize: { xs: "0.7rem", sm: "0.8rem" },
             boxShadow: 4,
             width: { xs: "90vw", sm: "auto" },
             maxWidth: { xs: "90vw", sm: 400 },
@@ -1674,6 +1604,4 @@ const Dashboard = () => {
       </Snackbar>
     </Box>
   );
-};
-
-export default Dashboard;
+}

@@ -1,4 +1,4 @@
-// pages/ClientDetails.jsx - Complete Working Version
+// pages/ClientDetails.jsx - Fixed Version
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
@@ -799,16 +799,17 @@ export default function ClientDetails() {
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // FIXED: Use correct function names from ClientContext
   const {
     selectedClient,
     loading,
     initialLoading,
     error,
     actionLoading,
-    fetchClientById,
+    getClientById,        // Changed from fetchClientById to getClientById
     editClient,
     changeClientStatus,
-    removeClient,
+    deleteClient,        // Changed from removeClient to deleteClient
     renewClientMembership,
   } = useClient();
 
@@ -846,7 +847,8 @@ export default function ClientDetails() {
     }
     setIsFetching(true);
     try {
-      await fetchClientById(clientId);
+      // FIXED: Use getClientById instead of fetchClientById
+      await getClientById(clientId);
       setFetchError(null);
     } catch (err) {
       const msg =
@@ -858,7 +860,7 @@ export default function ClientDetails() {
     } finally {
       setIsFetching(false);
     }
-  }, [clientId, fetchClientById, showToast]);
+  }, [clientId, getClientById, showToast]);
 
   useEffect(() => {
     if (clientId) {
@@ -1030,9 +1032,10 @@ export default function ClientDetails() {
     }
   };
 
+  // FIXED: Changed from removeClient to deleteClient
   const handleDelete = async () => {
     try {
-      await removeClient(clientId, true);
+      await deleteClient(clientId, true);
       showToast("Client permanently deleted");
       setDeleteConfirmOpen(false);
       navigate("/admin/clients");
@@ -1098,7 +1101,7 @@ export default function ClientDetails() {
     );
   }
 
-  // Main render
+  // Main render (same as your existing render code)
   return (
     <Box
       sx={{

@@ -1,7 +1,6 @@
-// context/ChecklistBuilderContext.jsx
+// context/ChecklistBuilderContext.jsx - Fixed Version
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { useAuth } from "./AuthContexts";
-import axios from "axios";
 
 const ChecklistBuilderContext = createContext();
 
@@ -45,7 +44,7 @@ const DISPLAY_FIELD_TYPE_MAP = {
 };
 
 export const ChecklistBuilderProvider = ({ children }) => {
-  const { authRequest } = useAuth();
+  const { get, post, put, del } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -56,7 +55,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest("POST", "/checklist", checklistData);
+        const response = await post("/checklist", checklistData);
         if (response.success) {
           setSuccess("Checklist created successfully!");
           return { success: true, data: response.data };
@@ -73,7 +72,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
   );
 
   // ─── Get All Checklists ──────────────────────────────────────────────
@@ -92,7 +91,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         if (filters.limit) queryParams.append("limit", filters.limit);
         if (queryParams.toString()) url += `?${queryParams.toString()}`;
 
-        const response = await authRequest("GET", url);
+        const response = await get(url);
         return { success: true, data: response };
       } catch (err) {
         const errorMsg =
@@ -105,7 +104,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [get],
   );
 
   // ─── Get Checklist by ID ─────────────────────────────────────────────
@@ -114,7 +113,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest("GET", `/checklist/${id}`);
+        const response = await get(`/checklist/${id}`);
         return { success: true, data: response };
       } catch (err) {
         const errorMsg =
@@ -127,7 +126,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [get],
   );
 
   // ─── Update Checklist ────────────────────────────────────────────────
@@ -136,11 +135,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest(
-          "PUT",
-          `/checklist/${id}`,
-          updateData,
-        );
+        const response = await put(`/checklist/${id}`, updateData);
         if (response.success) {
           setSuccess("Checklist updated successfully!");
           return { success: true, data: response.data };
@@ -157,7 +152,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [put],
   );
 
   // ─── Delete Checklist ────────────────────────────────────────────────
@@ -166,7 +161,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest("DELETE", `/checklist/${id}`);
+        const response = await del(`/checklist/${id}`);
         if (response.success) {
           setSuccess("Checklist deleted successfully!");
           return { success: true };
@@ -183,7 +178,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [del],
   );
 
   // ─── Clone Checklist ─────────────────────────────────────────────────
@@ -192,9 +187,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest("POST", `/checklist/clone/${id}`, {
-          newName,
-        });
+        const response = await post(`/checklist/clone/${id}`, { newName });
         if (response.success) {
           setSuccess("Checklist cloned successfully!");
           return { success: true, data: response };
@@ -211,66 +204,55 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
   );
 
   // ─── Import Checklist from Excel ─────────────────────────────────────
-  const importFromExcel = useCallback(async (file, checklistName = null) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("excelFile", file);
-      if (checklistName) formData.append("name", checklistName);
+  // FIX: Removed hardcoded production URL and direct axios call with manual
+  // token retrieval. Now uses the `post()` method from useAuth which:
+  //   1. Always uses the correct API_BASE_URL
+  //   2. Automatically injects the Authorization header
+  //   3. Handles FormData correctly (removes Content-Type so browser sets boundary)
+  //   4. Handles 401 → logout automatically via authRequest
+  const importFromExcel = useCallback(
+    async (file, checklistName = null) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const formData = new FormData();
+        formData.append("excelFile", file);
+        if (checklistName) formData.append("name", checklistName);
 
-      const token = localStorage.getItem("accessToken");
-      if (!token || token === "undefined" || token === "null") {
-        throw new Error("No authentication token found. Please login again.");
-      }
+        const response = await post("/checklist/import-excel", formData);
 
-      const response = await axios.post(
-        "https://assset-management-backend-4.onrender.com/api/v1/checklist/import-excel",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        },
-      );
-
-      if (response.data.success) {
-        setSuccess("Checklist imported successfully!");
-        return { success: true, data: response.data._doc || response.data };
+        if (response.success) {
+          setSuccess("Checklist imported successfully!");
+          return {
+            success: true,
+            data: response._doc || response.data || response,
+          };
+        }
+        return { success: false, error: response.message };
+      } catch (err) {
+        const errorMsg =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to import checklist";
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoading(false);
       }
-      return { success: false, error: response.data.message };
-    } catch (err) {
-      let errorMsg = "Failed to import checklist";
-      if (err.response?.status === 401) {
-        errorMsg = "Authentication failed. Please login again.";
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("userType");
-        window.location.href = "/login";
-      } else if (err.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      } else if (err.message) {
-        errorMsg = err.message;
-      }
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [post],
+  );
 
   // ─── Get Global Checklists ───────────────────────────────────────────
   const getGlobalChecklists = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authRequest("GET", "/checklist/global");
+      const response = await get("/checklist/global");
       return { success: true, data: response.data };
     } catch (err) {
       const errorMsg =
@@ -282,7 +264,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [authRequest]);
+  }, [get]);
 
   // ─── Submit for Global Approval ──────────────────────────────────────
   const submitForGlobalApproval = useCallback(
@@ -290,10 +272,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest(
-          "POST",
-          `/checklist/${id}/submit-for-approval`,
-        );
+        const response = await post(`/checklist/${id}/submit-for-approval`);
         if (response.success) {
           setSuccess("Checklist submitted for approval!");
           return { success: true };
@@ -310,7 +289,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
   );
 
   // ─── Approve Global Checklist (Super Admin only) ─────────────────────
@@ -319,7 +298,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest("POST", `/checklist/${id}/approve`);
+        const response = await post(`/checklist/${id}/approve`);
         if (response.success) {
           setSuccess("Checklist approved successfully!");
           return { success: true };
@@ -336,7 +315,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
   );
 
   // ─── Reject Global Checklist (Super Admin only) ──────────────────────
@@ -345,9 +324,7 @@ export const ChecklistBuilderProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest("POST", `/checklist/${id}/reject`, {
-          reason,
-        });
+        const response = await post(`/checklist/${id}/reject`, { reason });
         if (response.success) {
           setSuccess("Checklist rejected!");
           return { success: true };
@@ -364,22 +341,16 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
   );
 
   // ─── Assign Checklist to Admin (Super Admin only) ────────────────────
-  // POST /assignments/assign-to-admin
-  // Body: { checklistId, adminId, dueDate, priority, notes, assetId? }
   const assignChecklistToAdmin = useCallback(
     async (data) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest(
-          "POST",
-          "/assignments/assign-to-admin",
-          data,
-        );
+        const response = await post("/assignments/assign-to-admin", data);
         if (response.success) {
           setSuccess("Checklist assigned to admin successfully!");
           return { success: true, data: response.data };
@@ -396,22 +367,16 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
   );
 
   // ─── Assign Checklist to Team Members (Admin only) ───────────────────
-  // POST /assignments/assign-to-team
-  // Body: { checklistId, teamMemberIds, dueDate, priority, notes, assetId? }
   const assignChecklistToTeam = useCallback(
     async (data) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await authRequest(
-          "POST",
-          "/assignments/assign-to-team",
-          data,
-        );
+        const response = await post("/assignments/assign-to-team", data);
         if (response.success) {
           setSuccess("Checklist assigned to team members successfully!");
           return { success: true, data: response.data };
@@ -428,7 +393,91 @@ export const ChecklistBuilderProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [authRequest],
+    [post],
+  );
+
+  // ─── Get Assignments ─────────────────────────────────────────────────
+  const getAssignments = useCallback(
+    async (filters = {}) => {
+      setLoading(true);
+      setError(null);
+      try {
+        let url = "/assignments";
+        const queryParams = new URLSearchParams();
+        if (filters.status) queryParams.append("status", filters.status);
+        if (filters.checklistId)
+          queryParams.append("checklistId", filters.checklistId);
+        if (filters.assignedTo)
+          queryParams.append("assignedTo", filters.assignedTo);
+        if (filters.page) queryParams.append("page", filters.page);
+        if (filters.limit) queryParams.append("limit", filters.limit);
+        if (queryParams.toString()) url += `?${queryParams.toString()}`;
+
+        const response = await get(url);
+        return { success: true, data: response };
+      } catch (err) {
+        const errorMsg =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to fetch assignments";
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [get],
+  );
+
+  // ─── Get Assignment by ID ────────────────────────────────────────────
+  const getAssignmentById = useCallback(
+    async (id) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await get(`/assignments/${id}`);
+        return { success: true, data: response };
+      } catch (err) {
+        const errorMsg =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to fetch assignment";
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [get],
+  );
+
+  // ─── Update Assignment Status ────────────────────────────────────────
+  const updateAssignmentStatus = useCallback(
+    async (id, status, responseData = null) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await put(`/assignments/${id}/status`, {
+          status,
+          responseData,
+        });
+        if (response.success) {
+          setSuccess("Assignment status updated!");
+          return { success: true, data: response.data };
+        }
+        return { success: false, error: response.message };
+      } catch (err) {
+        const errorMsg =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to update assignment status";
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [put],
   );
 
   // ─── Field / Section converters ──────────────────────────────────────
@@ -533,9 +582,12 @@ export const ChecklistBuilderProvider = ({ children }) => {
     approveGlobalChecklist,
     rejectGlobalChecklist,
 
-    // ── Assignment APIs ──────────────────────────────────────────────
-    assignChecklistToAdmin, // Super Admin → Admin
-    assignChecklistToTeam, // Admin → Team Members
+    // Assignment APIs
+    assignChecklistToAdmin,
+    assignChecklistToTeam,
+    getAssignments,
+    getAssignmentById,
+    updateAssignmentStatus,
 
     // Field / Section converters
     convertUIToAPIField,
