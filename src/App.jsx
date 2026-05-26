@@ -56,8 +56,6 @@ import MyRequests from "./pages/Myrequests";
 import AssetRequests from "./pages/AssetRequest";
 import CreateAssetRequest from "./pages/CreateAssetRequest";
 import AssetRequestDetails from "./pages/AssetRequestDetails";
-import TaskDetail from "./pages/TaskDetail";
-
 // Contact Inquiry Page
 import ContactInquiries from "./pages/ContactInquiries";
 
@@ -437,17 +435,6 @@ export default function App() {
               <ProtectedRoute allowedRoles={["team"]}>
                 <DashboardLayout>
                   <MyTasks />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/team/task-details/:id"
-            element={
-              <ProtectedRoute allowedRoles={["team"]}>
-                <DashboardLayout>
-                  <TaskDetail />
                 </DashboardLayout>
               </ProtectedRoute>
             }
