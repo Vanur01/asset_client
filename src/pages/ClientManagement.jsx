@@ -1,4 +1,4 @@
-// pages/ClientManagement.jsx - Complete Fixed Version
+// pages/ClientManagement.jsx - Complete Fixed Version with Role-Based Access
 
 import React, {
   useState,
@@ -63,9 +63,11 @@ import {
   VisibilityOff,
   Add,
   Remove,
+  Lock as LockIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useClient } from "../context/ClientContext";
+import { useAuth } from "../context/AuthContexts";
 
 // Color palette
 const colors = {
@@ -107,6 +109,72 @@ const getInitials = (name) => {
 const formatError = (err) => {
   if (typeof err === "string") return err;
   return err.response?.data?.message || err.message || "Something went wrong";
+};
+
+// Access Denied Component
+const AccessDenied = () => {
+  const navigate = useNavigate();
+  
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "calc(100vh - 200px)",
+        textAlign: "center",
+        p: 3,
+      }}
+    >
+      <Box
+        sx={{
+          width: 80,
+          height: 80,
+          borderRadius: "50%",
+          bgcolor: "#fef2f2",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          mb: 2,
+        }}
+      >
+        <LockIcon sx={{ fontSize: 40, color: colors.error }} />
+      </Box>
+      <Typography
+        sx={{
+          fontWeight: 700,
+          fontSize: "1.25rem",
+          color: colors.text.primary,
+          mb: 1,
+        }}
+      >
+        Access Denied
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: "0.875rem",
+          color: colors.text.secondary,
+          mb: 3,
+          maxWidth: 400,
+        }}
+      >
+        You don't have permission to access this page. This area is restricted to Super Administrators only.
+      </Typography>
+      <Button
+        variant="contained"
+        onClick={() => navigate("/admin/dashboard")}
+        sx={{
+          bgcolor: colors.primary,
+          textTransform: "none",
+          borderRadius: 2,
+          "&:hover": { bgcolor: colors.primaryDark },
+        }}
+      >
+        Return to Dashboard
+      </Button>
+    </Box>
+  );
 };
 
 // Stepper Component
@@ -203,7 +271,7 @@ const StatCard = ({ icon: Icon, label, value, color, loading }) => {
       sx={{
         borderRadius: 2,
         height: "100%",
-        width:"277px",
+        width: "277px",
         transition: "all 0.2s",
         "&:hover": { transform: "translateY(-2px)", boxShadow: 2 },
       }}
@@ -263,7 +331,7 @@ const ClientCard = ({ client, onEdit, onDelete, onView }) => {
     <Card
       sx={{
         borderRadius: 2,
-        width:"375px",
+        width: "375px",
         border: `1px solid ${colors.border}`,
         position: "relative",
         transition: "all 0.2s",
@@ -1119,6 +1187,7 @@ export default function ClientManagement() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { user, isAuthenticated } = useAuth();
 
   const {
     clients,
@@ -1154,6 +1223,11 @@ export default function ClientManagement() {
 
   const searchTimer = useRef(null);
   const isInitialMount = useRef(true);
+
+  // Check if user has super_admin role
+  const isSuperAdmin = useMemo(() => {
+    return user?.role === "super_admin";
+  }, [user]);
 
   const showToast = useCallback((message, severity = "success") => {
     setToast({ open: true, message, severity });
@@ -1293,6 +1367,26 @@ export default function ClientManagement() {
     ],
     [stats],
   );
+
+  // Check authentication and role
+  if (!isAuthenticated) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <CircularProgress sx={{ color: colors.primary }} />
+      </Box>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return <AccessDenied />;
+  }
 
   // Loading state
   if (initialLoading && !clients?.length) {
