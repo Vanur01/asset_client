@@ -114,7 +114,7 @@ const formatError = (err) => {
 // Access Denied Component
 const AccessDenied = () => {
   const navigate = useNavigate();
-  
+
   return (
     <Box
       sx={{
@@ -159,7 +159,8 @@ const AccessDenied = () => {
           maxWidth: 400,
         }}
       >
-        You don't have permission to access this page. This area is restricted to Super Administrators only.
+        You don't have permission to access this page. This area is restricted
+        to Super Administrators only.
       </Typography>
       <Button
         variant="contained"
