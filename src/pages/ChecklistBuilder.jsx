@@ -331,8 +331,8 @@ const CHECKLIST_TYPES = [
   },
   {
     icon: <PublicIcon sx={{ fontSize: 22 }} />,
-    label: "Global Checklist",
-    desc: "Use predefined global templates",
+    label: "Standard Checklist",
+    desc: "Use predefined standard templates",
     redirectTo: "/admin/create-checklist/global",
     color: C.info,
   },
@@ -2191,7 +2191,7 @@ export default function ChecklistPage() {
                   py: 1,
                 }}
               >
-                Clone
+                Clone Checklist
               </Button>
               <Button
                 variant="contained"

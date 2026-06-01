@@ -1,4 +1,4 @@
-// context/AuthContexts.jsx - Fixed Version
+// context/AuthContexts.jsx
 
 import React, {
   createContext,
@@ -20,10 +20,8 @@ export const useAuth = () => {
   return context;
 };
 
-// API base URL
 const API_BASE_URL = "https://assset-management-backend-4.onrender.com/api/v1";
 
-// Helper function to clear auth data
 const clearAuthData = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("token");
@@ -39,7 +37,6 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [userType, setUserType] = useState(null);
 
-  // Initialize auth from localStorage
   useEffect(() => {
     const initializeAuth = () => {
       console.log("Initializing authentication...");
@@ -73,7 +70,6 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Login function
   const login = async (email, password) => {
     console.log("Attempting login for:", email);
     try {
@@ -83,10 +79,7 @@ export const AuthProvider = ({ children }) => {
         withCredentials: true,
       });
 
-      const response = await tempApi.post("/user/auth/login", {
-        email,
-        password,
-      });
+      const response = await tempApi.post("/auth/login", { email, password });
 
       console.log("Login response:", response.data);
 
@@ -98,10 +91,9 @@ export const AuthProvider = ({ children }) => {
         const userData = response.data.user;
         const accessToken = response.data.accessToken;
 
-        // Transform user data based on role
         let transformedUser = {};
         let userRoleType = "";
-        let redirectPath = "/admin";
+        let redirectPath = "/dashboard";
 
         if (userData.role === "super_admin") {
           transformedUser = {
@@ -110,11 +102,11 @@ export const AuthProvider = ({ children }) => {
             email: userData.email,
             role: "super_admin",
             backendRole: userData.role,
-            name: userData.name,
+            name: userData.name || "Super Admin",
             permissions: userData.permissions || [],
           };
           userRoleType = "super_admin";
-          redirectPath = "/admin";
+          redirectPath = "/dashboard";
         } else if (userData.role === "admin") {
           transformedUser = {
             id: userData.id,
@@ -135,7 +127,7 @@ export const AuthProvider = ({ children }) => {
             settings: userData.settings,
           };
           userRoleType = "admin";
-          redirectPath = "/admin";
+          redirectPath = "/dashboard";
         } else if (userData.role === "team") {
           transformedUser = {
             id: userData.id,
@@ -161,13 +153,11 @@ export const AuthProvider = ({ children }) => {
           redirectPath = "/team";
         }
 
-        // Store in localStorage
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(transformedUser));
         localStorage.setItem("userType", userRoleType);
 
-        // Set state
         setToken(accessToken);
         setUser(transformedUser);
         setUserType(userRoleType);
@@ -191,14 +181,13 @@ export const AuthProvider = ({ children }) => {
       };
     } catch (error) {
       console.error("Login error:", error);
-
       if (error.response) {
         return {
           success: false,
           error:
             error.response.data?.message ||
             error.response.data?.error ||
-            "Invalid credentials",
+            "Invalid email or password",
         };
       } else if (error.request) {
         return {
@@ -215,7 +204,153 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function
+  // UPDATED: Now properly surfaces backend errors
+  const forgotPassword = async (email) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return { success: false, error: "Please enter a valid email address" };
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/forgot-password`,
+        { email },
+        {
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true,
+          timeout: 10000,
+        },
+      );
+
+      if (response.data.success) {
+        return {
+          success: true,
+          message:
+            response.data.message || "Password reset link sent to your email.",
+        };
+      } else {
+        // Backend returned success: false (e.g. email not found)
+        return {
+          success: false,
+          error:
+            response.data.message ||
+            "Unable to process request. Please try again.",
+        };
+      }
+    } catch (error) {
+      console.error("Forgot password error:", error.message);
+      if (error.response?.status === 429) {
+        return {
+          success: false,
+          error:
+            "Too many requests. Please wait a few minutes before trying again.",
+        };
+      }
+      return {
+        success: false,
+        error:
+          error.response?.data?.message ||
+          "Unable to connect to server. Please try again.",
+      };
+    }
+  };
+
+  const resetPassword = async (resetToken, newPassword, confirmPassword) => {
+    console.log("Processing password reset");
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, error: "Passwords do not match" };
+    }
+    if (newPassword.length < 8) {
+      return {
+        success: false,
+        error: "Password must be at least 8 characters long",
+      };
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      return {
+        success: false,
+        error: "Password must contain at least one uppercase letter",
+      };
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      return {
+        success: false,
+        error: "Password must contain at least one lowercase letter",
+      };
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      return {
+        success: false,
+        error: "Password must contain at least one number",
+      };
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/reset-password`,
+        { token: resetToken, newPassword, confirmPassword },
+        {
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true,
+          timeout: 10000,
+        },
+      );
+
+      console.log("Reset password response:", response.status);
+
+      if (response.data.success) {
+        return {
+          success: true,
+          message:
+            response.data.message ||
+            "Password has been reset successfully. Please login with your new password.",
+        };
+      } else {
+        return {
+          success: false,
+          error:
+            response.data.message ||
+            "Failed to reset password. Please request a new reset link.",
+        };
+      }
+    } catch (error) {
+      console.error("Reset password error:", error);
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 400) {
+          return {
+            success: false,
+            error:
+              "Invalid or expired reset token. Please request a new password reset link.",
+          };
+        } else if (status === 401) {
+          return {
+            success: false,
+            error:
+              "Reset link has expired. Please request a new password reset link.",
+          };
+        } else {
+          return {
+            success: false,
+            error: "Unable to reset password. Please request a new reset link.",
+          };
+        }
+      } else if (error.request) {
+        return {
+          success: false,
+          error:
+            "Unable to connect to server. Please check your connection and try again.",
+        };
+      } else {
+        return {
+          success: false,
+          error: "An unexpected error occurred. Please try again.",
+        };
+      }
+    }
+  };
+
   const logout = useCallback(async () => {
     console.log("Logging out...");
     try {
@@ -229,7 +364,7 @@ export const AuthProvider = ({ children }) => {
         currentToken !== "null"
       ) {
         await axios.post(
-          `${API_BASE_URL}/user/auth/logout`,
+          `${API_BASE_URL}/auth/logout`,
           {},
           {
             headers: {
@@ -251,7 +386,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Helper functions
   const getUserRole = () => user?.role || null;
   const getUserType = () => userType;
   const hasRole = (role) => user?.role === role;
@@ -260,12 +394,6 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = () => user?.role === "admin";
   const isTeam = () => user?.role === "team";
 
-  // ─── FIX 1: authRequest now uses axios() directly ────────────────────
-  // Previously stored `api` (an axios instance) was being called as
-  // `requestApi(config)` which throws "requestApi is not a function".
-  // Axios instances must be called via `.request(config)` or you can
-  // call the top-level `axios(config)` directly — we do the latter here
-  // to also eliminate the stale-token closure problem in the interceptor.
   const authRequest = useCallback(
     async (method, url, data = null, customConfig = {}) => {
       const currentToken =
@@ -277,24 +405,20 @@ export const AuthProvider = ({ children }) => {
         throw new Error("No authentication token available");
       }
 
-      // Clean up URL to avoid double slashes
       const cleanUrl = url.startsWith("/") ? url : `/${url}`;
       console.log(`Making ${method} request to: ${cleanUrl}`);
 
       try {
-        // ─── FIX 2: Build headers carefully so Authorization is never lost ──
         const headers = {
           "Content-Type": "application/json",
-          ...customConfig.headers, // caller overrides come first
-          Authorization: `Bearer ${currentToken}`, // token always wins
+          ...customConfig.headers,
+          Authorization: `Bearer ${currentToken}`,
         };
 
-        // ─── FIX 3: FormData — remove Content-Type so browser sets boundary ─
         if (data instanceof FormData) {
           delete headers["Content-Type"];
         }
 
-        // ─── FIX 4: Only attach `data` for mutating methods or FormData ──────
         const isMutating = ["post", "put", "patch"].includes(
           method.toLowerCase(),
         );
@@ -306,65 +430,54 @@ export const AuthProvider = ({ children }) => {
           url: `${API_BASE_URL}${cleanUrl}`,
           headers,
           withCredentials: true,
-          // Spread remaining customConfig keys (e.g. params, timeout)
-          // but exclude `headers` since we already merged them above
           ...Object.fromEntries(
             Object.entries(customConfig).filter(([k]) => k !== "headers"),
           ),
           ...(shouldAttachData && { data }),
         };
 
-        // ✅ Use top-level axios() — works correctly as a function
         const response = await axios(config);
         console.log(`Response from ${cleanUrl}:`, response.status);
         return response.data;
       } catch (error) {
         console.error(`Auth request error (${method} ${url}):`, error);
-
         if (error.response?.status === 401) {
           console.log("Token expired or invalid, logging out...");
           logout();
         }
-
         throw error;
       }
     },
-    [token, logout], // ─── FIX 5: removed `api` dependency (no longer used) ──
+    [token, logout],
   );
 
-  // Convenience methods for common HTTP methods
   const get = useCallback(
     async (url, config = {}) => authRequest("GET", url, null, config),
     [authRequest],
   );
-
   const post = useCallback(
     async (url, data = null, config = {}) =>
       authRequest("POST", url, data, config),
     [authRequest],
   );
-
   const put = useCallback(
     async (url, data = null, config = {}) =>
       authRequest("PUT", url, data, config),
     [authRequest],
   );
-
   const patch = useCallback(
     async (url, data = null, config = {}) =>
       authRequest("PATCH", url, data, config),
     [authRequest],
   );
-
   const del = useCallback(
     async (url, config = {}) => authRequest("DELETE", url, null, config),
     [authRequest],
   );
 
-  // Check if backend is reachable
   const checkBackendStatus = useCallback(async () => {
     try {
-      const response = await axios.options(`${API_BASE_URL}/user/auth/login`, {
+      const response = await axios.options(`${API_BASE_URL}/auth/login`, {
         timeout: 5000,
         validateStatus: (status) =>
           status === 200 || status === 404 || status === 405,
@@ -381,6 +494,8 @@ export const AuthProvider = ({ children }) => {
       user,
       login,
       logout,
+      forgotPassword,
+      resetPassword,
       token,
       loading,
       userType,

@@ -1,5 +1,5 @@
-// components/TopHeader.jsx - Fully Responsive for All Devices (320px - 1200px+)
-import React, { useState, useEffect } from "react";
+// components/TopHeader.jsx - Premium Redesign
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Avatar,
@@ -12,105 +12,617 @@ import {
   useMediaQuery,
   useTheme,
   Fade,
-  InputBase,
   alpha,
   Tooltip,
   SwipeableDrawer,
-  List,
-  ListItem,
-  ListItemText,
   ListItemIcon,
+  ListItemText,
   Chip,
+  CircularProgress,
+  Button,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import MenuIcon from "@mui/icons-material/Menu";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import CloseIcon from "@mui/icons-material/Close";
-import SettingsIcon from "@mui/icons-material/Settings";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import LogoutIcon from "@mui/icons-material/Logout";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import { useAuth } from "../context/AuthContexts";
+import { useNotifications } from "../context/NotificationContext";
+import { formatDistanceToNow } from "date-fns";
 
+/* ─── Animated badge with pulse ring ─── */
+function PulsingBadge({ count, children }) {
+  const hasNew = count > 0;
+  // Badge width grows: single digit = 18px, double = 22px, "99+" = 26px
+  const label = count > 99 ? "99+" : String(count);
+  const badgeMinW = count > 99 ? 26 : count >= 10 ? 22 : 18;
+
+  return (
+    <Box sx={{ position: "relative", display: "inline-flex" }}>
+      {children}
+      {hasNew && (
+        <>
+          {/* Pulse ring — sits behind the badge */}
+          <Box
+            sx={{
+              position: "absolute",
+              top: -2,
+              right: -2,
+              width: badgeMinW,
+              height: 18,
+              borderRadius: 99,
+              bgcolor: "transparent",
+              border: "2px solid #ef4444",
+              animation: "pulseRing 1.6s ease-out infinite",
+              pointerEvents: "none",
+              "@keyframes pulseRing": {
+                "0%":   { transform: "scale(1)",   opacity: 0.8 },
+                "100%": { transform: "scale(2.2)", opacity: 0   },
+              },
+            }}
+          />
+          {/* Count badge */}
+          <Box
+            sx={{
+              position: "absolute",
+              top: -4,
+              right: -5,
+              minWidth: badgeMinW,
+              height: 18,
+              borderRadius: 99,
+              bgcolor: "#ef4444",
+              color: "#fff",
+              fontSize: count >= 10 ? 9 : 10,
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              px: "3px",
+              lineHeight: 1,
+              // White outline ring — clean separation from any bg
+              boxShadow: "0 0 0 2px #ffffff",
+              fontFamily: "'DM Sans', sans-serif",
+              letterSpacing: 0,
+              transition: "min-width 0.15s ease",
+            }}
+          >
+            {label}
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+}
+
+/* ─── Bell icon with shake animation ─── */
+function BellIcon({ active }) {
+  return (
+    <Box
+      sx={{
+        width: 40,
+        height: 40,
+        borderRadius: "14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: active ? alpha("#1a5c6b", 0.1) : "transparent",
+        border: active ? `1.5px solid ${alpha("#1a5c6b", 0.25)}` : "1.5px solid transparent",
+        transition: "all 0.2s ease",
+        "&:hover": {
+          bgcolor: alpha("#1a5c6b", 0.08),
+          border: `1.5px solid ${alpha("#1a5c6b", 0.2)}`,
+        },
+        "& svg": {
+          animation: active ? "bellShake 0.6s ease" : "none",
+          "@keyframes bellShake": {
+            "0%,100%": { transform: "rotate(0deg)" },
+            "20%": { transform: "rotate(-12deg)" },
+            "40%": { transform: "rotate(12deg)" },
+            "60%": { transform: "rotate(-8deg)" },
+            "80%": { transform: "rotate(8deg)" },
+          },
+        },
+      }}
+    >
+      <NotificationsNoneIcon
+        sx={{
+          fontSize: 20,
+          color: active ? "#1a5c6b" : "#64748b",
+        }}
+      />
+    </Box>
+  );
+}
+
+/* ─── Priority stripe ─── */
+const PRIORITY_CONFIG = {
+  urgent: { color: "#ef4444", label: "Urgent", dot: "#ef4444" },
+  high:   { color: "#f59e0b", label: "High",   dot: "#f59e0b" },
+  medium: { color: "#10b981", label: "Medium",  dot: "#10b981" },
+  low:    { color: "#94a3b8", label: "Low",     dot: "#94a3b8" },
+};
+
+const TYPE_ICONS = {
+  client_created:      { emoji: "🏢", bg: "#eff6ff" },
+  client_deactivated:  { emoji: "🔒", bg: "#fef2f2" },
+  team_created:        { emoji: "👥", bg: "#f0fdf4" },
+  team_deactivated:    { emoji: "⚠️", bg: "#fffbeb" },
+  subscription_expiring: { emoji: "⏳", bg: "#faf5ff" },
+  inactivity_reminder: { emoji: "⏰", bg: "#fff7ed" },
+  contact_inquiry:     { emoji: "📧", bg: "#f0f9ff" },
+  default:             { emoji: "🔔", bg: "#f8fafc" },
+};
+
+function NotificationItem({ item, onRead, onDelete, formatTime }) {
+  const priority = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.low;
+  const typeConfig = TYPE_ICONS[item.type] || TYPE_ICONS.default;
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Box
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => !item.isRead && onRead(item._id)}
+      sx={{
+        display: "flex",
+        gap: 1.5,
+        px: 2,
+        py: 1.5,
+        position: "relative",
+        cursor: item.isRead ? "default" : "pointer",
+        bgcolor: item.isRead ? "transparent" : alpha("#1a5c6b", 0.03),
+        borderLeft: `3px solid ${item.isRead ? "transparent" : priority.color}`,
+        transition: "all 0.18s ease",
+        "&:hover": {
+          bgcolor: alpha("#1a5c6b", 0.05),
+        },
+      }}
+    >
+      {/* Type icon */}
+      <Box
+        sx={{
+          flexShrink: 0,
+          width: 38,
+          height: 38,
+          borderRadius: "12px",
+          bgcolor: typeConfig.bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 18,
+          mt: 0.25,
+        }}
+      >
+        {typeConfig.emoji}
+      </Box>
+
+      {/* Content */}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+          <Typography
+            variant="body2"
+            fontWeight={item.isRead ? 400 : 600}
+            color="#0f172a"
+            fontSize={13}
+            sx={{ lineHeight: 1.4 }}
+          >
+            {item.title}
+          </Typography>
+          {/* Unread dot */}
+          {!item.isRead && (
+            <Box
+              sx={{
+                flexShrink: 0,
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                bgcolor: priority.color,
+                mt: 0.5,
+              }}
+            />
+          )}
+        </Box>
+
+        <Typography
+          variant="caption"
+          color="#64748b"
+          fontSize={11.5}
+          sx={{ display: "block", mt: 0.3, mb: 0.5, lineHeight: 1.4 }}
+        >
+          {item.message}
+        </Typography>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="caption" color="#94a3b8" fontSize={10.5}>
+            {formatTime(item.createdAt)}
+          </Typography>
+          {item.priority !== "low" && (
+            <Chip
+              label={priority.label}
+              size="small"
+              sx={{
+                height: 16,
+                fontSize: 9.5,
+                fontWeight: 600,
+                bgcolor: alpha(priority.color, 0.1),
+                color: priority.color,
+                "& .MuiChip-label": { px: 0.75 },
+              }}
+            />
+          )}
+        </Box>
+      </Box>
+
+      {/* Delete */}
+      <IconButton
+        size="small"
+        onClick={(e) => onDelete(item._id, e)}
+        sx={{
+          opacity: hovered ? 1 : 0,
+          transition: "opacity 0.18s",
+          alignSelf: "flex-start",
+          mt: -0.25,
+          p: 0.5,
+          color: "#94a3b8",
+          "&:hover": { color: "#ef4444", bgcolor: alpha("#ef4444", 0.08) },
+        }}
+      >
+        <DeleteOutlineIcon sx={{ fontSize: 15 }} />
+      </IconButton>
+    </Box>
+  );
+}
+
+/* ─── Notification Panel ─── */
+function NotificationPanel({
+  notifications,
+  unreadCount,
+  loading,
+  pagination,
+  onRead,
+  onDelete,
+  onMarkAll,
+  onRefresh,
+  onLoadMore,
+  loadingMore,
+  onClose,
+  isMobile,
+  formatTime,
+}) {
+  return (
+    <Box
+      sx={{
+        width: { xs: "100%", sm: 400, md: 420 },
+        maxHeight: "80vh",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          px: 2.5,
+          py: 2,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: "1px solid #f1f5f9",
+          bgcolor: "#fff",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: "10px",
+              background: "linear-gradient(135deg, #1a5c6b 0%, #1a5c6b 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <NotificationsNoneIcon sx={{ fontSize: 16, color: "#fff" }} />
+          </Box>
+          <Typography
+            fontWeight={700}
+            fontSize={15}
+            color="#0f172a"
+            fontFamily="'DM Sans', sans-serif"
+          >
+            Notifications
+          </Typography>
+          {unreadCount > 0 && (
+            <Box
+              sx={{
+                px: 1,
+                py: 0.15,
+                borderRadius: 99,
+                background: "linear-gradient(135deg, #ef4444 0%, #f87171 100%)",
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 700,
+                lineHeight: 1.6,
+              }}
+            >
+              {unreadCount}
+            </Box>
+          )}
+        </Box>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Tooltip title="Refresh">
+            <IconButton
+              size="small"
+              onClick={onRefresh}
+              sx={{ color: "#94a3b8", "&:hover": { color: "#1a5c6b", bgcolor: alpha("#1a5c6b", 0.06) } }}
+            >
+              <RefreshIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+          {unreadCount > 0 && (
+            <Tooltip title="Mark all as read">
+              <IconButton
+                size="small"
+                onClick={onMarkAll}
+                sx={{ color: "#94a3b8", "&:hover": { color: "#10b981", bgcolor: alpha("#10b981", 0.06) } }}
+              >
+                <DoneAllIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {isMobile && (
+            <IconButton
+              size="small"
+              onClick={onClose}
+              sx={{ color: "#94a3b8", "&:hover": { color: "#ef4444", bgcolor: alpha("#ef4444", 0.06) } }}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          )}
+        </Box>
+      </Box>
+
+      {/* Unread summary strip */}
+      {unreadCount > 0 && (
+        <Box
+          sx={{
+            px: 2.5,
+            py: 0.75,
+            background: "linear-gradient(90deg, #f0f0ff 0%, #fafafa 100%)",
+            borderBottom: "1px solid #f1f5f9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography fontSize={11.5} color="#1a5c6b" fontWeight={600}>
+            {unreadCount} unread notification{unreadCount > 1 ? "s" : ""}
+          </Typography>
+          <Button
+            size="small"
+            onClick={onMarkAll}
+            sx={{
+              fontSize: 11,
+              color: "#1a5c6b",
+              fontWeight: 600,
+              p: 0,
+              minWidth: 0,
+              textTransform: "none",
+              "&:hover": { bgcolor: "transparent", textDecoration: "underline" },
+            }}
+          >
+            Mark all read
+          </Button>
+        </Box>
+      )}
+
+      {/* List */}
+      <Box sx={{ flex: 1, overflowY: "auto" }}>
+        {loading && notifications.length === 0 ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+            <CircularProgress size={32} sx={{ color: "#1a5c6b" }} />
+          </Box>
+        ) : notifications.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 8, px: 3 }}>
+            <Box
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: "20px",
+                bgcolor: "#f8fafc",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                mx: "auto",
+                mb: 1.5,
+              }}
+            >
+              <NotificationsActiveIcon sx={{ fontSize: 28, color: "#cbd5e1" }} />
+            </Box>
+            <Typography fontSize={14} fontWeight={600} color="#64748b">
+              You're all caught up!
+            </Typography>
+            <Typography fontSize={12} color="#94a3b8" mt={0.5}>
+              No new notifications right now.
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            {notifications.map((item, idx) => (
+              <React.Fragment key={item._id}>
+                <NotificationItem
+                  item={item}
+                  onRead={onRead}
+                  onDelete={onDelete}
+                  formatTime={formatTime}
+                />
+                {idx < notifications.length - 1 && (
+                  <Box sx={{ mx: 2, borderBottom: "1px solid #f8fafc" }} />
+                )}
+              </React.Fragment>
+            ))}
+
+            {pagination && notifications.length < pagination.total && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 2.5 }}>
+                <Button
+                  size="small"
+                  onClick={onLoadMore}
+                  disabled={loadingMore}
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#1a5c6b",
+                    textTransform: "none",
+                    borderRadius: "10px",
+                    px: 2,
+                    py: 0.75,
+                    bgcolor: alpha("#1a5c6b", 0.06),
+                    "&:hover": { bgcolor: alpha("#1a5c6b", 0.12) },
+                  }}
+                >
+                  {loadingMore ? <CircularProgress size={16} sx={{ color: "#1a5c6b" }} /> : "Load more"}
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+/* ─── Main TopHeader ─── */
 export default function TopHeader({ onMenuToggle }) {
   const { user, logout } = useAuth();
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    pagination,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    fetchUnreadCount,
+  } = useNotifications();
+
   const theme = useTheme();
-  
-  // Responsive breakpoints
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
-  const isLargeDesktop = useMediaQuery(theme.breakpoints.up("lg"));
 
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
-  const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [scrolled, setScrolled] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: "New checklist assigned", time: "2 hours ago", read: false },
-    { id: 2, title: "Asset inspection due", time: "5 hours ago", read: false },
-    { id: 3, title: "Report ready for download", time: "1 day ago", read: true },
-    { id: 4, title: "Team member joined", time: "2 days ago", read: true },
-  ]);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const prevUnreadRef = useRef(unreadCount);
+  const [bellActive, setBellActive] = useState(false);
 
-  // Handle scroll effect
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (notificationAnchor) {
+      fetchNotifications(1, 20);
+      setNotificationPage(1);
+    }
+  }, [notificationAnchor]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!notificationAnchor) fetchUnreadCount();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [notificationAnchor]);
+
+  // Trigger bell shake when unread count increases
+  useEffect(() => {
+    if (unreadCount > prevUnreadRef.current) {
+      setBellActive(true);
+      setTimeout(() => setBellActive(false), 800);
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
 
   const getUserDisplayName = () => {
     if (!user) return "User";
     return user.name || user.email?.split("@")[0] || "User";
   };
 
-  const getUserInitials = () => {
-    const name = getUserDisplayName();
-    return name
+  const getUserInitials = () =>
+    getUserDisplayName()
       .split(" ")
       .map((n) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
-  };
 
   const getUserRole = () => {
     const role = user?.role || "member";
     return role === "super_admin" ? "Super Admin" : role === "admin" ? "Admin" : "Team Member";
   };
 
-  const getRoleColor = () => {
+  const getRoleConfig = () => {
     const role = user?.role;
-    if (role === "super_admin") return "#ea4335";
-    if (role === "admin") return "#fbbc04";
-    return "#34a853";
+    if (role === "super_admin") return { color: "#ef4444", bg: "#fef2f2" };
+    if (role === "admin") return { color: "#f59e0b", bg: "#fffbeb" };
+    return { color: "#10b981", bg: "#f0fdf4" };
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const handleNotificationOpen = (event) => setNotificationAnchor(event.currentTarget);
-  const handleNotificationClose = () => setNotificationAnchor(null);
-  const handleUserMenuOpen = (event) => setUserMenuAnchor(event.currentTarget);
-  const handleUserMenuClose = () => setUserMenuAnchor(null);
-  const handleSearchDrawerOpen = () => setSearchDrawerOpen(true);
-  const handleSearchDrawerClose = () => setSearchDrawerOpen(false);
-
-  const handleMarkAllRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const formatTimeAgo = (date) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true });
+    } catch {
+      return "Unknown";
+    }
   };
 
-  const handleNotificationClick = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
-    handleNotificationClose();
+  const handleNotificationOpen = (e) => {
+    setNotificationAnchor(e.currentTarget);
+    setNotificationPage(1);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
+    setNotificationPage(1);
+  };
+
+  const handleMarkNotificationRead = async (id) => {
+    await markAsRead(id);
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllAsRead();
+  };
+
+  const handleDeleteNotification = async (id, event) => {
+    event.stopPropagation();
+    await deleteNotification(id);
+  };
+
+  const handleRefresh = async () => {
+    await fetchNotifications(1, 20);
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    const next = notificationPage + 1;
+    await fetchNotifications(next, 20);
+    setNotificationPage(next);
+    setLoadingMore(false);
   };
 
   const handleLogout = async () => {
@@ -122,104 +634,138 @@ export default function TopHeader({ onMenuToggle }) {
     }
   };
 
-  // Search results (mock)
-  const searchResults = [
-    { type: "Asset", name: "Server Rack A-12", path: "/admin/assets" },
-    { type: "Checklist", name: "Daily Inspection", path: "/admin/checklists" },
-    { type: "Team Member", name: "John Doe", path: "/admin/team" },
-  ];
+  const handleUserMenuOpen = (e) => setUserMenuAnchor(e.currentTarget);
+  const handleUserMenuClose = () => setUserMenuAnchor(null);
 
-  const filteredResults = searchValue.length > 0 
-    ? searchResults.filter(r => r.name.toLowerCase().includes(searchValue.toLowerCase()))
-    : [];
+  const roleConfig = getRoleConfig();
+
+  const notifPanelProps = {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    pagination,
+    onRead: handleMarkNotificationRead,
+    onDelete: handleDeleteNotification,
+    onMarkAll: handleMarkAllRead,
+    onRefresh: handleRefresh,
+    onLoadMore: handleLoadMore,
+    loadingMore,
+    onClose: handleNotificationClose,
+    isMobile,
+    formatTime: formatTimeAgo,
+  };
 
   return (
     <>
       <Box
         component="header"
         sx={{
-          height: { xs: 56, sm: 60, md: 64, lg: 70 },
-          bgcolor: scrolled ? "rgba(255, 255, 255, 0.98)" : "#ffffff",
+          height: { xs: 56, sm: 60, md: 64, lg: 68 },
+          bgcolor: scrolled ? "rgba(255,255,255,0.92)" : "#ffffff",
+          backdropFilter: scrolled ? "blur(12px)" : "none",
           borderBottom: "1px solid",
-          borderColor: alpha(theme.palette.divider, scrolled ? 0.15 : 0.08),
+          borderColor: scrolled ? alpha("#1a5c6b", 0.08) : "#f1f5f9",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          px: { xs: 1.5, sm: 2, md: 2.5, lg: 3, xl: 4 },
+          px: { xs: 1.5, sm: 2, md: 3, lg: 4 },
           position: "sticky",
           top: 0,
           zIndex: 1100,
           width: "100%",
           boxSizing: "border-box",
-          gap: { xs: 1, sm: 1.5, md: 2 },
-          backdropFilter: scrolled ? "blur(8px)" : "none",
-          transition: "all 0.2s ease",
+          transition: "all 0.25s ease",
+          boxShadow: scrolled ? "0 1px 20px rgba(99,102,241,0.06)" : "none",
         }}
       >
-        {/* Left Section - Menu & Logo */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 1.5, md: 2 } }}>
+        {/* Left: Menu toggle */}
+        <Box sx={{ display: "flex", alignItems: "center" }}>
           {(isMobile || isTablet) && (
-            <Tooltip title="Menu" arrow placement="right">
-              <IconButton
-                onClick={onMenuToggle}
-                sx={{
-                  color: "#5f6368",
-                  p: { xs: 0.75, sm: 1 },
-                  "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
-                  transition: "all 0.2s ease",
-                }}
-                size="small"
-              >
-                <MenuIcon sx={{ fontSize: { xs: 20, sm: 22, md: 24 } }} />
-              </IconButton>
-            </Tooltip>
+            <IconButton
+              onClick={onMenuToggle}
+              size="small"
+              sx={{
+                color: "#64748b",
+                width: 36,
+                height: 36,
+                borderRadius: "10px",
+                "&:hover": { bgcolor: alpha("#115160", 0.06), color: "#115c6d" },
+              }}
+            >
+              <MenuIcon sx={{ fontSize: 20 }} />
+            </IconButton>
           )}
         </Box>
 
-        {/* Right Section - Actions */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: { xs: 0.5, sm: 1, md: 1.5, lg: 2 },
-          }}
-        >
-          {/* User Avatar & Info */}
+        {/* Right: Actions */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 1, md: 1.5 } }}>
+          {/* Notification bell */}
+          <Box
+            onClick={handleNotificationOpen}
+            sx={{ cursor: "pointer" }}
+          >
+            <PulsingBadge count={unreadCount}>
+              <BellIcon active={Boolean(notificationAnchor) || bellActive} />
+            </PulsingBadge>
+          </Box>
+
+          {/* User menu trigger */}
           <Box
             onClick={handleUserMenuOpen}
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: { xs: 0.75, sm: 1, md: 1.5 },
+              gap: { xs: 0.75, sm: 1, md: 1.25 },
               cursor: "pointer",
-              p: { xs: 0.5, sm: 0.75 },
-              borderRadius: "40px",
-              "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+              pl: { xs: 0.5, sm: 0.75, md: 1 },
+              pr: { xs: 0.5, sm: 0.75, md: 1.25 },
+              py: 0.5,
+              borderRadius: "14px",
               transition: "all 0.2s ease",
+              "&:hover": {
+                bgcolor: alpha("#1a5c6b", 0.05),
+              },
             }}
           >
-            <Avatar
-              alt={getUserDisplayName()}
-              sx={{
-                width: { xs: 32, sm: 36, md: 40, lg: 44 },
-                height: { xs: 32, sm: 36, md: 40, lg: 44 },
-                bgcolor: theme.palette.primary.main,
-                fontSize: { xs: 13, sm: 14, md: 16, lg: 18 },
-                fontWeight: 600,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              }}
-            >
-              {getUserInitials()}
-            </Avatar>
+            <Box sx={{ position: "relative" }}>
+              <Avatar
+                alt={getUserDisplayName()}
+                sx={{
+                  width: { xs: 32, sm: 36, md: 38 },
+                  height: { xs: 32, sm: 36, md: 38 },
+                  background: "linear-gradient(135deg, #1a5c6b 0%, #0a4f5e 100%)",
+                  fontSize: { xs: 12, sm: 13, md: 14 },
+                  fontWeight: 700,
+                  fontFamily: "'DM Sans', sans-serif",
+                  boxShadow: "0 2px 8px rgba(99,102,241,0.25)",
+                }}
+              >
+                {getUserInitials()}
+              </Avatar>
+              {/* Online indicator */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: 9,
+                  height: 9,
+                  borderRadius: "50%",
+                  bgcolor: "#10b981",
+                  border: "2px solid #fff",
+                }}
+              />
+            </Box>
 
             {!isMobile && !isTablet && (
               <>
-                <Box sx={{ display: { xs: "none", md: "block" } }}>
+                <Box>
                   <Typography
                     sx={{
-                      fontSize: { md: 13, lg: 14, xl: 15 },
+                      fontSize: 13,
                       fontWeight: 600,
-                      color: "#202124",
+                      color: "#0f172a",
+                      fontFamily: "'DM Sans', sans-serif",
                       lineHeight: 1.3,
                     }}
                   >
@@ -228,17 +774,18 @@ export default function TopHeader({ onMenuToggle }) {
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <Box
                       sx={{
-                        width: 6,
-                        height: 6,
+                        width: 5,
+                        height: 5,
                         borderRadius: "50%",
-                        bgcolor: getRoleColor(),
+                        bgcolor: roleConfig.color,
                       }}
                     />
                     <Typography
                       sx={{
-                        fontSize: { md: 10, lg: 11, xl: 12 },
-                        color: "#5f6368",
-                        lineHeight: 1.2,
+                        fontSize: 10.5,
+                        color: "#94a3b8",
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontWeight: 500,
                       }}
                     >
                       {getUserRole()}
@@ -246,316 +793,176 @@ export default function TopHeader({ onMenuToggle }) {
                   </Box>
                 </Box>
                 <KeyboardArrowDownIcon
-                  sx={{ color: "#5f6368", fontSize: { md: 16, lg: 18, xl: 20 } }}
+                  sx={{
+                    fontSize: 16,
+                    color: "#94a3b8",
+                    transform: Boolean(userMenuAnchor) ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
                 />
               </>
             )}
           </Box>
         </Box>
+      </Box>
 
-        {/* ── User Menu (Desktop) ── */}
-        <Menu
-          anchorEl={userMenuAnchor}
-          open={Boolean(userMenuAnchor) && !isMobile}
-          onClose={handleUserMenuClose}
-          TransitionComponent={Fade}
-          PaperProps={{
-            elevation: 3,
-            sx: {
-              width: { sm: 260, md: 280, lg: 300 },
-              mt: 1,
-              borderRadius: "16px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-              border: "1px solid #e8eaed",
-            },
+      {/* ─── User menu ─── */}
+      <Menu
+        anchorEl={userMenuAnchor}
+        open={Boolean(userMenuAnchor)}
+        onClose={handleUserMenuClose}
+        TransitionComponent={Fade}
+        PaperProps={{
+          elevation: 0,
+          sx: {
+            width: 280,
+            mt: 1,
+            borderRadius: "18px",
+            boxShadow: "0 12px 40px rgba(15,23,42,0.12)",
+            border: "1px solid #f1f5f9",
+            overflow: "hidden",
+          },
+        }}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+      >
+        {/* Profile card */}
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2.5,
+            background: "linear-gradient(135deg, #f8f8ff 0%, #f0f0ff 100%)",
+            borderBottom: "1px solid #ededff",
           }}
-          transformOrigin={{ horizontal: "right", vertical: "top" }}
-          anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
         >
-          <Box sx={{ px: 2, py: 2, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Avatar
               sx={{
                 width: 48,
                 height: 48,
-                bgcolor: theme.palette.primary.main,
-                fontSize: 18,
-                fontWeight: 600,
+                background: "linear-gradient(135deg, #1a5c6b 0%, #0d4d5c 100%)",
+                fontSize: 16,
+                fontWeight: 700,
+                boxShadow: "0 4px 12px rgba(99,102,241,0.3)",
               }}
             >
               {getUserInitials()}
             </Avatar>
             <Box>
-              <Typography variant="subtitle2" fontWeight={700} color="#202124">
+              <Typography
+                fontWeight={700}
+                fontSize={14}
+                color="#0f172a"
+                fontFamily="'DM Sans', sans-serif"
+              >
                 {getUserDisplayName()}
               </Typography>
-              <Typography variant="caption" color="#5f6368" display="block">
+              <Typography
+                fontSize={11.5}
+                color="#64748b"
+                fontFamily="'DM Sans', sans-serif"
+                display="block"
+                mt={0.2}
+              >
                 {user?.email || "user@example.com"}
               </Typography>
               <Chip
                 label={getUserRole()}
                 size="small"
                 sx={{
-                  mt: 0.5,
-                  height: 20,
+                  mt: 0.75,
+                  height: 18,
                   fontSize: 10,
-                  bgcolor: alpha(getRoleColor(), 0.1),
-                  color: getRoleColor(),
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  bgcolor: roleConfig.bg,
+                  color: roleConfig.color,
+                  fontFamily: "'DM Sans', sans-serif",
+                  "& .MuiChip-label": { px: 0.75 },
                 }}
               />
             </Box>
           </Box>
-          <MenuItem onClick={handleLogout} sx={{ py: 1.2, px: 2 }}>
-            <ListItemIcon>
-              <LogoutIcon fontSize="small" sx={{ color: "#d93025" }} />
-            </ListItemIcon>
-            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: 14, color: "#d93025" }} />
-          </MenuItem>
-        </Menu>
-      </Box>
+        </Box>
 
-      {/* ── Search Drawer (Mobile/Tablet) ── */}
-      <SwipeableDrawer
-        anchor="top"
-        open={searchDrawerOpen}
-        onClose={handleSearchDrawerClose}
-        onOpen={handleSearchDrawerOpen}
-        disableBackdropTransition={false}
+        {/* Logout */}
+        <MenuItem
+          onClick={handleLogout}
+          sx={{
+            py: 1.5,
+            px: 2.5,
+            gap: 1.5,
+            "&:hover": { bgcolor: alpha("#ef4444", 0.04) },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: "unset" }}>
+            <Box
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "9px",
+                bgcolor: alpha("#ef4444", 0.08),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <LogoutIcon sx={{ fontSize: 15, color: "#ef4444" }} />
+            </Box>
+          </ListItemIcon>
+          <ListItemText
+            primary="Logout"
+            primaryTypographyProps={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#ef4444",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          />
+        </MenuItem>
+      </Menu>
+
+      {/* ─── Notification dropdown (desktop) ─── */}
+      <Menu
+        anchorEl={notificationAnchor}
+        open={Boolean(notificationAnchor) && !isMobile}
+        onClose={handleNotificationClose}
+        TransitionComponent={Fade}
         PaperProps={{
+          elevation: 0,
           sx: {
-            borderBottomLeftRadius: { xs: 20, sm: 24 },
-            borderBottomRightRadius: { xs: 20, sm: 24 },
-            bgcolor: "#ffffff",
+            mt: 1.5,
+            borderRadius: "20px",
+            boxShadow: "0 16px 48px rgba(15,23,42,0.12)",
+            border: "1px solid #f1f5f9",
+            overflow: "hidden",
           },
         }}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-            <Typography variant="h6" fontWeight={600} fontSize={{ xs: 18, sm: 20 }}>
-              Search
-            </Typography>
-            <IconButton onClick={handleSearchDrawerClose} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-          
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              bgcolor: "#f1f3f4",
-              borderRadius: "28px",
-              px: 2,
-              height: 48,
-              mb: 2,
-            }}
-          >
-            <SearchIcon sx={{ color: "#5f6368", fontSize: 20, mr: 1 }} />
-            <InputBase
-              placeholder="Search assets, checklists, team members..."
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              fullWidth
-              autoFocus
-              sx={{ fontSize: { xs: 14, sm: 15 } }}
-            />
-          </Box>
+        <NotificationPanel {...notifPanelProps} />
+      </Menu>
 
-          {searchValue.length > 0 && (
-            <Box>
-              <Typography variant="caption" color="#5f6368" sx={{ mb: 1, display: "block" }}>
-                Search results ({filteredResults.length})
-              </Typography>
-              <List sx={{ bgcolor: "#f8f9fa", borderRadius: 2 }}>
-                {filteredResults.map((result, idx) => (
-                  <ListItem
-                    key={idx}
-                    button
-                    onClick={handleSearchDrawerClose}
-                    sx={{ borderRadius: 2, mb: 0.5 }}
-                  >
-                    <ListItemIcon>
-                      <Chip label={result.type} size="small" sx={{ fontSize: 10, height: 20 }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={result.name}
-                      primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          )}
-
-          {searchValue.length > 0 && filteredResults.length === 0 && (
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography variant="body2" color="#5f6368">
-                No results found for "{searchValue}"
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      </SwipeableDrawer>
-
-      {/* ── Mobile Notifications Drawer ── */}
+      {/* ─── Notification drawer (mobile) ─── */}
       <SwipeableDrawer
         anchor="bottom"
         open={Boolean(notificationAnchor) && isMobile}
         onClose={handleNotificationClose}
-        onOpen={handleNotificationOpen}
-        disableBackdropTransition={false}
+        onOpen={() => {}}
         PaperProps={{
           sx: {
-            borderTopLeftRadius: { xs: 20, sm: 24 },
-            borderTopRightRadius: { xs: 20, sm: 24 },
-            bgcolor: "#ffffff",
-            maxHeight: "80vh",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            bgcolor: "#fff",
+            maxHeight: "82vh",
           },
         }}
       >
-        <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-            <Typography variant="h6" fontWeight={600} fontSize={{ xs: 18, sm: 20 }}>
-              Notifications
-              {unreadCount > 0 && (
-                <Chip
-                  label={unreadCount}
-                  size="small"
-                  sx={{ ml: 1, bgcolor: "#ea4335", color: "#fff" }}
-                />
-              )}
-            </Typography>
-            <IconButton onClick={handleNotificationClose} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-
-          {unreadCount > 0 && (
-            <Typography
-              variant="caption"
-              onClick={handleMarkAllRead}
-              sx={{ color: theme.palette.primary.main, cursor: "pointer", display: "block", mb: 2 }}
-            >
-              Mark all read
-            </Typography>
-          )}
-
-          {notifications.length === 0 ? (
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <NotificationsActiveIcon sx={{ fontSize: 48, color: "#dadce0", mb: 1 }} />
-              <Typography variant="body2" color="#5f6368">
-                No notifications
-              </Typography>
-            </Box>
-          ) : (
-            notifications.map((item) => (
-              <Box
-                key={item.id}
-                onClick={() => handleNotificationClick(item.id)}
-                sx={{
-                  p: 1.5,
-                  mb: 1,
-                  borderRadius: 2,
-                  bgcolor: item.read ? "transparent" : alpha(theme.palette.primary.main, 0.05),
-                  cursor: "pointer",
-                  "&:active": { bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  fontWeight={item.read ? 400 : 600}
-                  color="#202124"
-                  sx={{ mb: 0.5 }}
-                >
-                  {item.title}
-                </Typography>
-                <Typography variant="caption" color="#5f6368">
-                  {item.time}
-                </Typography>
-              </Box>
-            ))
-          )}
+        {/* Drag handle */}
+        <Box sx={{ display: "flex", justifyContent: "center", pt: 1.5, pb: 0.5 }}>
+          <Box sx={{ width: 36, height: 4, borderRadius: 99, bgcolor: "#e2e8f0" }} />
         </Box>
-      </SwipeableDrawer>
-
-      {/* ── Mobile User Menu Drawer ── */}
-      <SwipeableDrawer
-        anchor="bottom"
-        open={Boolean(userMenuAnchor) && isMobile}
-        onClose={handleUserMenuClose}
-        onOpen={handleUserMenuOpen}
-        disableBackdropTransition={false}
-        PaperProps={{
-          sx: {
-            borderTopLeftRadius: { xs: 20, sm: 24 },
-            borderTopRightRadius: { xs: 20, sm: 24 },
-            bgcolor: "#ffffff",
-          },
-        }}
-      >
-        <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Avatar
-                sx={{
-                  width: 56,
-                  height: 56,
-                  bgcolor: theme.palette.primary.main,
-                  fontSize: 20,
-                  fontWeight: 600,
-                }}
-              >
-                {getUserInitials()}
-              </Avatar>
-              <Box>
-                <Typography variant="subtitle1" fontWeight={700} color="#202124">
-                  {getUserDisplayName()}
-                </Typography>
-                <Typography variant="caption" color="#5f6368" display="block">
-                  {user?.email || "user@example.com"}
-                </Typography>
-                <Chip
-                  label={getUserRole()}
-                  size="small"
-                  sx={{ mt: 0.5, height: 20, fontSize: 10, bgcolor: alpha(getRoleColor(), 0.1), color: getRoleColor() }}
-                />
-              </Box>
-            </Box>
-            <IconButton onClick={handleUserMenuClose} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-
-          <Divider sx={{ my: 1.5 }} />
-
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1.2, borderRadius: 2 }}>
-            <ListItemIcon>
-              <PersonOutlineIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Profile Settings" />
-          </MenuItem>
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1.2, borderRadius: 2 }}>
-            <ListItemIcon>
-              <SettingsIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Account Settings" />
-          </MenuItem>
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1.2, borderRadius: 2 }}>
-            <ListItemIcon>
-              <HelpOutlineIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Help & Support" />
-          </MenuItem>
-
-          <Divider sx={{ my: 1.5 }} />
-
-          <MenuItem onClick={handleLogout} sx={{ py: 1.2, borderRadius: 2, color: "#d93025" }}>
-            <ListItemIcon>
-              <LogoutIcon fontSize="small" sx={{ color: "#d93025" }} />
-            </ListItemIcon>
-            <ListItemText primary="Logout" />
-          </MenuItem>
-        </Box>
+        <NotificationPanel {...notifPanelProps} />
       </SwipeableDrawer>
     </>
   );

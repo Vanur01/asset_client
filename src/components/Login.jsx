@@ -1,4 +1,5 @@
-// components/Login.jsx - Fully Responsive for All Devices (320px - 1200px+)
+// components/Login.jsx - Fully Optimized with Proper Validation
+
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -19,13 +20,14 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  Grid,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
 import GoogleIcon from "@mui/icons-material/Google";
 import MicrosoftIcon from "@mui/icons-material/Microsoft";
 import AppleIcon from "@mui/icons-material/Apple";
@@ -38,8 +40,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login, loading: authLoading } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
-  const isDesktop = useMediaQuery(theme.breakpoints.up("lg"));
+  
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -51,22 +52,43 @@ const LoginPage = () => {
     password: "",
     remember: false,
   });
+  const [fieldErrors, setFieldErrors] = useState({
+    email: "",
+    password: "",
+  });
 
-  // Demo credentials helper
-  const [showDemoCredentials, setShowDemoCredentials] = useState(false);
+  // Real-time validation
+  const validateEmail = (email) => {
+    if (!email) return "Email is required";
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validatePassword = (password) => {
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    return "";
+  };
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+    
+    // Real-time field validation
+    if (name === "email") {
+      setFieldErrors(prev => ({ ...prev, email: validateEmail(value) }));
+    } else if (name === "password") {
+      setFieldErrors(prev => ({ ...prev, password: validatePassword(value) }));
+    }
+    
+    // Clear general error when user types
     if (error) {
       setError("");
       setSnackbarOpen(false);
-    }
-    if (success) {
-      setSuccess("");
-      setSuccessSnackbarOpen(false);
     }
   };
 
@@ -79,34 +101,33 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!formData.email || !formData.password) {
-      setError("Please enter both email and password");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address");
+    
+    // Validate all fields before submission
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
+    
+    if (emailError || passwordError) {
+      setFieldErrors({
+        email: emailError,
+        password: passwordError,
+      });
+      setError(emailError || passwordError);
       setSnackbarOpen(true);
       return;
     }
 
     setLoading(true);
     setError("");
-    setSuccess("");
+    setFieldErrors({ email: "", password: "" });
 
     try {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        setSuccess(
-          result.message || "Login successful! Redirecting to dashboard...",
-        );
+        setSuccess(result.message || "Login successful! Redirecting to dashboard...");
         setSuccessSnackbarOpen(true);
 
+        // Handle remember me
         if (formData.remember) {
           localStorage.setItem("rememberMe", "true");
           localStorage.setItem("rememberedEmail", formData.email);
@@ -115,6 +136,7 @@ const LoginPage = () => {
           localStorage.removeItem("rememberedEmail");
         }
 
+        // Redirect after delay
         setTimeout(() => {
           navigate(result.redirectPath || "/dashboard", { replace: true });
         }, 2000);
@@ -147,16 +169,7 @@ const LoginPage = () => {
     setSuccessSnackbarOpen(false);
   };
 
-  const fillDemoCredentials = () => {
-    setFormData({
-      email: "demo@assetflow.com",
-      password: "Demo@123",
-      remember: false,
-    });
-    setShowDemoCredentials(true);
-    setTimeout(() => setShowDemoCredentials(false), 3000);
-  };
-
+  // Load remembered email on mount
   useEffect(() => {
     const rememberedEmail = localStorage.getItem("rememberedEmail");
     const rememberMe = localStorage.getItem("rememberMe");
@@ -204,6 +217,10 @@ const LoginPage = () => {
             borderRadius: { xs: "1rem", sm: "1.25rem", md: "1.5rem" },
             overflow: "hidden",
             boxShadow: "0 20px 40px -12px rgba(0,0,0,0.1)",
+            transition: "transform 0.3s ease-in-out",
+            "&:hover": {
+              transform: "translateY(-4px)",
+            },
           }}
         >
           {/* Left Side - Hero Section */}
@@ -213,8 +230,7 @@ const LoginPage = () => {
               flexDirection: "column",
               justifyContent: "space-between",
               p: { lg: 3.5, xl: 4 },
-              background:
-                "linear-gradient(135deg, rgba(26, 74, 107, 0.95) 0%, rgba(0, 51, 80, 0.98) 100%), url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')",
+              background: "linear-gradient(135deg, #1a4a6b 0%, #003350 100%)",
               backgroundSize: "cover",
               backgroundPosition: "center",
               color: "white",
@@ -228,7 +244,7 @@ const LoginPage = () => {
                 <Typography
                   variant="h2"
                   sx={{
-                    fontSize: { lg: "1.8rem", xl: "2rem", xxl: "2.2rem" },
+                    fontSize: { lg: "1.8rem", xl: "2rem" },
                     fontWeight: 800,
                     lineHeight: 1.2,
                     letterSpacing: "-0.025em",
@@ -417,29 +433,32 @@ const LoginPage = () => {
                       onChange={handleChange}
                       variant="outlined"
                       required
+                      error={!!fieldErrors.email}
+                      helperText={fieldErrors.email}
                       disabled={loading || authLoading}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           bgcolor: "#fafbfc",
                           borderRadius: "0.625rem",
                           "& fieldset": {
-                            borderColor: "#e2e8f0",
+                            borderColor: fieldErrors.email ? "#ef4444" : "#e2e8f0",
                           },
                           "&:hover fieldset": {
-                            borderColor: alpha("#1a4a6b", 0.3),
+                            borderColor: fieldErrors.email ? "#ef4444" : alpha("#1a4a6b", 0.3),
                           },
                           "&.Mui-focused fieldset": {
-                            borderColor: "#1a4a6b",
+                            borderColor: fieldErrors.email ? "#ef4444" : "#1a4a6b",
                             borderWidth: 1,
                           },
                         },
                         "& .MuiInputBase-input": {
                           py: { xs: 1, sm: 1.1, md: 1.2 },
-                          fontSize: {
-                            xs: "0.75rem",
-                            sm: "0.8rem",
-                            md: "0.85rem",
-                          },
+                          fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
+                        },
+                        "& .MuiFormHelperText-root": {
+                          fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                          marginLeft: 0,
+                          color: "#ef4444",
                         },
                       }}
                     />
@@ -473,11 +492,7 @@ const LoginPage = () => {
                         onClick={handleForgotPassword}
                         underline="hover"
                         sx={{
-                          fontSize: {
-                            xs: "0.6rem",
-                            sm: "0.65rem",
-                            md: "0.7rem",
-                          },
+                          fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
                           color: "#1a4a6b",
                           fontWeight: 600,
                           textDecoration: "none",
@@ -503,6 +518,8 @@ const LoginPage = () => {
                       onChange={handleChange}
                       variant="outlined"
                       required
+                      error={!!fieldErrors.password}
+                      helperText={fieldErrors.password}
                       disabled={loading || authLoading}
                       InputProps={{
                         endAdornment: (
@@ -515,13 +532,9 @@ const LoginPage = () => {
                               disabled={loading || authLoading}
                             >
                               {showPassword ? (
-                                <VisibilityOffIcon
-                                  sx={{ fontSize: { xs: 16, sm: 18 } }}
-                                />
+                                <VisibilityOffIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />
                               ) : (
-                                <VisibilityIcon
-                                  sx={{ fontSize: { xs: 16, sm: 18 } }}
-                                />
+                                <VisibilityIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />
                               )}
                             </IconButton>
                           </InputAdornment>
@@ -532,29 +545,30 @@ const LoginPage = () => {
                           bgcolor: "#fafbfc",
                           borderRadius: "0.625rem",
                           "& fieldset": {
-                            borderColor: "#e2e8f0",
+                            borderColor: fieldErrors.password ? "#ef4444" : "#e2e8f0",
                           },
                           "&:hover fieldset": {
-                            borderColor: alpha("#1a4a6b", 0.3),
+                            borderColor: fieldErrors.password ? "#ef4444" : alpha("#1a4a6b", 0.3),
                           },
                           "&.Mui-focused fieldset": {
-                            borderColor: "#1a4a6b",
+                            borderColor: fieldErrors.password ? "#ef4444" : "#1a4a6b",
                             borderWidth: 1,
                           },
                         },
                         "& .MuiInputBase-input": {
                           py: { xs: 1, sm: 1.1, md: 1.2 },
-                          fontSize: {
-                            xs: "0.75rem",
-                            sm: "0.8rem",
-                            md: "0.85rem",
-                          },
+                          fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
+                        },
+                        "& .MuiFormHelperText-root": {
+                          fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                          marginLeft: 0,
+                          color: "#ef4444",
                         },
                       }}
                     />
                   </Box>
 
-                  {/* Remember Me Checkbox & Demo Credentials */}
+                  {/* Remember Me Checkbox */}
                   <Stack
                     direction="row"
                     justifyContent="space-between"
@@ -589,22 +603,6 @@ const LoginPage = () => {
                         </Typography>
                       }
                     />
-
-                    <Button
-                      type="button"
-                      onClick={fillDemoCredentials}
-                      size="small"
-                      sx={{
-                        fontSize: { xs: "0.6rem", sm: "0.65rem" },
-                        color: "#1a4a6b",
-                        textTransform: "none",
-                        "&:hover": {
-                          bgcolor: alpha("#1a4a6b", 0.05),
-                        },
-                      }}
-                    >
-                      Use demo credentials
-                    </Button>
                   </Stack>
 
                   {/* Submit Button */}
@@ -615,9 +613,7 @@ const LoginPage = () => {
                     disabled={loading || authLoading}
                     endIcon={
                       !(loading || authLoading) && (
-                        <ArrowForwardIcon
-                          sx={{ fontSize: { xs: 14, sm: 16 } }}
-                        />
+                        <ArrowForwardIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
                       )
                     }
                     sx={{
@@ -670,48 +666,54 @@ const LoginPage = () => {
                 justifyContent="center"
                 sx={{ mb: 3 }}
               >
-                <IconButton
-                  sx={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "0.625rem",
-                    p: { xs: 1, sm: 1.2 },
-                    "&:hover": {
-                      bgcolor: alpha("#1a4a6b", 0.04),
-                      transform: "translateY(-2px)",
-                    },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <GoogleIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-                </IconButton>
-                <IconButton
-                  sx={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "0.625rem",
-                    p: { xs: 1, sm: 1.2 },
-                    "&:hover": {
-                      bgcolor: alpha("#1a4a6b", 0.04),
-                      transform: "translateY(-2px)",
-                    },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <MicrosoftIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-                </IconButton>
-                <IconButton
-                  sx={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "0.625rem",
-                    p: { xs: 1, sm: 1.2 },
-                    "&:hover": {
-                      bgcolor: alpha("#1a4a6b", 0.04),
-                      transform: "translateY(-2px)",
-                    },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <AppleIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-                </IconButton>
+                <Tooltip title="Sign in with Google">
+                  <IconButton
+                    sx={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "0.625rem",
+                      p: { xs: 1, sm: 1.2 },
+                      "&:hover": {
+                        bgcolor: alpha("#1a4a6b", 0.04),
+                        transform: "translateY(-2px)",
+                      },
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <GoogleIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Sign in with Microsoft">
+                  <IconButton
+                    sx={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "0.625rem",
+                      p: { xs: 1, sm: 1.2 },
+                      "&:hover": {
+                        bgcolor: alpha("#1a4a6b", 0.04),
+                        transform: "translateY(-2px)",
+                      },
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <MicrosoftIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Sign in with Apple">
+                  <IconButton
+                    sx={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "0.625rem",
+                      p: { xs: 1, sm: 1.2 },
+                      "&:hover": {
+                        bgcolor: alpha("#1a4a6b", 0.04),
+                        transform: "translateY(-2px)",
+                      },
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <AppleIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                  </IconButton>
+                </Tooltip>
               </Stack>
 
               {/* Sign Up Link */}
@@ -744,21 +746,6 @@ const LoginPage = () => {
                   </Link>
                 </Typography>
               </Box>
-
-              {/* Demo Credentials Alert */}
-              {showDemoCredentials && (
-                <Alert
-                  severity="info"
-                  sx={{
-                    mt: 2,
-                    fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                    borderRadius: "0.625rem",
-                  }}
-                >
-                  <strong>Demo Credentials:</strong> demo@assetflow.com /
-                  Demo@123
-                </Alert>
-              )}
             </Box>
           </Box>
         </Paper>
@@ -775,6 +762,7 @@ const LoginPage = () => {
         <Alert
           onClose={handleCloseSnackbar}
           severity="error"
+          icon={<ErrorIcon />}
           sx={{
             width: "100%",
             fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },
@@ -805,7 +793,7 @@ const LoginPage = () => {
           sx={{
             width: "100%",
             minWidth: { xs: "260px", sm: "300px" },
-            backgroundColor: "#4caf50",
+            backgroundColor: "#10b981",
             color: "white",
             fontWeight: 600,
             fontSize: { xs: "0.7rem", sm: "0.75rem", md: "0.8rem" },

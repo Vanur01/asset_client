@@ -1,4 +1,4 @@
-// components/Sidebar.jsx - Fully Responsive for All Devices (320px - 1200px+)
+// components/Sidebar.jsx - Complete with Audit Logs
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -10,10 +10,8 @@ import {
   ListItemText,
   Button,
   Tooltip,
-  Badge,
   useMediaQuery,
   useTheme,
-  Drawer,
   IconButton,
   Avatar,
   BottomNavigation,
@@ -28,13 +26,11 @@ import {
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 
-// MODERN ICONS (Material UI v6+ compatible)
+// MODERN ICONS
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
-import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
@@ -47,8 +43,8 @@ import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
-import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { useAuth } from "../context/AuthContexts";
 
 // Styled Components
@@ -66,7 +62,6 @@ const MobileHeader = styled(Box)(({ theme }) => ({
   boxShadow: `0 2px 12px ${alpha(theme.palette.common.black, 0.04)}`,
   zIndex: 1100,
   borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-  backdropFilter: "blur(0px)",
 }));
 
 const MobileNavItem = styled(ListItem, {
@@ -81,16 +76,8 @@ const MobileNavItem = styled(ListItem, {
     ? alpha(theme.palette.primary.main, 0.08)
     : "transparent",
   color: active ? theme.palette.primary.main : theme.palette.text.secondary,
-  "&:hover": {
-    backgroundColor: alpha(theme.palette.primary.main, 0.05),
-  },
-  "&:active": {
-    transform: "scale(0.98)",
-  },
-  "& .MuiListItemIcon-root": {
-    color: "inherit",
-    minWidth: { xs: 36, sm: 40 },
-  },
+  "&:hover": { backgroundColor: alpha(theme.palette.primary.main, 0.05) },
+  "& .MuiListItemIcon-root": { color: "inherit", minWidth: { xs: 36, sm: 40 } },
 }));
 
 const BottomNavBar = styled(Paper)(({ theme }) => ({
@@ -125,22 +112,73 @@ const DesktopSidebar = styled(Box)(({ theme, iscollapsed }) => ({
   boxShadow: `2px 0 12px ${alpha(theme.palette.common.black, 0.02)}`,
 }));
 
-// Navigation Configuration with Modern Icons
+// Navigation Configuration with Role-Based Access
 const navItemsConfig = {
+  super_admin: [
+    {
+      id: "dashboard",
+      icon: SpaceDashboardOutlinedIcon,
+      label: "Dashboard",
+      path: "/dashboard",
+      roles: ["super_admin"],
+    },
+    {
+      id: "clients",
+      icon: GroupOutlinedIcon,
+      label: "Customer Management",
+      path: "/admin/clients",
+      roles: ["super_admin"],
+    },
+    {
+      id: "checklists",
+      icon: ChecklistOutlinedIcon,
+      label: "Checklists Builder",
+      path: "/admin/checklists",
+      roles: ["super_admin"],
+    },
+    {
+      id: "assigned",
+      icon: AssignmentOutlinedIcon,
+      label: "Assigned Checklist",
+      path: "/admin/assigned-checklists",
+      roles: ["super_admin"],
+    },
+    {
+      id: "assets",
+      icon: Inventory2OutlinedIcon,
+      label: "Assets Management",
+      path: "/admin/assets",
+      roles: ["super_admin"],
+    },
+    {
+      id: "reports",
+      icon: BarChartOutlinedIcon,
+      label: "Reports and Analysis",
+      path: "/admin/reports",
+      roles: ["super_admin"],
+    },
+    {
+      id: "contact-inquiries",
+      icon: EmailOutlinedIcon,
+      label: "Contact Inquiries",
+      path: "/admin/contact-inquiries",
+      roles: ["super_admin"],
+    },
+    {
+      id: "audit-logs",
+      icon: ReceiptLongOutlinedIcon,
+      label: "Logs",
+      path: "/admin/audit-logs",
+      roles: ["super_admin"],
+    },
+  ],
   admin: [
     {
       id: "dashboard",
       icon: SpaceDashboardOutlinedIcon,
       label: "Dashboard",
-      path: "/admin",
-      roles: ["super_admin", "admin"],
-    },
-    {
-      id: "clients",
-      icon: GroupOutlinedIcon,
-      label: "Clients Management",
-      path: "/admin/clients",
-      roles: ["super_admin"],
+      path: "/dashboard",
+      roles: ["admin"],
     },
     {
       id: "team",
@@ -154,35 +192,35 @@ const navItemsConfig = {
       icon: ChecklistOutlinedIcon,
       label: "Checklists Builder",
       path: "/admin/checklists",
-      roles: ["super_admin", "admin"],
+      roles: ["admin"],
     },
     {
       id: "assigned",
       icon: AssignmentOutlinedIcon,
       label: "Assigned Checklist",
       path: "/admin/assigned-checklists",
-      roles: ["super_admin", "admin"],
+      roles: ["admin"],
     },
     {
       id: "assets",
       icon: Inventory2OutlinedIcon,
       label: "Assets Management",
       path: "/admin/assets",
-      roles: ["admin", "team"],
+      roles: ["admin"],
     },
     {
       id: "reports",
       icon: BarChartOutlinedIcon,
       label: "Reports and Analysis",
       path: "/admin/reports",
-      roles: ["super_admin", "admin", "team"],
+      roles: ["admin"],
     },
     {
-      id: "contact-inquiries",
-      icon: EmailOutlinedIcon,
-      label: "Contact Inquiries",
-      path: "/admin/contact-inquiries",
-      roles: ["super_admin"],
+      id: "audit-logs",
+      icon: ReceiptLongOutlinedIcon,
+      label: "Logs",
+      path: "/admin/audit-logs",
+      roles: ["admin"],
     },
   ],
   team: [
@@ -214,22 +252,28 @@ const navItemsConfig = {
       path: "/team/profile",
       roles: ["team"],
     },
+    {
+      id: "reports",
+      icon: BarChartOutlinedIcon,
+      label: "Reports",
+      path: "/team/reports",
+      roles: ["team"],
+    },
+    {
+      id: "audit-logs",
+      icon: ReceiptLongOutlinedIcon,
+      label: "Logs",
+      path: "/admin/audit-logs",
+      roles: ["team"],
+    },
   ],
 };
 
 // Helper function to filter nav items based on user role
 export const getNavItems = (userRole) => {
-  if (userRole === "super_admin") {
-    return navItemsConfig.admin.filter((item) =>
-      item.roles.includes("super_admin"),
-    );
-  }
-  if (userRole === "admin") {
-    return navItemsConfig.admin.filter((item) => item.roles.includes("admin"));
-  }
-  if (userRole === "team") {
-    return navItemsConfig.team;
-  }
+  if (userRole === "super_admin") return navItemsConfig.super_admin;
+  if (userRole === "admin") return navItemsConfig.admin;
+  if (userRole === "team") return navItemsConfig.team;
   return [];
 };
 
@@ -257,7 +301,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
   const theme = useTheme();
 
-  // Responsive breakpoints
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
@@ -269,11 +312,8 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
 
   const navItems = getNavItems(user?.role);
 
-  // Auth redirect
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate("/login");
-    }
+    if (!authLoading && !isAuthenticated) navigate("/login");
   }, [isAuthenticated, authLoading, navigate]);
 
   useEffect(() => {
@@ -347,7 +387,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
 
   if (!user || navItems.length === 0) return null;
 
-  // Desktop Sidebar
+  // Desktop Sidebar Content
   const desktopSidebarContent = (
     <Box
       sx={{
@@ -391,7 +431,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         {!isCollapsed && (
           <Box sx={{ minWidth: 0 }}>
             <Typography fontWeight={700} fontSize={{ md: 14, lg: 16 }} noWrap>
-              AssetInspect
+              AssetMach
             </Typography>
             <Typography
               fontSize={{ md: 10, lg: 11 }}
@@ -493,7 +533,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         })}
       </List>
 
-      {/* User Profile Section (Desktop Expanded) */}
+      {/* User Profile Section */}
       {!isCollapsed && (
         <Fade in={!isCollapsed}>
           <Box
@@ -588,7 +628,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         width: isMobile ? "85vw" : 320,
       }}
     >
-      {/* Drawer Header */}
       <Box
         sx={{
           p: { xs: 1.5, sm: 2 },
@@ -615,7 +654,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
             />
           </Box>
           <Typography fontWeight={600} fontSize={{ xs: 14, sm: 16 }}>
-            AssetInspect
+            AssetMach
           </Typography>
         </Box>
         <IconButton onClick={handleCloseMobileMenu} size="small">
@@ -623,7 +662,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         </IconButton>
       </Box>
 
-      {/* User Profile Section */}
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Box
           sx={{
@@ -663,7 +701,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
 
       <Divider sx={{ mx: 2 }} />
 
-      {/* Navigation Items */}
       <List sx={{ px: { xs: 1.5, sm: 2 }, flex: 1, overflowY: "auto" }}>
         {navItems.map(({ id, icon: Icon, label, path }) => {
           const isActive = activeItem === id || location.pathname === path;
@@ -688,7 +725,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         })}
       </List>
 
-      {/* Logout Button */}
       <Box sx={{ p: { xs: 1.5, sm: 2 }, mt: "auto" }}>
         <Button
           onClick={handleLogout}
@@ -713,12 +749,10 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
   if (isMobile || isTablet) {
     return (
       <>
-        {/* Mobile Header */}
         <MobileHeader>
           <IconButton onClick={handleOpenMobileMenu} size="small">
             <MenuOutlinedIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
           </IconButton>
-
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Box
               sx={{
@@ -736,19 +770,14 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
               />
             </Box>
             <Typography fontWeight={600} fontSize={{ xs: 13, sm: 14 }}>
-              AssetInspect
+              AssetMach
             </Typography>
           </Box>
-
           <IconButton onClick={handleLogout} size="small">
             <LogoutOutlinedIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
           </IconButton>
         </MobileHeader>
-
-        {/* Spacer for fixed header */}
         <Box sx={{ height: { xs: 56, sm: 60, md: 64 } }} />
-
-        {/* Mobile Drawer */}
         <SwipeableDrawer
           anchor="left"
           open={mobileMenuOpen}
@@ -756,9 +785,7 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
           onOpen={handleOpenMobileMenu}
           disableBackdropTransition={false}
           swipeAreaWidth={isMobile ? 20 : 30}
-          ModalProps={{
-            keepMounted: true,
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
             "& .MuiDrawer-paper": {
               width: isMobile ? "85vw" : 320,
@@ -769,8 +796,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
         >
           {mobileMenuContent}
         </SwipeableDrawer>
-
-        {/* Bottom Navigation Bar */}
         {navItems.length > 0 && (
           <>
             <BottomNavBar elevation={0}>
@@ -797,20 +822,15 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
                         bottomNavValue === idx
                           ? theme.palette.primary.main
                           : theme.palette.text.secondary,
-                      "&.Mui-selected": {
-                        color: theme.palette.primary.main,
-                      },
+                      "&.Mui-selected": { color: theme.palette.primary.main },
                     }}
                   />
                 ))}
               </BottomNavigation>
             </BottomNavBar>
-            {/* Spacer for bottom navigation */}
             <Box sx={{ height: { xs: 56, sm: 60 } }} />
           </>
         )}
-
-        {/* Backdrop for drawer on mobile */}
         <Backdrop
           open={mobileMenuOpen}
           onClick={handleCloseMobileMenu}
@@ -824,7 +844,6 @@ export default function Sidebar({ mobileOpen, onDrawerToggle }) {
     );
   }
 
-  // Desktop Return
   return (
     <DesktopSidebar iscollapsed={isCollapsed.toString()}>
       {desktopSidebarContent}

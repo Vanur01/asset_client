@@ -67,13 +67,9 @@ export default function ImportChecklistFields() {
     const file = e.dataTransfer.files[0];
     if (file && (file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
       setSelectedFile(file);
-      setSnackbarMessage("File selected successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
+      showSnackbar("File selected successfully!", "success");
     } else {
-      setSnackbarMessage("Please upload a valid Excel file (.xlsx or .xls)");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar("Please upload a valid Excel file (.xlsx or .xls)", "error");
     }
   };
 
@@ -81,20 +77,24 @@ export default function ImportChecklistFields() {
     const file = e.target.files[0];
     if (file && (file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
       setSelectedFile(file);
-      setSnackbarMessage("File selected successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
+      showSnackbar("File selected successfully!", "success");
     } else if (file) {
-      setSnackbarMessage("Please upload a valid Excel file (.xlsx or .xls)");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar("Please upload a valid Excel file (.xlsx or .xls)", "error");
     }
   };
 
-  // Import Excel file to backend
-  // In ImportChecklistFields.jsx, remove the validation for file selection
+  const showSnackbar = (message, severity) => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
   const handleImport = async () => {
-    // Removed the validation check for selectedFile
+    if (!selectedFile) {
+      showSnackbar("Please select a file first", "error");
+      return;
+    }
+
     setImporting(true);
     const result = await importFromExcel(selectedFile);
     setImporting(false);
@@ -102,21 +102,15 @@ export default function ImportChecklistFields() {
     if (result.success) {
       setImportResponse(result.data);
       setImportSuccess(true);
-      setSnackbarMessage("Checklist imported successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
+      showSnackbar("Checklist imported successfully!", "success");
     } else {
-      setSnackbarMessage(result.error || "Failed to import checklist");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar(result.error || "Failed to import checklist", "error");
     }
   };
 
   const handlePreview = () => {
     if (!selectedFile) {
-      setSnackbarMessage("Please select a file first");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar("Please select a file first", "error");
       return;
     }
     setPreviewOpen(true);
@@ -133,10 +127,9 @@ export default function ImportChecklistFields() {
   };
 
   const handleViewChecklist = () => {
-    if (importResponse?._id || importResponse?.id) {
-      navigate(
-        `/admin/checklists/view/${importResponse._id || importResponse.id}`,
-      );
+    const checklistId = importResponse?._id || importResponse?.id;
+    if (checklistId) {
+      navigate(`/admin/checklists`);
     } else {
       navigate("/admin/checklists");
     }
@@ -147,44 +140,59 @@ export default function ImportChecklistFields() {
     clearMessages();
   };
 
-  // Display imported sections data
   const renderImportedSections = () => {
     if (!importResponse?.sections) return null;
 
     return (
       <Box sx={{ mt: 2 }}>
         {importResponse.sections.map((section, idx) => (
-          <Box key={idx} sx={{ mb: 3 }}>
+          <Box key={idx} sx={{ mb: 2.5 }}>
             <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, color: "#1a4a5c", mb: 1 }}
+              sx={{
+                fontWeight: 600,
+                color: "#1a4a5c",
+                fontSize: { xs: "0.8rem", sm: "0.85rem" },
+                mb: 0.5,
+              }}
             >
               {section.sectionTitle}
             </Typography>
             {section.sectionDescription && (
-              <Typography sx={{ fontSize: 12, color: "#6b7280", mb: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                  color: "#6b7280",
+                  mb: 0.75,
+                }}
+              >
                 {section.sectionDescription}
               </Typography>
             )}
-            <Box sx={{ ml: 2 }}>
+            <Box sx={{ ml: 1.5 }}>
               {section.fields.map((field, fIdx) => (
                 <Box
                   key={fIdx}
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 1,
+                    gap: 0.75,
                     mb: 0.5,
                   }}
                 >
-                  <Rule sx={{ fontSize: 14, color: "#9ca3af" }} />
-                  <Typography sx={{ fontSize: 13 }}>
+                  <Rule sx={{ fontSize: 12, color: "#9ca3af" }} />
+                  <Typography
+                    sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
+                  >
                     {field.label}
                     {field.isRequired && (
                       <span style={{ color: "#e74c3c" }}>*</span>
                     )}
                     <span
-                      style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}
+                      style={{
+                        fontSize: { xs: "0.6rem", sm: "0.65rem" },
+                        color: "#9ca3af",
+                        marginLeft: 6,
+                      }}
                     >
                       ({field.fieldType?.replace("_", " ") || field.fieldType})
                     </span>
@@ -194,8 +202,17 @@ export default function ImportChecklistFields() {
             </Box>
           </Box>
         ))}
-        <Box sx={{ mt: 2, p: 2, bgcolor: "#f8fafc", borderRadius: 2 }}>
-          <Typography sx={{ fontSize: 12, color: "#6b7280" }}>
+        <Box
+          sx={{
+            mt: 1.5,
+            p: 1.5,
+            bgcolor: "#f8fafc",
+            borderRadius: 1.5,
+          }}
+        >
+          <Typography
+            sx={{ fontSize: { xs: "0.65rem", sm: "0.7rem" }, color: "#6b7280" }}
+          >
             Total Fields: {importResponse.totalFields} | Version:{" "}
             {importResponse.version} | Status: {importResponse.status}
           </Typography>
@@ -208,20 +225,19 @@ export default function ImportChecklistFields() {
     <Box
       sx={{
         minHeight: "100vh",
-        fontFamily: "'DM Sans', sans-serif",
         p: { xs: 1, sm: 2, md: 3 },
       }}
     >
-      {/* Top Nav */}
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexDirection: { xs: "column", sm: "row" },
-          gap: { xs: 2, sm: 0 },
+          gap: { xs: 1.5, sm: 0 },
           px: { xs: 1, sm: 2, md: 3 },
-          pt: { xs: 2, sm: 2.5 },
+          pt: { xs: 1.5, sm: 2 },
           pb: { xs: 1, sm: 1 },
         }}
       >
@@ -229,7 +245,7 @@ export default function ImportChecklistFields() {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1.5,
+            gap: 1,
             width: { xs: "100%", sm: "auto" },
           }}
         >
@@ -241,25 +257,26 @@ export default function ImportChecklistFields() {
               "&:hover": { backgroundColor: "rgba(26,46,68,0.08)" },
             }}
           >
-            <ArrowBack fontSize="small" />
+            <ArrowBack sx={{ fontSize: { xs: "1rem", sm: "1.1rem" } }} />
           </IconButton>
           <Box>
             <Typography
-              variant="h6"
               sx={{
                 fontWeight: 700,
                 color: "#1a2e44",
-                fontSize: { xs: "1rem", sm: "1.1rem", md: "1.2rem" },
-                lineHeight: 1.2,
+                fontSize: { xs: "0.95rem", sm: "1.1rem", md: "1.2rem" },
+                lineHeight: 1.3,
               }}
             >
               Import Checklist Fields
             </Typography>
             <Typography
-              variant="caption"
-              sx={{ color: "#8a95a3", fontSize: "0.75rem" }}
+              sx={{
+                color: "#8a95a3",
+                fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+              }}
             >
-              Upload an Excel sheet to auto-generate input fields.
+              Upload an Excel sheet to auto-generate input fields
             </Typography>
           </Box>
         </Box>
@@ -268,39 +285,38 @@ export default function ImportChecklistFields() {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1.5,
+            gap: 1,
             width: { xs: "100%", sm: "auto" },
             justifyContent: { xs: "flex-end", sm: "flex-start" },
           }}
         >
           <Button
-            startIcon={<Visibility sx={{ fontSize: "1rem" }} />}
+            startIcon={<Visibility sx={{ fontSize: "0.9rem" }} />}
             onClick={handlePreview}
             disabled={!selectedFile}
             sx={{
               textTransform: "none",
               color: "#1a2e44",
               fontWeight: 500,
-              fontSize: { xs: "0.8rem", sm: "0.85rem" },
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
               "&:hover": { backgroundColor: "rgba(26,46,68,0.06)" },
             }}
           >
-            Preview File
+            Preview
           </Button>
           <Button
             variant="contained"
-            startIcon={<CloudUpload sx={{ fontSize: "1rem" }} />}
+            startIcon={<CloudUpload sx={{ fontSize: "0.9rem" }} />}
             onClick={handleImport}
             disabled={!selectedFile || importing}
             sx={{
               textTransform: "none",
               backgroundColor: "#1a3a4a",
-              color: "#fff",
               fontWeight: 600,
-              fontSize: { xs: "0.8rem", sm: "0.85rem" },
-              borderRadius: "8px",
-              px: { xs: 2, sm: 2.5 },
-              py: { xs: 0.8, sm: 1 },
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
+              borderRadius: "6px",
+              px: { xs: 1.5, sm: 2 },
+              py: { xs: 0.6, sm: 0.8 },
               boxShadow: "none",
               "&:hover": {
                 backgroundColor: "#122b38",
@@ -309,108 +325,125 @@ export default function ImportChecklistFields() {
             }}
           >
             {importing ? (
-              <CircularProgress size={20} color="inherit" />
+              <CircularProgress size={16} color="inherit" />
             ) : (
-              "Import Checklist"
+              "Import"
             )}
           </Button>
         </Box>
       </Box>
 
-      {/* Checklist Builder chip */}
-      <Box sx={{ px: { xs: 1, sm: 2, md: 3 }, pt: 1, pb: 2 }}>
+      {/* Excel Import Chip */}
+      <Box sx={{ px: { xs: 1, sm: 2, md: 3 }, pt: 0.5, pb: 1.5 }}>
         <Chip
           label="Excel Import"
           variant="outlined"
           sx={{
-            borderRadius: "6px",
-            fontSize: "0.75rem",
+            borderRadius: "4px",
+            fontSize: { xs: "0.6rem", sm: "0.65rem" },
             fontWeight: 500,
             color: "#1a2e44",
             borderColor: "#c5cdd6",
-            backgroundColor: "#fff",
-            height: 30,
+            height: 24,
           }}
         />
       </Box>
 
-      {/* Centered drop zone card */}
+      {/* Main Content */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "center",
-          alignItems: "center",
           px: { xs: 1, sm: 2, md: 3 },
-          pt: { xs: 2, sm: 3, md: 4 },
+          pt: { xs: 1, sm: 2 },
         }}
       >
         <Paper
           elevation={0}
           sx={{
             width: "100%",
-            maxWidth: 980,
-            backgroundColor: "#fff",
-            borderRadius: "14px",
-            p: { xs: 2, sm: 3, md: 4 },
-            boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+            maxWidth: 900,
+            borderRadius: "12px",
+            p: { xs: 1.5, sm: 2.5, md: 3 },
+            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
             border: "1px solid #e5e7eb",
           }}
         >
           {importSuccess ? (
-            // Success state - show import result
+            // Success State
             <Box>
-              <Box sx={{ textAlign: "center", mb: 3 }}>
-                <CheckCircle sx={{ fontSize: 64, color: "#4caf50", mb: 2 }} />
+              <Box sx={{ textAlign: "center", mb: 2 }}>
+                <CheckCircle
+                  sx={{
+                    fontSize: { xs: 48, sm: 56 },
+                    color: "#4caf50",
+                    mb: 1.5,
+                  }}
+                />
                 <Typography
-                  variant="h5"
-                  sx={{ fontWeight: 700, color: "#1a3a4a", mb: 1 }}
+                  sx={{
+                    fontWeight: 700,
+                    color: "#1a3a4a",
+                    fontSize: { xs: "1.1rem", sm: "1.25rem" },
+                    mb: 0.5,
+                  }}
                 >
                   Import Successful!
                 </Typography>
-                <Typography sx={{ color: "#6b7280" }}>
-                  Your checklist has been imported successfully.
+                <Typography
+                  sx={{
+                    color: "#6b7280",
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                  }}
+                >
+                  Your checklist has been imported successfully
                 </Typography>
               </Box>
 
-              <Divider sx={{ my: 3 }} />
+              <Divider sx={{ my: 2 }} />
 
               <Typography
-                variant="h6"
-                sx={{ fontWeight: 600, color: "#1a3a4a", mb: 2 }}
+                sx={{
+                  fontWeight: 600,
+                  color: "#1a3a4a",
+                  fontSize: { xs: "0.85rem", sm: "0.9rem" },
+                  mb: 1.5,
+                }}
               >
-                Imported Checklist Details
+                Checklist Details
               </Typography>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={{ fontWeight: 600 }}>
-                  Name:{" "}
-                  <span style={{ fontWeight: 400 }}>
-                    {importResponse?.name}
-                  </span>
+              <Box sx={{ mb: 1.5 }}>
+                <Typography
+                  sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}
+                >
+                  <strong>Name:</strong> {importResponse?.name}
                 </Typography>
-                <Typography sx={{ fontWeight: 600, mt: 1 }}>
-                  Description:{" "}
-                  <span style={{ fontWeight: 400 }}>
-                    {importResponse?.description}
-                  </span>
+                <Typography
+                  sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}
+                >
+                  <strong>Description:</strong> {importResponse?.description}
                 </Typography>
-                <Typography sx={{ fontWeight: 600, mt: 1 }}>
-                  Category:{" "}
-                  <span style={{ fontWeight: 400 }}>
-                    {importResponse?.category}
-                  </span>
+                <Typography
+                  sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}
+                >
+                  <strong>Category:</strong> {importResponse?.category}
                 </Typography>
-                <Typography sx={{ fontWeight: 600, mt: 1 }}>
-                  Type:{" "}
-                  <span style={{ fontWeight: 400 }}>
-                    {importResponse?.type}
-                  </span>
+                <Typography
+                  sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mb: 0.5 }}
+                >
+                  <strong>Type:</strong> {importResponse?.type}
                 </Typography>
               </Box>
 
               <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600, color: "#1a4a5c", mt: 2, mb: 1 }}
+                sx={{
+                  fontWeight: 600,
+                  color: "#1a4a5c",
+                  fontSize: { xs: "0.8rem", sm: "0.85rem" },
+                  mt: 1.5,
+                  mb: 1,
+                }}
               >
                 Sections & Fields
               </Typography>
@@ -419,25 +452,34 @@ export default function ImportChecklistFields() {
               <Box
                 sx={{
                   display: "flex",
-                  gap: 2,
+                  gap: 1.5,
                   justifyContent: "center",
-                  mt: 4,
+                  mt: 3,
                 }}
               >
-                <Button variant="outlined" onClick={handleReset}>
+                <Button
+                  variant="outlined"
+                  onClick={handleReset}
+                  size="small"
+                  sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
+                >
                   Import Another
                 </Button>
                 <Button
                   variant="contained"
                   onClick={handleViewChecklist}
-                  sx={{ bgcolor: "#1a4a5c" }}
+                  size="small"
+                  sx={{
+                    bgcolor: "#1a4a5c",
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                  }}
                 >
                   View Checklist
                 </Button>
               </Box>
             </Box>
           ) : (
-            // Drop zone
+            // Drop Zone
             <Box
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -445,7 +487,7 @@ export default function ImportChecklistFields() {
               onClick={() => fileInputRef.current?.click()}
               sx={{
                 border: `2px dashed ${isDragging ? "#1a3a4a" : "#a8c4d4"}`,
-                borderRadius: "10px",
+                borderRadius: "8px",
                 backgroundColor: isDragging
                   ? "rgba(26,58,74,0.04)"
                   : "transparent",
@@ -453,8 +495,8 @@ export default function ImportChecklistFields() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                py: { xs: 6, sm: 7, md: 8 },
-                px: { xs: 2, sm: 3, md: 4 },
+                py: { xs: 4, sm: 5, md: 6 },
+                px: { xs: 2, sm: 3 },
                 cursor: "pointer",
                 transition: "all 0.2s ease",
                 "&:hover": {
@@ -471,39 +513,34 @@ export default function ImportChecklistFields() {
                 onChange={handleFileSelect}
               />
 
-              <Box
+              <UploadFile
                 sx={{
-                  width: { xs: 48, sm: 52 },
-                  height: { xs: 48, sm: 52 },
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  mb: 2,
+                  fontSize: { xs: 36, sm: 42 },
+                  color: "#1a3a4a",
+                  mb: 1.5,
                 }}
-              >
-                <UploadFile
-                  sx={{
-                    fontSize: { xs: 40, sm: 46 },
-                    color: "#1a3a4a",
-                  }}
-                />
-              </Box>
+              />
 
               {selectedFile ? (
                 <>
                   <Typography
                     sx={{
-                      fontWeight: 700,
+                      fontWeight: 600,
                       color: "#1a3a4a",
-                      fontSize: { xs: "0.9rem", sm: "1rem" },
-                      mb: 0.5,
+                      fontSize: { xs: "0.8rem", sm: "0.85rem" },
+                      mb: 0.25,
                       textAlign: "center",
                       wordBreak: "break-all",
                     }}
                   >
                     {selectedFile.name}
                   </Typography>
-                  <Typography sx={{ color: "#8a95a3", fontSize: "0.8rem" }}>
+                  <Typography
+                    sx={{
+                      color: "#8a95a3",
+                      fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                    }}
+                  >
                     {(selectedFile.size / 1024).toFixed(1)} KB
                   </Typography>
                   <Button
@@ -512,7 +549,7 @@ export default function ImportChecklistFields() {
                       e.stopPropagation();
                       handleReset();
                     }}
-                    sx={{ mt: 1 }}
+                    sx={{ mt: 1, fontSize: { xs: "0.65rem", sm: "0.7rem" } }}
                   >
                     Remove
                   </Button>
@@ -521,9 +558,9 @@ export default function ImportChecklistFields() {
                 <>
                   <Typography
                     sx={{
-                      fontWeight: 700,
+                      fontWeight: 600,
                       color: "#1a3a4a",
-                      fontSize: { xs: "0.9rem", sm: "1rem", md: "1.05rem" },
+                      fontSize: { xs: "0.8rem", sm: "0.9rem" },
                       mb: 0.5,
                       textAlign: "center",
                     }}
@@ -533,33 +570,31 @@ export default function ImportChecklistFields() {
                   <Typography
                     sx={{
                       color: "#8a95a3",
-                      fontSize: "0.8rem",
-                      mb: 2.5,
+                      fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                      mb: 2,
                       textAlign: "center",
                     }}
                   >
-                    Supported formats: .xlsx / .xls
+                    Supported: .xlsx / .xls
                   </Typography>
                 </>
               )}
 
               <Button
                 variant="contained"
-                startIcon={<InsertDriveFile sx={{ fontSize: "1rem" }} />}
+                startIcon={<InsertDriveFile sx={{ fontSize: "0.85rem" }} />}
                 onClick={(e) => {
                   e.stopPropagation();
                   fileInputRef.current?.click();
                 }}
                 sx={{
-                  mt: selectedFile ? 2 : 0,
+                  mt: selectedFile ? 1.5 : 0,
                   textTransform: "none",
                   backgroundColor: "#1a3a4a",
-                  color: "#fff",
-                  fontWeight: 600,
-                  fontSize: { xs: "0.8rem", sm: "0.88rem" },
-                  borderRadius: "8px",
-                  px: { xs: 2, sm: 3 },
-                  py: { xs: 0.8, sm: 1.1 },
+                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                  borderRadius: "6px",
+                  px: { xs: 2, sm: 2.5 },
+                  py: { xs: 0.6, sm: 0.7 },
                   boxShadow: "none",
                   "&:hover": {
                     backgroundColor: "#122b38",
@@ -572,31 +607,29 @@ export default function ImportChecklistFields() {
             </Box>
           )}
 
-          {/* Excel template info - only show when no file selected and not imported */}
+          {/* Template Info - Removed download button */}
           {!selectedFile && !importSuccess && (
-            <Box sx={{ mt: 3, textAlign: "center" }}>
-              <Typography sx={{ fontSize: "0.75rem", color: "#8a95a3" }}>
-                <TableChart
-                  sx={{ fontSize: "0.9rem", verticalAlign: "middle", mr: 0.5 }}
-                />
+            <Box sx={{ mt: 2.5, textAlign: "center" }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                  color: "#8a95a3",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.5,
+                }}
+              >
+                <TableChart sx={{ fontSize: "0.8rem" }} />
                 Required columns: Field Name, Field Type, Required, Options (for
                 dropdown)
               </Typography>
-              <Button
-                size="small"
-                sx={{ mt: 1, fontSize: "0.7rem" }}
-                onClick={() =>
-                  window.open("/sample-checklist-template.xlsx", "_blank")
-                }
-              >
-                Download Sample Template
-              </Button>
             </Box>
           )}
         </Paper>
       </Box>
 
-      {/* Preview Dialog - shows file info before import */}
+      {/* Preview Dialog */}
       <Dialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
@@ -605,12 +638,12 @@ export default function ImportChecklistFields() {
         fullScreen={isMobile}
         PaperProps={{
           sx: {
-            borderRadius: { xs: 0, sm: "16px" },
-            maxHeight: { xs: "100%", sm: "90vh" },
+            borderRadius: { xs: 0, sm: "12px" },
+            maxHeight: { xs: "100%", sm: "85vh" },
           },
         }}
       >
-        <DialogTitle sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1, sm: 2 } }}>
+        <DialogTitle sx={{ p: { xs: 1.5, sm: 2 }, pb: { xs: 1, sm: 1.5 } }}>
           <Box
             display="flex"
             alignItems="center"
@@ -619,59 +652,95 @@ export default function ImportChecklistFields() {
             <Box>
               <Typography
                 sx={{
-                  fontSize: { xs: 18, sm: 20 },
+                  fontSize: { xs: "0.95rem", sm: "1.1rem" },
                   fontWeight: 700,
                   color: "#1a1d23",
                 }}
               >
                 File Preview
               </Typography>
-              <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.5 }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                  color: "#6b7280",
+                  mt: 0.25,
+                }}
+              >
                 {selectedFile?.name}
               </Typography>
             </Box>
             <IconButton onClick={() => setPreviewOpen(false)} size="small">
-              <Close sx={{ fontSize: 20 }} />
+              <Close sx={{ fontSize: 18 }} />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
-          <Box sx={{ textAlign: "center", py: 4 }}>
-            <Description sx={{ fontSize: 48, color: "#1a4a5c", mb: 2 }} />
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+        <DialogContent dividers sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Box sx={{ textAlign: "center", py: { xs: 2, sm: 3 } }}>
+            <Description
+              sx={{ fontSize: { xs: 36, sm: 42 }, color: "#1a4a5c", mb: 1.5 }}
+            />
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "0.85rem", sm: "0.9rem" },
+                mb: 0.5,
+              }}
+            >
               {selectedFile?.name}
             </Typography>
-            <Typography sx={{ color: "#6b7280", mb: 2 }}>
+            <Typography
+              sx={{
+                color: "#6b7280",
+                fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                mb: 1.5,
+              }}
+            >
               Size: {(selectedFile?.size / 1024).toFixed(1)} KB
             </Typography>
-            <Typography sx={{ color: "#6b7280", fontSize: 14 }}>
-              The Excel file will be parsed and converted into a checklist with:
+            <Typography
+              sx={{
+                color: "#6b7280",
+                fontSize: { xs: "0.7rem", sm: "0.75rem" },
+              }}
+            >
+              The Excel file will be parsed into a checklist with:
             </Typography>
             <Box
               sx={{
-                mt: 2,
+                mt: 1.5,
                 textAlign: "left",
                 bgcolor: "#f8fafc",
-                p: 2,
-                borderRadius: 2,
+                p: 1.5,
+                borderRadius: 1.5,
               }}
             >
-              <Typography sx={{ fontSize: 13 }}>✓ Multiple sections</Typography>
-              <Typography sx={{ fontSize: 13 }}>
+              <Typography sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+                ✓ Multiple sections
+              </Typography>
+              <Typography
+                sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mt: 0.5 }}
+              >
                 ✓ Various field types (text, dropdown, rating, etc.)
               </Typography>
-              <Typography sx={{ fontSize: 13 }}>
+              <Typography
+                sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mt: 0.5 }}
+              >
                 ✓ Required field validation
               </Typography>
-              <Typography sx={{ fontSize: 13 }}>✓ Dropdown options</Typography>
+              <Typography
+                sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" }, mt: 0.5 }}
+              >
+                ✓ Dropdown options
+              </Typography>
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 1, sm: 2 } }}>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2 }, pt: { xs: 1, sm: 1.5 } }}>
           <Button
             onClick={() => setPreviewOpen(false)}
             variant="outlined"
-            size="medium"
+            size="small"
+            sx={{ fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
           >
             Close
           </Button>
@@ -681,25 +750,28 @@ export default function ImportChecklistFields() {
               handleImport();
             }}
             variant="contained"
-            size="medium"
-            sx={{ bgcolor: "#1a4a5c" }}
+            size="small"
+            sx={{
+              bgcolor: "#1a4a5c",
+              fontSize: { xs: "0.7rem", sm: "0.75rem" },
+            }}
           >
             Import Now
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbarOpen}
-        autoHideDuration={6000}
+        autoHideDuration={5000}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarSeverity}
-          sx={{ width: "100%" }}
+          sx={{ width: "100%", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}
         >
           {snackbarMessage}
         </Alert>

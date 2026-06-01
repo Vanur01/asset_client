@@ -1,4 +1,4 @@
-// context/ClientContext.jsx
+// context/ClientContext.jsx - Complete Fixed Version
 
 import React, {
   createContext,
@@ -22,7 +22,6 @@ const initialState = {
   initialLoading: true,
   error: null,
   selectedClient: null,
-  subscriptionReport: null,
   stats: {
     total: 0,
     active: 0,
@@ -59,7 +58,6 @@ const ACTION_TYPES = {
   SET_ERROR: "SET_ERROR",
   SET_CLIENTS: "SET_CLIENTS",
   SET_SELECTED_CLIENT: "SET_SELECTED_CLIENT",
-  SET_SUBSCRIPTION_REPORT: "SET_SUBSCRIPTION_REPORT",
   UPDATE_FILTERS: "UPDATE_FILTERS",
   CLEAR_ERROR: "CLEAR_ERROR",
   SET_STATS: "SET_STATS",
@@ -76,7 +74,12 @@ const clientReducer = (state, action) => {
     case ACTION_TYPES.SET_ACTION_LOADING:
       return { ...state, actionLoading: action.payload };
     case ACTION_TYPES.SET_ERROR:
-      return { ...state, error: action.payload, loading: false, initialLoading: false };
+      return {
+        ...state,
+        error: action.payload,
+        loading: false,
+        initialLoading: false,
+      };
     case ACTION_TYPES.SET_CLIENTS:
       return {
         ...state,
@@ -96,8 +99,6 @@ const clientReducer = (state, action) => {
       };
     case ACTION_TYPES.SET_SELECTED_CLIENT:
       return { ...state, selectedClient: action.payload, loading: false };
-    case ACTION_TYPES.SET_SUBSCRIPTION_REPORT:
-      return { ...state, subscriptionReport: action.payload, loading: false };
     case ACTION_TYPES.UPDATE_FILTERS:
       return { ...state, filters: { ...state.filters, ...action.payload } };
     case ACTION_TYPES.CLEAR_ERROR:
@@ -105,98 +106,86 @@ const clientReducer = (state, action) => {
     case ACTION_TYPES.SET_STATS:
       return { ...state, stats: action.payload };
     case ACTION_TYPES.SET_PAGINATION:
-      return { ...state, pagination: { ...state.pagination, ...action.payload } };
+      return {
+        ...state,
+        pagination: { ...state.pagination, ...action.payload },
+      };
     default:
       return state;
   }
 };
 
-// Helper function for auth headers
-const getAuthHeaders = (token) => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${token}`,
-});
+// Helper functions
+const getAuthHeaders = () => {
+  const token =
+    localStorage.getItem("accessToken") || localStorage.getItem("token");
+  if (!token || token === "undefined" || token === "null") {
+    return null;
+  }
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
 
-// Helper to get token from localStorage - FIXED: Check both 'accessToken' and 'token'
 const getToken = () => {
-  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
-  if (!token) {
-    console.warn("No token found in localStorage");
-    return null;
-  }
-  if (token === "undefined" || token === "null") {
-    console.warn("Invalid token found in localStorage");
-    return null;
-  }
-  return token;
+  const token =
+    localStorage.getItem("accessToken") || localStorage.getItem("token");
+  return token && token !== "undefined" && token !== "null" ? token : null;
 };
 
 // Create Context
 const ClientContext = createContext(null);
 
-// Provider component
 export const ClientProvider = ({ children }) => {
   const [state, dispatch] = useReducer(clientReducer, initialState);
+  const activeControllerRef = useRef(null);
+  const initialLoadDone = useRef(false);
+  const isFetchingRef = useRef(false);
 
-  // Ref to track active getAllClients request
-  const activeGetAllControllerRef = useRef(null);
-
-  // Clear error
   const clearError = useCallback(() => {
     dispatch({ type: ACTION_TYPES.CLEAR_ERROR });
   }, []);
 
-  // Calculate stats from clients data
-  const calculateStats = useCallback((clientsData) => {
-    const total = clientsData.length;
-    const active = clientsData.filter(c => c.status === "active").length;
-    const expiringSoon = clientsData.filter(c => c.daysRemaining > 0 && c.daysRemaining <= 7).length;
-    
-    const byPlan = {
-      free: clientsData.filter(c => c.membershipPlan?.toLowerCase() === "free").length,
-      standard: clientsData.filter(c => c.membershipPlan?.toLowerCase() === "standard").length,
-      premium: clientsData.filter(c => c.membershipPlan?.toLowerCase() === "premium").length,
-      enterprise: clientsData.filter(c => c.membershipPlan?.toLowerCase() === "enterprise").length,
-    };
-    
-    return { total, active, expiringSoon, byPlan };
-  }, []);
-
-  // Get all clients with pagination and filters
+  // Get all clients
   const getAllClients = useCallback(
-    async (token = null, params = {}) => {
-      // Get token if not provided
-      const authToken = token || getToken();
-      
-      if (!authToken) {
-        console.error("No authentication token available for getAllClients");
-        dispatch({ 
-          type: ACTION_TYPES.SET_ERROR, 
-          payload: "Authentication required. Please login again." 
+    async (params = {}) => {
+      const token = getToken();
+      if (!token) {
+        dispatch({
+          type: ACTION_TYPES.SET_ERROR,
+          payload: "Authentication required. Please login again.",
         });
-        dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
         dispatch({ type: ACTION_TYPES.SET_INITIAL_LOADING, payload: false });
         return null;
       }
 
-      // Cancel any in-flight request for this endpoint
-      if (activeGetAllControllerRef.current) {
-        activeGetAllControllerRef.current.abort();
+      // Prevent multiple simultaneous requests
+      if (isFetchingRef.current) {
+        return null;
       }
-      activeGetAllControllerRef.current = new AbortController();
+
+      if (activeControllerRef.current) {
+        activeControllerRef.current.abort();
+      }
+      activeControllerRef.current = new AbortController();
+      isFetchingRef.current = true;
 
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
       try {
-        const {
-          page = state.currentPage,
-          limit = params.limit || state.filters.limit,
-          search = params.search !== undefined ? params.search : state.filters.search,
-          status = params.status !== undefined ? params.status : state.filters.status,
-          membershipPlan = params.membershipPlan !== undefined ? params.membershipPlan : state.filters.membershipPlan,
-          sortBy = params.sortBy || state.filters.sortBy,
-          sortOrder = params.sortOrder || state.filters.sortOrder,
-        } = params;
+        const page = params.page || state.pagination.page;
+        const limit = params.limit || state.pagination.limit;
+        const search =
+          params.search !== undefined ? params.search : state.filters.search;
+        const status =
+          params.status !== undefined ? params.status : state.filters.status;
+        const membershipPlan =
+          params.membershipPlan !== undefined
+            ? params.membershipPlan
+            : state.filters.membershipPlan;
+        const sortBy = params.sortBy || state.filters.sortBy;
+        const sortOrder = params.sortOrder || state.filters.sortOrder;
 
         const queryParams = new URLSearchParams();
         queryParams.append("page", page);
@@ -211,287 +200,348 @@ export const ClientProvider = ({ children }) => {
         if (membershipPlan && membershipPlan !== "all")
           queryParams.append("membershipPlan", membershipPlan);
 
-        const url = `${API_BASE_URL}/user/clients?${queryParams.toString()}`;
-
-        console.log("Fetching clients from:", url);
+        const url = `${API_BASE_URL}/clients?${queryParams.toString()}`;
+        const headers = getAuthHeaders();
 
         const response = await axios.get(url, {
-          headers: getAuthHeaders(authToken),
-          signal: activeGetAllControllerRef.current.signal,
+          headers,
+          signal: activeControllerRef.current.signal,
         });
 
-        const clientsData = response.data.clients || response.data.data || [];
-        const total = response.data.total || 0;
-        const pages = response.data.pages || 0;
-        
-        // Calculate stats from clients data
-        const stats = calculateStats(clientsData);
-        
+        const clientsData = response.data.clients || [];
+        const paginationData = response.data.pagination || {};
+        const summaryData = response.data.summary || {};
+
+        // Update stats
+        dispatch({
+          type: ACTION_TYPES.SET_STATS,
+          payload: {
+            total: summaryData.totalCustomers || 0,
+            active: summaryData.activeCustomers || 0,
+            expiringSoon: summaryData.expiringSoon || 0,
+            byPlan: summaryData.byPlan || {
+              free: 0,
+              standard: 0,
+              premium: 0,
+              enterprise: 0,
+            },
+          },
+        });
+
         dispatch({
           type: ACTION_TYPES.SET_CLIENTS,
           payload: {
             clients: clientsData,
-            total: total,
-            pages: pages,
-            page: parseInt(page),
-            limit: parseInt(limit),
+            total: paginationData.total || clientsData.length,
+            pages: paginationData.pages || 1,
+            page: paginationData.page || parseInt(page),
+            limit: paginationData.limit || parseInt(limit),
           },
-        });
-        
-        dispatch({
-          type: ACTION_TYPES.SET_STATS,
-          payload: stats,
         });
 
         return response.data;
       } catch (error) {
         if (axios.isCancel(error) || error.name === "CanceledError") {
-          // Silently swallow cancellations
           return null;
         }
         console.error("Get all clients error:", error);
         const errorMessage =
-          error.response?.data?.message || error.message || "Failed to fetch clients";
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch clients";
         dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-        throw error.response?.data || error;
+        throw error;
       } finally {
         dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-        activeGetAllControllerRef.current = null;
+        activeControllerRef.current = null;
+        isFetchingRef.current = false;
       }
     },
-    [state.currentPage, state.filters, calculateStats],
+    [
+      state.pagination.page,
+      state.pagination.limit,
+      state.filters.search,
+      state.filters.status,
+      state.filters.membershipPlan,
+      state.filters.sortBy,
+      state.filters.sortOrder,
+    ],
   );
 
   // Fetch clients with current filters
-  const fetchClients = useCallback(async (params = {}) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found, cannot fetch clients");
-      dispatch({ 
-        type: ACTION_TYPES.SET_ERROR, 
-        payload: "Authentication required. Please login again." 
-      });
-      dispatch({ type: ACTION_TYPES.SET_INITIAL_LOADING, payload: false });
-      return null;
-    }
-    return await getAllClients(token, params);
-  }, [getAllClients]);
+  const fetchClients = useCallback(
+    async (params = {}) => {
+      const token = getToken();
+      if (!token) {
+        dispatch({
+          type: ACTION_TYPES.SET_ERROR,
+          payload: "Authentication required. Please login again.",
+        });
+        dispatch({ type: ACTION_TYPES.SET_INITIAL_LOADING, payload: false });
+        return null;
+      }
+      return await getAllClients(params);
+    },
+    [getAllClients],
+  );
 
   // Get client by ID
   const getClientById = useCallback(async (clientId) => {
     const token = getToken();
     if (!token) {
-      console.error("No token found");
       throw new Error("Authentication required");
     }
-    
+
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/user/clients/${clientId}`,
-        { headers: getAuthHeaders(token) },
-      );
+      const response = await axios.get(`${API_BASE_URL}/clients/${clientId}`, {
+        headers: getAuthHeaders(),
+      });
 
+      const clientData = response.data.client;
       dispatch({
         type: ACTION_TYPES.SET_SELECTED_CLIENT,
-        payload: response.data.client || response.data.data,
+        payload: clientData,
       });
 
       return response.data;
     } catch (error) {
       console.error("Get client by ID error:", error);
       const errorMessage =
-        error.response?.data?.message || error.message || "Failed to fetch client";
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to fetch client";
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      throw error.response?.data || error;
+      throw error;
     } finally {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
   }, []);
 
   // Create client
-  const addClient = useCallback(async (clientData) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found");
-      throw new Error("Authentication required. Please login again.");
-    }
-    
-    dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
-
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/user/clients`,
-        clientData,
-        { headers: getAuthHeaders(token) },
-      );
-
-      // Refresh the client list after adding
-      await fetchClients();
-      
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      return response.data;
-    } catch (error) {
-      console.error("Create client error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Failed to create client";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      throw error.response?.data || error;
-    }
-  }, [fetchClients]);
-
-  // Update client
-  const editClient = useCallback(async (clientId, updateData) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found");
-      throw new Error("Authentication required. Please login again.");
-    }
-    
-    dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
-
-    try {
-      const response = await axios.put(
-        `${API_BASE_URL}/user/clients/${clientId}`,
-        updateData,
-        { headers: getAuthHeaders(token) },
-      );
-
-      // If the updated client is currently selected, update it
-      if (
-        state.selectedClient?.id === clientId ||
-        state.selectedClient?._id === clientId
-      ) {
-        dispatch({
-          type: ACTION_TYPES.SET_SELECTED_CLIENT,
-          payload: response.data.client || response.data.data,
-        });
+  const addClient = useCallback(
+    async (clientData) => {
+      const token = getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please login again.");
       }
 
-      // Refresh the client list
-      await fetchClients();
-      
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      return response.data;
-    } catch (error) {
-      console.error("Update client error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Failed to update client";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      throw error.response?.data || error;
-    }
-  }, [state.selectedClient, fetchClients]);
+      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
 
-  // Update client status (activate/deactivate)
-  const changeClientStatus = useCallback(async (clientId, status) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found");
-      throw new Error("Authentication required. Please login again.");
-    }
-    
-    try {
-      const response = await axios.patch(
-        `${API_BASE_URL}/user/clients/${clientId}/status`,
-        { status },
-        { headers: getAuthHeaders(token) },
-      );
-      
-      // Refresh the client list
-      await fetchClients();
-      
-      return response.data;
-    } catch (error) {
-      console.error("Update client status error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Failed to update status";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      throw error.response?.data || error;
-    }
-  }, [fetchClients]);
+      try {
+        const response = await axios.post(
+          `${API_BASE_URL}/clients`,
+          clientData,
+          {
+            headers: getAuthHeaders(),
+          },
+        );
 
-  // Delete client
-  const deleteClient = useCallback(async (clientId, permanent = false) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found");
-      throw new Error("Authentication required. Please login again.");
-    }
-    
-    dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
+        await fetchClients({ page: 1 });
+        return response.data;
+      } catch (error) {
+        console.error("Create client error:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to create client";
+        throw new Error(errorMessage);
+      } finally {
+        dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
+      }
+    },
+    [fetchClients],
+  );
 
-    try {
-      const url = permanent
-        ? `${API_BASE_URL}/user/clients/${clientId}?permanent=true`
-        : `${API_BASE_URL}/user/clients/${clientId}`;
+  // Update client
+  const editClient = useCallback(
+    async (clientId, updateData) => {
+      const token = getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please login again.");
+      }
 
-      const response = await axios.delete(url, {
-        headers: getAuthHeaders(token),
-      });
+      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
 
-      // Refresh the client list
-      await fetchClients();
-      
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      return response.data;
-    } catch (error) {
-      console.error("Delete client error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Failed to delete client";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      throw error.response?.data || error;
-    }
-  }, [fetchClients]);
+      try {
+        const response = await axios.put(
+          `${API_BASE_URL}/clients/${clientId}`,
+          updateData,
+          {
+            headers: getAuthHeaders(),
+          },
+        );
+
+        if (
+          state.selectedClient?._id === clientId ||
+          state.selectedClient?.id === clientId
+        ) {
+          const updatedClient = response.data.client;
+          dispatch({
+            type: ACTION_TYPES.SET_SELECTED_CLIENT,
+            payload: updatedClient,
+          });
+        }
+
+        await fetchClients();
+        return response.data;
+      } catch (error) {
+        console.error("Update client error:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to update client";
+        throw new Error(errorMessage);
+      } finally {
+        dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
+      }
+    },
+    [state.selectedClient, fetchClients],
+  );
+
+  // Update client status
+  const changeClientStatus = useCallback(
+    async (clientId, status) => {
+      const token = getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please login again.");
+      }
+
+      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
+
+      try {
+        const response = await axios.patch(
+          `${API_BASE_URL}/clients/${clientId}/status`,
+          { status },
+          {
+            headers: getAuthHeaders(),
+          },
+        );
+
+        await fetchClients();
+
+        if (
+          state.selectedClient?._id === clientId ||
+          state.selectedClient?.id === clientId
+        ) {
+          await getClientById(clientId);
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("Update client status error:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to update status";
+        throw new Error(errorMessage);
+      } finally {
+        dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
+      }
+    },
+    [fetchClients, getClientById, state.selectedClient],
+  );
+
+  // Soft delete client
+  const deleteClient = useCallback(
+    async (clientId) => {
+      const token = getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please login again.");
+      }
+
+      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
+
+      try {
+        const response = await axios.delete(
+          `${API_BASE_URL}/clients/${clientId}`,
+          {
+            headers: getAuthHeaders(),
+          },
+        );
+
+        await fetchClients();
+
+        if (
+          state.selectedClient?._id === clientId ||
+          state.selectedClient?.id === clientId
+        ) {
+          dispatch({ type: ACTION_TYPES.SET_SELECTED_CLIENT, payload: null });
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("Delete client error:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to delete client";
+        throw new Error(errorMessage);
+      } finally {
+        dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
+      }
+    },
+    [fetchClients, state.selectedClient],
+  );
 
   // Renew client membership
-  const renewClientMembership = useCallback(async (clientId, extendDays) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found");
-      throw new Error("Authentication required. Please login again.");
-    }
-    
-    dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
+  const renewClientMembership = useCallback(
+    async (clientId, extendDays) => {
+      const token = getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please login again.");
+      }
 
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/user/clients/${clientId}/renew`,
-        { extendDays },
-        { headers: getAuthHeaders(token) },
-      );
+      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: true });
 
-      // Refresh the client list
-      await fetchClients();
-      
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      return response.data;
-    } catch (error) {
-      console.error("Renew membership error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Failed to renew membership";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
-      throw error.response?.data || error;
-    }
-  }, [fetchClients]);
+      try {
+        const response = await axios.put(
+          `${API_BASE_URL}/clients/${clientId}`,
+          { extendDays },
+          {
+            headers: getAuthHeaders(),
+          },
+        );
+
+        await fetchClients();
+
+        if (
+          state.selectedClient?._id === clientId ||
+          state.selectedClient?.id === clientId
+        ) {
+          await getClientById(clientId);
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("Renew membership error:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to renew membership";
+        throw new Error(errorMessage);
+      } finally {
+        dispatch({ type: ACTION_TYPES.SET_ACTION_LOADING, payload: false });
+      }
+    },
+    [fetchClients, getClientById, state.selectedClient],
+  );
 
   // Update auto-renewal
   const updateAutoRenewal = useCallback(async (clientId, enabled) => {
     const token = getToken();
     if (!token) {
-      console.error("No token found");
       throw new Error("Authentication required. Please login again.");
     }
-    
+
     try {
       const response = await axios.patch(
-        `${API_BASE_URL}/user/clients/${clientId}/auto-renewal`,
+        `${API_BASE_URL}/clients/${clientId}/auto-renewal`,
         { enabled },
-        { headers: getAuthHeaders(token) },
+        {
+          headers: getAuthHeaders(),
+        },
       );
       return response.data;
     } catch (error) {
@@ -500,42 +550,7 @@ export const ClientProvider = ({ children }) => {
         error.response?.data?.message ||
         error.message ||
         "Failed to update auto-renewal";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      throw error.response?.data || error;
-    }
-  }, []);
-
-  // Get subscription report
-  const getSubscriptionReport = useCallback(async (params = {}) => {
-    const token = getToken();
-    if (!token) {
-      console.error("No token found");
-      throw new Error("Authentication required. Please login again.");
-    }
-    
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-
-    try {
-      const queryParams = new URLSearchParams(params);
-      const response = await axios.get(
-        `${API_BASE_URL}/user/clients/subscription-report?${queryParams}`,
-        { headers: getAuthHeaders(token) },
-      );
-
-      dispatch({
-        type: ACTION_TYPES.SET_SUBSCRIPTION_REPORT,
-        payload: response.data,
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error("Get subscription report error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Failed to fetch report";
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      throw error.response?.data || error;
-    } finally {
-      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+      throw new Error(errorMessage);
     }
   }, []);
 
@@ -546,16 +561,16 @@ export const ClientProvider = ({ children }) => {
 
   // Change page
   const changePage = useCallback((page) => {
-    dispatch({ 
-      type: ACTION_TYPES.SET_PAGINATION, 
-      payload: { page } 
+    dispatch({
+      type: ACTION_TYPES.SET_PAGINATION,
+      payload: { page },
     });
   }, []);
 
   // Reset filters
   const resetFilters = useCallback(() => {
-    dispatch({ 
-      type: ACTION_TYPES.UPDATE_FILTERS, 
+    dispatch({
+      type: ACTION_TYPES.UPDATE_FILTERS,
       payload: {
         search: "",
         status: "all",
@@ -563,31 +578,25 @@ export const ClientProvider = ({ children }) => {
         sortBy: "createdAt",
         sortOrder: "desc",
         limit: 12,
-      }
+      },
     });
   }, []);
 
-  // Initial load - wait a bit for auth to initialize
+  // Initial load - only runs once
   useEffect(() => {
-    // Small delay to ensure auth has initialized
-    const timer = setTimeout(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
       const token = getToken();
       if (token) {
-        console.log("Initial load: Token found, fetching clients");
-        fetchClients();
+        fetchClients({ page: 1 });
       } else {
-        console.log("Initial load: No token found, waiting for auth");
         dispatch({ type: ACTION_TYPES.SET_INITIAL_LOADING, payload: false });
       }
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [fetchClients]);
 
   const value = {
-    // State
     ...state,
-    // Actions
     getAllClients,
     fetchClients,
     getClientById,
@@ -597,7 +606,6 @@ export const ClientProvider = ({ children }) => {
     deleteClient,
     renewClientMembership,
     updateAutoRenewal,
-    getSubscriptionReport,
     updateFilters,
     changePage,
     resetFilters,
@@ -609,7 +617,6 @@ export const ClientProvider = ({ children }) => {
   );
 };
 
-// Custom hook to use the client context
 export const useClient = () => {
   const context = useContext(ClientContext);
   if (!context) {

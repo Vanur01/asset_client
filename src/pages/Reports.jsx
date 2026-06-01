@@ -1,4 +1,4 @@
-// pages/Reports.jsx - Updated with Role-Based Report Access + Proper Excel Export
+// pages/Reports.jsx - Complete Updated Report Page with Full API Integration
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -104,9 +104,9 @@ const colors = {
 // Excel Column Definitions per Report Type
 // ─────────────────────────────────────────────
 
-// Super Admin sees: Client Report columns
+// Client Report Columns (matches backend client_report response)
 const CLIENT_REPORT_COLUMNS = [
-  { key: "name", header: "Client Name" },
+  { key: "customerName", header: "Client Name" },
   { key: "email", header: "Email" },
   { key: "phone", header: "Phone" },
   { key: "membershipPlan", header: "Membership Plan" },
@@ -115,76 +115,138 @@ const CLIENT_REPORT_COLUMNS = [
   { key: "licenseLimit", header: "License Limit" },
   { key: "usersUsed", header: "Users Used" },
   { key: "usagePercentage", header: "Usage %" },
+  { key: "teamCount", header: "Team Members" },
+  { key: "assetCount", header: "Assets" },
+  { key: "inspectionCount", header: "Inspections" },
+  { key: "completionRate", header: "Completion Rate %" },
   { key: "website", header: "Website" },
-  { key: "address", header: "Address" },
+  { key: "subscriptionStartDate", header: "Subscription Start" },
+  { key: "subscriptionEndDate", header: "Subscription End" },
   { key: "createdAt", header: "Joined Date" },
 ];
 
-// Admin sees: Team Member Report columns
+// Team Report Columns (matches backend team_performance_report response)
 const TEAM_REPORT_COLUMNS = [
-  { key: "fullName", header: "Full Name" },
+  { key: "firstName", header: "First Name" },
+  { key: "lastName", header: "Last Name" },
   { key: "email", header: "Email" },
-  { key: "phone", header: "Phone" },
-  { key: "department", header: "Department" },
   { key: "teamRole", header: "Role" },
-  { key: "location", header: "Location" },
   { key: "status", header: "Status" },
   { key: "assignedCount", header: "Assigned Tasks" },
   { key: "completedCount", header: "Completed Tasks" },
   { key: "completionRate", header: "Completion Rate %" },
-  { key: "createdAt", header: "Joined Date" },
+  { key: "onTimeRate", header: "On-Time Rate %" },
+  { key: "approvalRate", header: "Approval Rate %" },
+  { key: "performanceScore", header: "Performance Score" },
+  { key: "qualityScore", header: "Quality Score" },
+  { key: "totalInspections", header: "Total Inspections" },
+  { key: "completedInspections", header: "Completed Inspections" },
+  { key: "approvedInspections", header: "Approved Inspections" },
+  { key: "averageCompletionTime", header: "Avg Completion (min)" },
+  { key: "joinDate", header: "Join Date" },
 ];
 
-// Asset Report columns (Admin only)
+// Asset Report Columns
 const ASSET_REPORT_COLUMNS = [
   { key: "assetName", header: "Asset Name" },
-  { key: "assetCode", header: "Asset Code" },
-  { key: "category", header: "Category" },
+  { key: "assetId", header: "Asset ID" },
+  { key: "tagNumber", header: "Tag Number" },
+  { key: "serialNumber", header: "Serial Number" },
+  { key: "assetCategory", header: "Category" },
   { key: "status", header: "Status" },
-  { key: "location", header: "Location" },
-  { key: "assignedTo", header: "Assigned To" },
-  { key: "purchaseDate", header: "Purchase Date" },
-  { key: "purchaseValue", header: "Purchase Value" },
-  { key: "currentValue", header: "Current Value" },
-  { key: "lastInspection", header: "Last Inspection" },
-  { key: "nextInspection", header: "Next Inspection" },
+  { key: "assetCondition", header: "Condition" },
+  { key: "currentLocation", header: "Location" },
+  { key: "purchaseCost", header: "Purchase Cost" },
+  { key: "commissioningDate", header: "Commissioning Date" },
+  { key: "warrantyExpiry", header: "Warranty Expiry" },
+  { key: "healthScore", header: "Health Score" },
+  { key: "createdAt", header: "Created Date" },
 ];
 
-// Inspection Report columns
+// Checklist Report Columns
+const CHECKLIST_REPORT_COLUMNS = [
+  { key: "name", header: "Checklist Name" },
+  { key: "type", header: "Type" },
+  { key: "category", header: "Category" },
+  { key: "status", header: "Status" },
+  { key: "totalFields", header: "Total Fields" },
+  { key: "totalSections", header: "Total Sections" },
+  { key: "totalAssignments", header: "Total Assignments" },
+  { key: "completedAssignments", header: "Completed" },
+  { key: "completionRate", header: "Completion Rate %" },
+  { key: "approvalRate", header: "Approval Rate %" },
+  { key: "usageCount", header: "Usage Count" },
+  { key: "version", header: "Version" },
+  { key: "createdAt", header: "Created Date" },
+];
+
+// Assignment Report Columns
+const ASSIGNMENT_REPORT_COLUMNS = [
+  { key: "checklistName", header: "Checklist Name" },
+  { key: "assignedBy", header: "Assigned By" },
+  { key: "assignedToAdminName", header: "Assigned To Client" },
+  { key: "status", header: "Status" },
+  { key: "submissionStatus", header: "Submission Status" },
+  { key: "priority", header: "Priority" },
+  { key: "dueDate", header: "Due Date" },
+  { key: "startedAt", header: "Started At" },
+  { key: "submittedAt", header: "Submitted At" },
+  { key: "completionRate", header: "Completion Rate %" },
+  { key: "notes", header: "Notes" },
+  { key: "assignedAt", header: "Assigned Date" },
+];
+
+// Inspection Report Columns
 const INSPECTION_REPORT_COLUMNS = [
   { key: "checklistName", header: "Checklist Name" },
-  { key: "assignedTo", header: "Assigned To" },
-  { key: "assignedBy", header: "Assigned By" },
+  { key: "customerName", header: "Client Name" },
   { key: "status", header: "Status" },
+  { key: "submissionStatus", header: "Submission Status" },
+  { key: "priority", header: "Priority" },
   { key: "dueDate", header: "Due Date" },
-  { key: "completedAt", header: "Completed Date" },
-  { key: "score", header: "Score" },
-  { key: "location", header: "Location" },
+  { key: "submittedAt", header: "Submitted At" },
+  { key: "completionRate", header: "Completion Rate %" },
+  { key: "overallRating", header: "Overall Rating" },
   { key: "notes", header: "Notes" },
 ];
 
-// Financial Report columns
-const FINANCIAL_REPORT_COLUMNS = [
-  { key: "clientName", header: "Client Name" },
+// Revenue Report Columns
+const REVENUE_REPORT_COLUMNS = [
+  { key: "customerName", header: "Client Name" },
   { key: "plan", header: "Plan" },
-  { key: "amount", header: "Amount (₹)" },
-  { key: "paymentDate", header: "Payment Date" },
+  { key: "monthlyRevenue", header: "Monthly Revenue (₹)" },
+  { key: "annualRevenue", header: "Annual Revenue (₹)" },
+  { key: "licensesUsed", header: "Licenses Used" },
+  { key: "licenseCapacity", header: "License Capacity" },
+  { key: "utilizationRate", header: "Utilization Rate %" },
+  { key: "subscriptionEndDate", header: "Subscription End" },
+  { key: "status", header: "Status" },
+];
+
+// Compliance Report Columns
+const COMPLIANCE_REPORT_COLUMNS = [
+  { key: "checklistName", header: "Checklist Name" },
+  { key: "customerName", header: "Client Name" },
+  { key: "status", header: "Status" },
+  { key: "submissionStatus", header: "Compliance Status" },
   { key: "dueDate", header: "Due Date" },
-  { key: "status", header: "Payment Status" },
-  { key: "invoiceNo", header: "Invoice No" },
-  { key: "period", header: "Billing Period" },
+  { key: "submittedAt", header: "Submitted At" },
+  { key: "completionRate", header: "Completion Rate %" },
 ];
 
 const REPORT_COLUMNS_MAP = {
   clients: CLIENT_REPORT_COLUMNS,
   team: TEAM_REPORT_COLUMNS,
   assets: ASSET_REPORT_COLUMNS,
+  checklists: CHECKLIST_REPORT_COLUMNS,
+  assignments: ASSIGNMENT_REPORT_COLUMNS,
   inspections: INSPECTION_REPORT_COLUMNS,
-  financial: FINANCIAL_REPORT_COLUMNS,
+  revenue: REVENUE_REPORT_COLUMNS,
+  compliance: COMPLIANCE_REPORT_COLUMNS,
 };
 
 // ─────────────────────────────────────────────
-// Excel Export — properly structured rows/cols
+// Excel Export Function
 // ─────────────────────────────────────────────
 const exportToExcel = (data, reportType, dateRange, filters = {}, userRole) => {
   if (!data || !data.data || data.data.length === 0) {
@@ -194,23 +256,18 @@ const exportToExcel = (data, reportType, dateRange, filters = {}, userRole) => {
 
   try {
     const wb = XLSX.utils.book_new();
-
-    // ── 1. Determine columns based on report type ──────────────────────
     const columns = REPORT_COLUMNS_MAP[reportType] || [];
 
-    // If we have a column map, use it; otherwise auto-generate from keys
     let headers, rows;
 
     if (columns.length > 0) {
       headers = columns.map((c) => c.header);
-
       rows = data.data.map((row) =>
         columns.map(({ key }) => {
           const val = row[key];
           if (val === null || val === undefined) return "—";
           if (typeof val === "boolean") return val ? "Yes" : "No";
           if (typeof val === "object") {
-            // Handle nested objects like address, stats, etc.
             if (key === "address" && typeof val === "object") {
               return [val.street, val.city, val.state, val.country]
                 .filter(Boolean)
@@ -218,7 +275,6 @@ const exportToExcel = (data, reportType, dateRange, filters = {}, userRole) => {
             }
             return JSON.stringify(val);
           }
-          // Format dates
           if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
             return new Date(val).toLocaleDateString("en-IN");
           }
@@ -226,7 +282,6 @@ const exportToExcel = (data, reportType, dateRange, filters = {}, userRole) => {
         }),
       );
     } else {
-      // Fallback: auto columns from data keys
       const keys = Object.keys(data.data[0]);
       headers = keys.map((k) =>
         k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
@@ -242,10 +297,8 @@ const exportToExcel = (data, reportType, dateRange, filters = {}, userRole) => {
       );
     }
 
-    // ── 2. Build Metadata block ────────────────────────────────────────
     const reportLabel =
       reportType.charAt(0).toUpperCase() + reportType.slice(1);
-
     const metaRows = [
       ["Report Type", reportLabel],
       ["Generated By", userRole || "User"],
@@ -254,27 +307,16 @@ const exportToExcel = (data, reportType, dateRange, filters = {}, userRole) => {
       ["Start Date", filters.startDate || "N/A"],
       ["End Date", filters.endDate || "N/A"],
       ["Total Records", data.data.length],
-      [], // blank separator row
+      [],
     ];
 
-    // ── 3. Combine: metadata + header row + data rows ──────────────────
     const allRows = [...metaRows, headers, ...rows];
-
     const ws = XLSX.utils.aoa_to_sheet(allRows);
-
-    // ── 4. Column widths ───────────────────────────────────────────────
-    const colWidths = headers.map((h) => ({
-      wch: Math.max(h.length + 4, 18),
-    }));
+    const colWidths = headers.map((h) => ({ wch: Math.max(h.length + 4, 18) }));
     ws["!cols"] = colWidths;
 
-    // ── 5. Freeze the header row (row index = metaRows.length + 1) ─────
-    ws["!freeze"] = { xSplit: 0, ySplit: metaRows.length + 1 };
-
-    // ── 6. Append sheet & write file ──────────────────────────────────
-    const sheetName = reportLabel.substring(0, 31); // Excel sheet name max 31 chars
+    const sheetName = reportLabel.substring(0, 31);
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
-
     const fileName = `${reportType}_report_${Date.now()}.xlsx`;
     XLSX.writeFile(wb, fileName);
     return true;
@@ -551,7 +593,7 @@ function StatCard({ icon, label, value, sub, bg, loading }) {
 // Role-specific Table Components
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Client Report Table (Super Admin view) ────────────────────────────────────
+// Client Report Table (Super Admin view)
 function ClientReportTable({ data }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -637,9 +679,9 @@ function ClientReportTable({ data }) {
                         bgcolor: colors.primary,
                       }}
                     >
-                      {(row.name || row.customerName || "?")[0]?.toUpperCase()}
+                      {(row.customerName || "?")[0]?.toUpperCase()}
                     </Avatar>
-                    {row.name || row.customerName || "—"}
+                    {row.customerName || "—"}
                   </Box>
                 </TableCell>
                 <TableCell
@@ -723,6 +765,33 @@ function ClientReportTable({ data }) {
                   </Box>
                 </TableCell>
                 <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.teamCount ?? 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.assetCount ?? 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.inspectionCount ?? 0}
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={`${row.completionRate || 0}%`}
+                    size="small"
+                    sx={{
+                      bgcolor: alpha(colors.success, 0.1),
+                      color: colors.success,
+                      fontSize: "0.62rem",
+                      height: 20,
+                    }}
+                  />
+                </TableCell>
+                <TableCell
                   sx={{
                     fontSize: "0.7rem",
                     color: colors.textSecondary,
@@ -738,17 +807,27 @@ function ClientReportTable({ data }) {
                   sx={{
                     fontSize: "0.7rem",
                     color: colors.textSecondary,
-                    maxWidth: 150,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {typeof row.address === "object"
-                    ? [row.address?.city, row.address?.state]
-                        .filter(Boolean)
-                        .join(", ")
-                    : row.address || "—"}
+                  {row.subscriptionStartDate
+                    ? new Date(row.subscriptionStartDate).toLocaleDateString(
+                        "en-IN",
+                      )
+                    : "—"}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontSize: "0.7rem",
+                    color: colors.textSecondary,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {row.subscriptionEndDate
+                    ? new Date(row.subscriptionEndDate).toLocaleDateString(
+                        "en-IN",
+                      )
+                    : "—"}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -777,17 +856,12 @@ function ClientReportTable({ data }) {
           setPage(0);
         }}
         rowsPerPageOptions={[5, 10, 25, 50]}
-        sx={{
-          "& .MuiTablePagination-toolbar": { fontSize: "0.7rem" },
-          "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-            { fontSize: "0.7rem" },
-        }}
       />
     </Box>
   );
 }
 
-// ── Team Report Table (Admin view) ────────────────────────────────────────────
+// Team Report Table (Admin view)
 function TeamReportTable({ data }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -876,27 +950,21 @@ function TeamReportTable({ data }) {
                         bgcolor: colors.purple,
                       }}
                     >
-                      {(row.fullName || row.firstName || "?")[0]?.toUpperCase()}
+                      {(row.firstName || "?")[0]?.toUpperCase()}
                     </Avatar>
-                    {row.fullName ||
-                      `${row.firstName || ""} ${row.lastName || ""}`.trim() ||
+                    {`${row.firstName || ""} ${row.lastName || ""}`.trim() ||
                       "—"}
                   </Box>
                 </TableCell>
                 <TableCell
                   sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
                 >
+                  {row.lastName || "—"}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
                   {row.email || "—"}
-                </TableCell>
-                <TableCell
-                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
-                >
-                  {row.phone || "—"}
-                </TableCell>
-                <TableCell
-                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
-                >
-                  {row.department || "—"}
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -910,11 +978,6 @@ function TeamReportTable({ data }) {
                       fontWeight: 600,
                     }}
                   />
-                </TableCell>
-                <TableCell
-                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
-                >
-                  {row.location || "—"}
                 </TableCell>
                 <TableCell>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -933,7 +996,7 @@ function TeamReportTable({ data }) {
                     textAlign: "center",
                   }}
                 >
-                  {row.assignedCount ?? row.stats?.assigned ?? "—"}
+                  {row.assignedCount ?? 0}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -942,39 +1005,73 @@ function TeamReportTable({ data }) {
                     textAlign: "center",
                   }}
                 >
-                  {row.completedCount ?? row.stats?.completed ?? "—"}
+                  {row.completedCount ?? 0}
                 </TableCell>
                 <TableCell>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <Box
-                      sx={{
-                        width: 50,
-                        height: 6,
-                        borderRadius: 3,
-                        bgcolor: colors.border,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: `${Math.min(row.completionRate ?? row.stats?.completionRate ?? 0, 100)}%`,
-                          height: "100%",
-                          bgcolor:
-                            (row.completionRate ??
-                              row.stats?.completionRate ??
-                              0) >= 70
-                              ? colors.success
-                              : colors.warning,
-                          borderRadius: 3,
-                        }}
-                      />
-                    </Box>
-                    <Typography
-                      sx={{ fontSize: "0.65rem", color: colors.textSecondary }}
-                    >
-                      {row.completionRate ?? row.stats?.completionRate ?? 0}%
-                    </Typography>
-                  </Box>
+                  <Chip
+                    label={`${row.completionRate || 0}%`}
+                    size="small"
+                    sx={{
+                      bgcolor: alpha(colors.success, 0.1),
+                      color: colors.success,
+                      fontSize: "0.62rem",
+                      height: 20,
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={`${row.onTimeRate || 0}%`}
+                    size="small"
+                    sx={{
+                      bgcolor: alpha(colors.primary, 0.1),
+                      color: colors.primary,
+                      fontSize: "0.62rem",
+                      height: 20,
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={`${row.approvalRate || 0}%`}
+                    size="small"
+                    sx={{
+                      bgcolor: alpha(colors.purple, 0.1),
+                      color: colors.purple,
+                      fontSize: "0.62rem",
+                      height: 20,
+                    }}
+                  />
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.performanceScore || 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.qualityScore || 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.totalInspections ?? 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.completedInspections ?? 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.approvedInspections ?? 0}
+                </TableCell>
+                <TableCell
+                  sx={{ fontSize: "0.7rem", color: colors.textSecondary }}
+                >
+                  {row.averageCompletionTime || 0}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -983,8 +1080,8 @@ function TeamReportTable({ data }) {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {row.createdAt
-                    ? new Date(row.createdAt).toLocaleDateString("en-IN")
+                  {row.joinDate
+                    ? new Date(row.joinDate).toLocaleDateString("en-IN")
                     : "—"}
                 </TableCell>
               </TableRow>
@@ -1003,20 +1100,16 @@ function TeamReportTable({ data }) {
           setPage(0);
         }}
         rowsPerPageOptions={[5, 10, 25, 50]}
-        sx={{
-          "& .MuiTablePagination-toolbar": { fontSize: "0.7rem" },
-          "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-            { fontSize: "0.7rem" },
-        }}
       />
     </Box>
   );
 }
 
-// ── Generic Report Table (Asset / Inspection / Financial) ─────────────────────
+// Generic Report Table
 function GenericReportTable({ data, reportType }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const columns = REPORT_COLUMNS_MAP[reportType] || [];
 
   if (!data || !data.data || data.data.length === 0) {
     return (
@@ -1028,7 +1121,6 @@ function GenericReportTable({ data, reportType }) {
     );
   }
 
-  const columns = REPORT_COLUMNS_MAP[reportType] || [];
   const rows = data.data;
   const paginated = rows.slice(
     page * rowsPerPage,
@@ -1043,20 +1135,18 @@ function GenericReportTable({ data, reportType }) {
     if (typeof val === "object") return JSON.stringify(val).substring(0, 60);
     if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val))
       return new Date(val).toLocaleDateString("en-IN");
+    if (key === "monthlyRevenue" || key === "annualRevenue")
+      return `₹${val?.toLocaleString("en-IN") || 0}`;
     return String(val).substring(0, 60);
   };
-
-  const isStatus = (key) => key === "status";
 
   const statusStyle = (val) => {
     if (!val) return {};
     const v = String(val).toLowerCase();
-    if (["active", "completed", "paid"].includes(v))
+    if (["active", "completed", "paid", "approved"].includes(v))
       return { bgcolor: alpha(colors.success, 0.1), color: colors.success };
-    if (["inactive", "overdue", "failed"].includes(v))
+    if (["inactive", "overdue", "failed", "rejected", "pending"].includes(v))
       return { bgcolor: alpha(colors.error, 0.1), color: colors.error };
-    if (["pending", "in progress", "trial"].includes(v))
-      return { bgcolor: alpha(colors.warning, 0.1), color: colors.warning };
     return {
       bgcolor: alpha(colors.textDisabled, 0.1),
       color: colors.textSecondary,
@@ -1102,7 +1192,12 @@ function GenericReportTable({ data, reportType }) {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {isStatus(key) ? (
+                    {[
+                      "status",
+                      "submissionStatus",
+                      "plan",
+                      "priority",
+                    ].includes(key) ? (
                       <Chip
                         label={row[key] || "—"}
                         size="small"
@@ -1134,17 +1229,12 @@ function GenericReportTable({ data, reportType }) {
           setPage(0);
         }}
         rowsPerPageOptions={[5, 10, 25, 50]}
-        sx={{
-          "& .MuiTablePagination-toolbar": { fontSize: "0.7rem" },
-          "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-            { fontSize: "0.7rem" },
-        }}
       />
     </Box>
   );
 }
 
-// ── Smart Report Table Router ─────────────────────────────────────────────────
+// Smart Report Table Router
 function ReportTablePreview({ data, reportType, isSuperAdmin, isAdmin }) {
   if (!data || !data.data || data.data.length === 0) {
     return (
@@ -1156,17 +1246,9 @@ function ReportTablePreview({ data, reportType, isSuperAdmin, isAdmin }) {
     );
   }
 
-  // Super Admin dashboard → always shows Client report table
-  if (isSuperAdmin && reportType === "clients") {
+  if (isSuperAdmin && reportType === "clients")
     return <ClientReportTable data={data} />;
-  }
-
-  // Admin → Team report table
-  if (isAdmin && reportType === "team") {
-    return <TeamReportTable data={data} />;
-  }
-
-  // Default for asset, inspection, financial, compliance
+  if (isAdmin && reportType === "team") return <TeamReportTable data={data} />;
   return <GenericReportTable data={data} reportType={reportType} />;
 }
 
@@ -1188,10 +1270,13 @@ export default function ReportsPage() {
     getClientReport,
     getAssetReport,
     getTeamReport,
+    getChecklistReport,
+    getAssignmentReport,
     getInspectionReport,
-    getFinancialReport,
+    getRevenueReport,
     getComplianceReport,
     clearError,
+    clearReportData,
     isAdmin,
     isSuperAdmin,
   } = useReport();
@@ -1200,7 +1285,7 @@ export default function ReportsPage() {
   const [tabValue, setTabValue] = useState(0);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [reportType, setReportType] = useState(() =>
-    isSuperAdmin ? "clients" : "team",
+    isSuperAdmin ? "clients" : isAdmin ? "team" : "inspections",
   );
   const [reportFilters, setReportFilters] = useState({});
   const [toast, setToast] = useState({
@@ -1224,11 +1309,12 @@ export default function ReportsPage() {
     loadAnalytics();
   }, [dateRange]);
 
-  // Set default reportType based on role
   useEffect(() => {
     if (isSuperAdmin) setReportType("clients");
     else if (isAdmin) setReportType("team");
-  }, [isSuperAdmin, isAdmin]);
+    else setReportType("inspections");
+    clearReportData();
+  }, [isSuperAdmin, isAdmin, clearReportData]);
 
   const loadAnalytics = useCallback(async () => {
     try {
@@ -1239,10 +1325,8 @@ export default function ReportsPage() {
     }
   }, [dateRange, getDashboardAnalytics, showToast]);
 
-  // ── Available report types by role ────────────────────────────────────────
   const getAvailableReportTypes = useCallback(() => {
     if (isSuperAdmin) {
-      // Super Admin: clients + financial
       return [
         {
           value: "clients",
@@ -1250,29 +1334,24 @@ export default function ReportsPage() {
           icon: <BusinessIcon sx={{ fontSize: 16 }} />,
         },
         {
-          value: "financial",
-          label: "Financial Report",
-          icon: <CurrencyRupeeIcon sx={{ fontSize: 16 }} />,
+          value: "assets",
+          label: "Asset Report",
+          icon: <InventoryIcon sx={{ fontSize: 16 }} />,
         },
-        {
-          value: "inspections",
-          label: "Inspection Report",
-          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
-        },
-      ];
-    }
-    if (isAdmin) {
-      // Admin: team, assets, inspections, financial
-      return [
         {
           value: "team",
           label: "Team Report",
           icon: <GroupsIcon sx={{ fontSize: 16 }} />,
         },
         {
-          value: "assets",
-          label: "Asset Report",
-          icon: <InventoryIcon sx={{ fontSize: 16 }} />,
+          value: "checklists",
+          label: "Checklist Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "assignments",
+          label: "Assignment Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
         },
         {
           value: "inspections",
@@ -1280,66 +1359,132 @@ export default function ReportsPage() {
           icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
         },
         {
-          value: "financial",
-          label: "Financial Report",
-          icon: <AttachMoneyIcon sx={{ fontSize: 16 }} />,
+          value: "revenue",
+          label: "Revenue Report",
+          icon: <CurrencyRupeeIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "compliance",
+          label: "Compliance Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
         },
       ];
     }
-    // Team member (read-only)
+    if (isAdmin) {
+      return [
+        {
+          value: "assets",
+          label: "Asset Report",
+          icon: <InventoryIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "team",
+          label: "Team Report",
+          icon: <GroupsIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "checklists",
+          label: "Checklist Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "assignments",
+          label: "Assignment Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "inspections",
+          label: "Inspection Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
+        },
+        {
+          value: "compliance",
+          label: "Compliance Report",
+          icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
+        },
+      ];
+    }
     return [
       {
         value: "inspections",
         label: "Inspection Report",
         icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
       },
+      {
+        value: "compliance",
+        label: "Compliance Report",
+        icon: <AssignmentIcon sx={{ fontSize: 16 }} />,
+      },
     ];
   }, [isAdmin, isSuperAdmin]);
 
-  // ── Generate Report ───────────────────────────────────────────────────────
   const handleGenerateReport = useCallback(async () => {
+    setExcelExporting(false);
     try {
       let result = null;
-      if (reportType === "clients") {
-        result = await getClientReport(reportFilters);
-      } else if (reportType === "assets" && isAdmin) {
-        result = await getAssetReport(reportFilters);
-      } else if (reportType === "team" && isAdmin) {
-        result = await getTeamReport(reportFilters);
-      } else if (reportType === "inspections") {
-        result = await getInspectionReport(reportFilters);
-      } else if (reportType === "financial" && (isAdmin || isSuperAdmin)) {
-        result = await getFinancialReport(reportFilters);
-      } else if (reportType === "compliance") {
-        result = await getComplianceReport(reportFilters);
+
+      switch (reportType) {
+        case "clients":
+          result = await getClientReport(reportFilters);
+          break;
+        case "assets":
+          result = await getAssetReport(reportFilters);
+          break;
+        case "team":
+          result = await getTeamReport(reportFilters);
+          break;
+        case "checklists":
+          result = await getChecklistReport(reportFilters);
+          break;
+        case "assignments":
+          result = await getAssignmentReport(reportFilters);
+          break;
+        case "inspections":
+          result = await getInspectionReport(reportFilters);
+          break;
+        case "revenue":
+          result = await getRevenueReport(reportFilters);
+          break;
+        case "compliance":
+          result = await getComplianceReport(reportFilters);
+          break;
+        default:
+          console.warn("Unknown report type:", reportType);
+          return;
       }
 
-      if (result) {
+      if (result && result.success) {
         setFilterDialogOpen(false);
+        const recordCount =
+          result.data?.data?.length || result.data?.totalRecords || 0;
         showToast(
-          `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated with ${result.data?.length || 0} records`,
+          `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated with ${recordCount} records`,
           "success",
+        );
+      } else if (result === null) {
+        showToast(
+          "Failed to generate report. Please check your permissions.",
+          "error",
         );
       }
     } catch (err) {
       console.error("Report generation error:", err);
-      showToast("Failed to generate report", "error");
+      showToast(err.message || "Failed to generate report", "error");
     }
   }, [
     reportType,
-    isAdmin,
-    isSuperAdmin,
     reportFilters,
     getClientReport,
     getAssetReport,
     getTeamReport,
+    getChecklistReport,
+    getAssignmentReport,
     getInspectionReport,
-    getFinancialReport,
+    getRevenueReport,
     getComplianceReport,
     showToast,
   ]);
 
-  // ── Excel Export ──────────────────────────────────────────────────────────
   const handleExcelExport = useCallback(async () => {
     setExcelExporting(true);
     try {
@@ -1348,20 +1493,33 @@ export default function ReportsPage() {
       if (!exportData || !exportData.data || exportData.data.length === 0) {
         showToast("Fetching report data for export...", "info");
         let result = null;
-        if (reportType === "clients")
-          result = await getClientReport(reportFilters);
-        else if (reportType === "assets" && isAdmin)
-          result = await getAssetReport(reportFilters);
-        else if (reportType === "team" && isAdmin)
-          result = await getTeamReport(reportFilters);
-        else if (reportType === "inspections")
-          result = await getInspectionReport(reportFilters);
-        else if (reportType === "financial" && (isAdmin || isSuperAdmin))
-          result = await getFinancialReport(reportFilters);
-        else if (reportType === "compliance")
-          result = await getComplianceReport(reportFilters);
-
-        if (result?.data) exportData = result;
+        switch (reportType) {
+          case "clients":
+            result = await getClientReport(reportFilters);
+            break;
+          case "assets":
+            result = await getAssetReport(reportFilters);
+            break;
+          case "team":
+            result = await getTeamReport(reportFilters);
+            break;
+          case "checklists":
+            result = await getChecklistReport(reportFilters);
+            break;
+          case "assignments":
+            result = await getAssignmentReport(reportFilters);
+            break;
+          case "inspections":
+            result = await getInspectionReport(reportFilters);
+            break;
+          case "revenue":
+            result = await getRevenueReport(reportFilters);
+            break;
+          case "compliance":
+            result = await getComplianceReport(reportFilters);
+            break;
+        }
+        if (result?.data) exportData = result.data;
       }
 
       if (exportData?.data?.length > 0) {
@@ -1379,7 +1537,7 @@ export default function ReportsPage() {
         );
         if (success) {
           showToast(
-            `Excel exported! (${exportData.data.length} records, ${REPORT_COLUMNS_MAP[reportType]?.length || 0} columns)`,
+            `Excel exported! (${exportData.data.length} records)`,
             "success",
           );
         } else {
@@ -1407,13 +1565,15 @@ export default function ReportsPage() {
     getClientReport,
     getAssetReport,
     getTeamReport,
+    getChecklistReport,
+    getAssignmentReport,
     getInspectionReport,
-    getFinancialReport,
+    getRevenueReport,
     getComplianceReport,
     showToast,
   ]);
 
-  // ── Chart Data ────────────────────────────────────────────────────────────
+  // Chart Data
   const revenueTrend = useMemo(() => {
     if (!analyticsData?.revenueTrend) return [];
     return [
@@ -1489,8 +1649,9 @@ export default function ReportsPage() {
     },
   ];
 
-  if (!analyticsData) return <ReportSkeleton />;
-  if (error) return <ErrorState message={error} onRetry={loadAnalytics} />;
+  if (!analyticsData && loading) return <ReportSkeleton />;
+  if (error && !analyticsData)
+    return <ErrorState message={error} onRetry={loadAnalytics} />;
 
   return (
     <Box
@@ -1502,7 +1663,7 @@ export default function ReportsPage() {
         mx: "auto",
       }}
     >
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -1639,7 +1800,7 @@ export default function ReportsPage() {
         </Alert>
       )}
 
-      {/* ── Stat Cards ─────────────────────────────────────────── */}
+      {/* Stat Cards */}
       <Box
         sx={{
           display: "grid",
@@ -1657,7 +1818,7 @@ export default function ReportsPage() {
         ))}
       </Box>
 
-      {/* ── Tabs ───────────────────────────────────────────────── */}
+      {/* Tabs */}
       <Paper
         sx={{
           mb: { xs: 2, sm: 2.5 },
@@ -1689,14 +1850,14 @@ export default function ReportsPage() {
         </Tabs>
       </Paper>
 
-      {/* ── Tab Content ─────────────────────────────────────────── */}
+      {/* Tab Content */}
       <Box sx={{ mb: { xs: 2, sm: 2.5, md: 3 } }}>
         {/* Overview Tab */}
         {tabValue === 0 && (
           <Grid container spacing={{ xs: 1.5, sm: 2 }}>
             <Grid item xs={12} lg={7}>
               <Card
-                sx={{ height: "100%", width:"580px", border: `1px solid ${colors.border}` }}
+                sx={{ height: "100%", border: `1px solid ${colors.border}` }}
               >
                 <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
                   <Typography
@@ -1769,7 +1930,7 @@ export default function ReportsPage() {
               </Card>
             </Grid>
             <Grid item xs={12} lg={5}>
-              <Card sx={{ width:"570px", border: `1px solid ${colors.border}` }}>
+              <Card sx={{ border: `1px solid ${colors.border}` }}>
                 <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
                   <Typography
                     variant="subtitle2"
@@ -1964,7 +2125,7 @@ export default function ReportsPage() {
         )}
       </Box>
 
-      {/* ── Report Preview Table ────────────────────────────────── */}
+      {/* Report Preview Table */}
       {reportData?.data?.length > 0 && (
         <Card
           sx={{
@@ -2041,7 +2202,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* ── Filter / Generate Dialog ─────────────────────────────── */}
+      {/* Filter / Generate Dialog */}
       <Dialog
         open={filterDialogOpen}
         onClose={() => setFilterDialogOpen(false)}
@@ -2089,6 +2250,7 @@ export default function ReportsPage() {
                 ))}
               </Select>
             </FormControl>
+
             <TextField
               label="Start Date"
               type="date"
@@ -2115,7 +2277,7 @@ export default function ReportsPage() {
               sx={{ "& input": { fontSize: { xs: "0.75rem", sm: "0.8rem" } } }}
             />
 
-            {/* Conditional filters per report type */}
+            {/* Conditional filters */}
             {reportType === "clients" && (
               <FormControl fullWidth size="small">
                 <InputLabel>Membership Plan</InputLabel>
@@ -2128,7 +2290,6 @@ export default function ReportsPage() {
                     })
                   }
                   label="Membership Plan"
-                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
                 >
                   <MenuItem value="">All Plans</MenuItem>
                   <MenuItem value="free">Free</MenuItem>
@@ -2138,7 +2299,7 @@ export default function ReportsPage() {
                 </Select>
               </FormControl>
             )}
-            {reportType === "assets" && isAdmin && (
+            {reportType === "assets" && (
               <FormControl fullWidth size="small">
                 <InputLabel>Asset Status</InputLabel>
                 <Select
@@ -2150,7 +2311,6 @@ export default function ReportsPage() {
                     })
                   }
                   label="Asset Status"
-                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
                 >
                   <MenuItem value="">All Status</MenuItem>
                   <MenuItem value="Active">Active</MenuItem>
@@ -2159,7 +2319,7 @@ export default function ReportsPage() {
                 </Select>
               </FormControl>
             )}
-            {reportType === "team" && isAdmin && (
+            {reportType === "team" && (
               <FormControl fullWidth size="small">
                 <InputLabel>Team Role</InputLabel>
                 <Select
@@ -2171,7 +2331,6 @@ export default function ReportsPage() {
                     })
                   }
                   label="Team Role"
-                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
                 >
                   <MenuItem value="">All Roles</MenuItem>
                   <MenuItem value="inspector">Inspector</MenuItem>
@@ -2181,24 +2340,25 @@ export default function ReportsPage() {
                 </Select>
               </FormControl>
             )}
-            {reportType === "financial" && (
+            {reportType === "inspections" && (
               <FormControl fullWidth size="small">
-                <InputLabel>Payment Status</InputLabel>
+                <InputLabel>Inspection Status</InputLabel>
                 <Select
-                  value={reportFilters.paymentStatus || ""}
+                  value={reportFilters.status || ""}
                   onChange={(e) =>
                     setReportFilters({
                       ...reportFilters,
-                      paymentStatus: e.target.value,
+                      status: e.target.value,
                     })
                   }
-                  label="Payment Status"
-                  sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem" } }}
+                  label="Inspection Status"
                 >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="paid">Paid</MenuItem>
+                  <MenuItem value="">All Status</MenuItem>
                   <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="overdue">Overdue</MenuItem>
+                  <MenuItem value="in_progress">In Progress</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="approved">Approved</MenuItem>
+                  <MenuItem value="rejected">Rejected</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -2222,7 +2382,7 @@ export default function ReportsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Toast ──────────────────────────────────────────────── */}
+      {/* Toast */}
       <Snackbar
         open={toast.open}
         autoHideDuration={4000}

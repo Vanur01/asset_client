@@ -1,6 +1,4 @@
-/* eslint-disable */
 // pages/Dashboard.jsx
-// Recharts bar + donut charts · PDF table export · exact screenshot design
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
@@ -32,6 +30,10 @@ import {
   LinearProgress,
   Fade,
   Zoom,
+  Card,
+  CardContent,
+  Chip,
+  Divider,
 } from "@mui/material";
 import {
   TrendingUp as TrendingUpIcon,
@@ -39,7 +41,7 @@ import {
   History as HistoryIcon,
   Bolt as BoltIcon,
   Group as GroupIcon,
-  Payments as PaymentsIcon,
+  Assignment as AssignmentIcon,
   AddCircle as AddCircleIcon,
   PersonAdd as PersonAddIcon,
   Analytics as AnalyticsIcon,
@@ -48,11 +50,19 @@ import {
   PictureAsPdf as PdfIcon,
   TableChart as CsvIcon,
   ErrorOutline as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
+  Inventory as InventoryIcon,
+  TaskAlt as TaskAltIcon,
+  Engineering as EngineeringIcon,
+  People as PeopleIcon,
+  AttachMoney as MoneyIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  HourglassEmpty as HourglassIcon,
+  BarChart as BarChartIcon,
   Warning as WarningIcon,
-  Info as InfoIcon,
+  Category as CategoryIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
 } from "@mui/icons-material";
-import TaskIcon from "@mui/icons-material/Task";
+import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
 import { useNavigate } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { useAuth } from "../context/AuthContexts";
@@ -67,42 +77,49 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
+  Legend,
+  AreaChart,
+  Area,
 } from "recharts";
 
-// ─── palette ────────────────────────────────────────────────────────────────
+// ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
   primary: "#002631",
+  primaryLight: "#003d4d",
   primaryContainer: "#003d4d",
-  onPrimaryContainer: "#79a8ba",
+  accent: "#df8f00",
+  accentLight: "#f5a623",
   secondary: "#516072",
   secondaryContainer: "#d2e1f7",
   onSecondaryContainer: "#556477",
-  onTertiaryContainer: "#df8f00",
   errorContainer: "#ffdad6",
   onErrorContainer: "#93000a",
   success: "#2e7d32",
-  surface: "#f7f9fb",
-  surfaceContainerLow: "#f2f4f6",
+  successLight: "#e8f5e9",
+  surface: "#f4f6f8",
+  surfaceContainerLow: "#eef1f4",
   surfaceVariant: "#e0e3e5",
   outline: "#71787c",
   outlineVariant: "#c0c8cc",
+  white: "#ffffff",
 };
 
-const PIE_COLORS = ["#003d4d", "#df8f00", "#516072", "#c0c8cc"];
+const PIE_COLORS = [
+  "#003d4d",
+  "#df8f00",
+  "#516072",
+  "#79a8ba",
+  "#c0c8cc",
+  "#002631",
+];
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-const fmtINR = (v) => {
-  const n = Number(v);
-  if (!n && n !== 0) return "₹0";
-  if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(1)}Cr`;
-  if (n >= 100_000) return `₹${(n / 100_000).toFixed(1)}L`;
-  if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
-  return `₹${n.toLocaleString("en-IN")}`;
-};
+// ─── Shared Helpers ────────────────────────────────────────────────────────────
+const fmt = (n) =>
+  n === undefined || n === null ? "—" : Number(n).toLocaleString();
+const pct = (n) => `${n ?? 0}%`;
 
-const safe = (v) => (v === undefined || v === null ? "—" : String(v));
-
-// ─── CSV export ──────────────────────────────────────────────────────────────
 const doCSV = (data, filename) => {
   const flat = (obj, pre = "") => {
     const r = {};
@@ -126,10 +143,8 @@ const doCSV = (data, filename) => {
     hdrs.join(","),
     hdrs
       .map((h) => {
-        const val = fd[h];
-        return typeof val === "string"
-          ? `"${val.replace(/"/g, '""')}"`
-          : (val ?? "");
+        const v = fd[h];
+        return typeof v === "string" ? `"${v.replace(/"/g, '""')}"` : (v ?? "");
       })
       .join(","),
   ];
@@ -144,107 +159,40 @@ const doCSV = (data, filename) => {
   URL.revokeObjectURL(url);
 };
 
-// ─── PDF export — full table layout ──────────────────────────────────────────
-const doPDF = async (payload, filename) => {
+const doPDF = async (overview, filename) => {
   const { default: html2pdf } = await import("html2pdf.js");
-
   const stamp = new Date().toLocaleString("en-IN", {
     dateStyle: "long",
     timeStyle: "short",
   });
-
-  const tbl = (headers, rows, empty = "No data available") => {
-    if (!rows.length)
-      return `<p style="font-size:11px;color:#516072;margin:0 0 16px">${empty}</p>`;
-    const ths = headers
-      .map(
-        (h) =>
-          `<th style="background:#002631;color:#fff;padding:8px 12px;text-align:left;font-size:11px;font-weight:600;border:none">${h}</th>`,
-      )
-      .join("");
-    const trs = rows
-      .map(
-        (row, i) =>
-          `<tr style="background:${i % 2 === 0 ? "#ffffff" : "#f7f9fb"}">${row
-            .map(
-              (c) =>
-                `<td style="padding:7px 12px;font-size:11px;color:#002631;border-bottom:1px solid #e0e3e5">${c}</td>`,
-            )
-            .join("")}</tr>`,
-      )
-      .join("");
-    return `<table style="width:100%;border-collapse:collapse;margin-bottom:24px">
-      <thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
-  };
-
-  const sec = (title, content) =>
-    `<h2 style="color:#002631;font-size:13px;font-weight:700;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #003d4d">${title}</h2>${content}`;
-
-  // ── data ──
-  const ov = payload.overview || {};
-  const rev = payload.revenueTrend || payload.chartData?.revenueTrend || [];
-  const sub =
-    payload.subscriptionDistribution ||
-    payload.chartData?.subscriptionDistribution ||
-    [];
-  const acts = payload.activities || [];
-
-  const ovRows = [
-    ["Total Customers", safe(ov.totalClients)],
-    ["Active Customers", safe(ov.activeClients)],
-    ["Total Revenue", fmtINR(ov.totalRevenue || 0)],
-    ["Expiring Soon", safe(ov.expiringSoon)],
-    ["Total Team Members", safe(ov.totalTeamMembers)],
-    ["Active Team Members", safe(ov.activeTeamMembers)],
-    ["Total Assets", safe(ov.totalAssets)],
-    ["Total Inspections", safe(ov.totalInspections)],
-    ["Total Tasks", safe(ov.totalTasks)],
-    ["Completed Tasks", safe(ov.completedTasks)],
-    ["Completion Rate", `${ov.completionRate || 0}%`],
-    ["Performance Score", `${ov.performanceScore || 0}%`],
-    ["Client Growth", `${ov.clientGrowth || 0}%`],
-  ].filter(([, v]) => v !== "—");
-
-  const revRows = rev.map((r) => [r.month || "—", fmtINR(r.revenue || 0)]);
-  const subRows = sub.map((s) => [
-    s.plan || "—",
-    safe(s.count),
-    fmtINR(s.potentialRevenue || 0),
-  ]);
-  const actRows = acts
-    .slice(0, 20)
-    .map((a) => [
-      a.title || "—",
-      a.details || "—",
-      a.timestamp ? new Date(a.timestamp).toLocaleDateString("en-IN") : "—",
-    ]);
-
   const el = document.createElement("div");
   el.style.cssText =
     "padding:36px 40px;font-family:Arial,sans-serif;max-width:860px;";
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:16px;border-bottom:3px solid #002631">
-      <div>
-        <h1 style="color:#002631;font-size:22px;font-weight:800;margin:0 0 4px">Dashboard Report</h1>
-        <p style="color:#516072;font-size:11px;margin:0">Generated: ${stamp}</p>
-      </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;border-bottom:3px solid #002631">
+      <div><h1 style="color:#002631;font-size:22px;font-weight:800;margin:0">Dashboard Report</h1>
+      <p style="color:#516072;font-size:11px;margin:4px 0 0">Generated: ${stamp}</p></div>
       <div style="background:#003d4d;color:#fff;padding:5px 14px;border-radius:20px;font-size:10px;font-weight:600">CONFIDENTIAL</div>
     </div>
-    ${ovRows.length ? sec("Overview Metrics", tbl(["Metric", "Value"], ovRows, "No overview data")) : ""}
-    ${revRows.length ? sec("Revenue Trend", tbl(["Month", "Revenue"], revRows, "No revenue data")) : ""}
-    ${subRows.length ? sec("Subscription Distribution", tbl(["Plan", "Customers", "Potential Revenue/mo"], subRows, "No subscription data")) : ""}
-    ${actRows.length ? sec("Recent Activity", tbl(["Activity", "Details", "Date"], actRows, "No activity data")) : ""}
-    <p style="color:#71787c;font-size:10px;text-align:center;margin-top:36px;padding-top:12px;border-top:1px solid #e0e3e5">
-      Confidential — Internal Use Only &nbsp;|&nbsp; ${stamp}
-    </p>`;
-
+    <h2 style="color:#002631;font-size:13px;font-weight:700;margin:24px 0 12px">Overview Metrics</h2>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+      <thead><tr><th style="background:#002631;color:#fff;padding:8px 12px;text-align:left">Metric</th>
+      <th style="background:#002631;color:#fff;padding:8px 12px;text-align:left">Value</th></tr></thead>
+      <tbody>${Object.entries(overview)
+        .map(
+          ([k, v]) =>
+            `<tr><td style="padding:7px 12px;border-bottom:1px solid #e0e3e5">${k.replace(/([A-Z])/g, " $1").trim()}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e0e3e5">${v}</td></tr>`,
+        )
+        .join("")}</tbody>
+    </table>
+    <p style="color:#71787c;font-size:10px;text-align:center;margin-top:36px;padding-top:12px;border-top:1px solid #e0e3e5">Confidential — Internal Use Only</p>`;
   document.body.appendChild(el);
   await html2pdf()
     .set({
-      margin: [0.5, 0.5, 0.5, 0.5],
+      margin: 0.5,
       filename: `${filename}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
     })
     .from(el)
@@ -252,611 +200,1445 @@ const doPDF = async (payload, filename) => {
   document.body.removeChild(el);
 };
 
-// ─── Revenue tooltip ─────────────────────────────────────────────────────────
-const RevTip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <Box
+// ─── Reusable Components ───────────────────────────────────────────────────────
+const StatCard = ({
+  icon: Icon,
+  title,
+  value,
+  sub,
+  accent,
+  loading,
+  onClick,
+}) => (
+  <Zoom in style={{ transitionDelay: "60ms" }}>
+    <Paper
+      elevation={0}
+      onClick={onClick}
       sx={{
-        bgcolor: "background.paper",
-        border: `1px solid ${alpha(C.outlineVariant, 0.6)}`,
-        borderRadius: 1.5,
-        px: 1.5,
-        py: 1,
-        boxShadow: `0 4px 16px ${alpha(C.primary, 0.1)}`,
+        p: 2.5,
+        borderRadius: 3,
+        height: "100%",
+        width:"270px",
+        bgcolor: accent ? C.primaryLight : C.white,
+        border: `1px solid ${alpha(accent ? C.primaryLight : C.outlineVariant, 0.6)}`,
+        cursor: onClick ? "pointer" : "default",
+        transition: "all 0.25s ease",
+        "&:hover": {
+          transform: "translateY(-3px)",
+          boxShadow: `0 8px 24px ${alpha(C.primary, 0.1)}`,
+        },
       }}
     >
-      <Typography
-        sx={{ fontSize: "0.7rem", fontWeight: 700, color: C.primary, mb: 0.25 }}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        mb={1.5}
       >
-        {label}
-      </Typography>
-      <Typography
-        sx={{ fontSize: "0.75rem", color: C.primaryContainer, fontWeight: 700 }}
-      >
-        {fmtINR(payload[0]?.value)}
-      </Typography>
-    </Box>
-  );
-};
-
-// ─── Subscription tooltip ─────────────────────────────────────────────────────
-const SubTip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  const it = payload[0];
-  return (
-    <Box
-      sx={{
-        bgcolor: "background.paper",
-        border: `1px solid ${alpha(C.outlineVariant, 0.6)}`,
-        borderRadius: 1.5,
-        px: 1.5,
-        py: 1,
-        boxShadow: `0 4px 16px ${alpha(C.primary, 0.1)}`,
-      }}
-    >
-      <Typography
-        sx={{ fontSize: "0.7rem", fontWeight: 700, color: C.primary, mb: 0.25 }}
-      >
-        {it.name}
-      </Typography>
-      <Typography sx={{ fontSize: "0.72rem", color: C.secondary }}>
-        {it.value} customers
-      </Typography>
-      <Typography sx={{ fontSize: "0.68rem", color: C.outline, mt: 0.25 }}>
-        {fmtINR(it.payload?.potentialRevenue || 0)}/mo
-      </Typography>
-    </Box>
-  );
-};
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-const EmptyState = ({ icon: Icon, title, description }) => (
-  <Fade in>
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        py: { xs: 3, sm: 4 },
-        px: 2,
-        textAlign: "center",
-      }}
-    >
-      {Icon && (
-        <Icon
+        <Box
           sx={{
-            fontSize: { xs: 40, sm: 48 },
-            color: alpha(C.outline, 0.35),
-            mb: 1.5,
+            p: 1,
+            borderRadius: 2,
+            bgcolor: accent ? alpha("#fff", 0.12) : C.surfaceContainerLow,
           }}
-        />
-      )}
+        >
+          <Icon
+            sx={{ fontSize: 20, color: accent ? "#fff" : C.primaryLight }}
+          />
+        </Box>
+      </Box>
       <Typography
         sx={{
-          fontWeight: 600,
-          color: C.primary,
+          fontSize: "0.65rem",
+          fontWeight: 700,
+          color: accent ? alpha("#fff", 0.7) : C.secondary,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
           mb: 0.5,
-          fontSize: { xs: "0.9rem", sm: "1rem" },
         }}
       >
         {title}
       </Typography>
       <Typography
         sx={{
-          color: C.secondary,
-          fontSize: { xs: "0.75rem", sm: "0.8rem" },
-          lineHeight: 1.5,
-          maxWidth: 320,
+          fontWeight: 800,
+          fontSize: "1.55rem",
+          color: accent ? "#fff" : C.primary,
+          lineHeight: 1,
         }}
       >
-        {description}
+        {loading ? <Skeleton width={60} /> : fmt(value)}
       </Typography>
-    </Box>
-  </Fade>
-);
-
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-const DashSkeleton = () => {
-  const theme = useTheme();
-  const sm = useMediaQuery(theme.breakpoints.down("sm"));
-  return (
-    <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
-        <Skeleton variant="text" width={150} height={40} />
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Skeleton variant="circular" width={36} height={36} />
-          <Skeleton variant="circular" width={36} height={36} />
-        </Box>
-      </Box>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {[1, 2, 3, 4].map((i) => (
-          <Grid item xs={12} sm={6} lg={3} key={i}>
-            <Skeleton
-              variant="rounded"
-              height={sm ? 110 : 140}
-              sx={{ borderRadius: 3 }}
-            />
-          </Grid>
-        ))}
-      </Grid>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} lg={6}>
-          <Skeleton
-            variant="rounded"
-            height={sm ? 220 : 280}
-            sx={{ borderRadius: 3 }}
-          />
-        </Grid>
-        <Grid item xs={12} lg={6}>
-          <Skeleton
-            variant="rounded"
-            height={sm ? 220 : 280}
-            sx={{ borderRadius: 3 }}
-          />
-        </Grid>
-      </Grid>
-      <Skeleton variant="rounded" height={220} sx={{ borderRadius: 3 }} />
-    </Box>
-  );
-};
-
-// ─── Error display ────────────────────────────────────────────────────────────
-const ErrDisplay = ({ message, onRetry }) => (
-  <Fade in>
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "50vh",
-        px: 2,
-      }}
-    >
-      <ErrorIcon sx={{ fontSize: 56, color: C.onErrorContainer, mb: 2 }} />
-      <Typography
-        sx={{
-          fontWeight: 600,
-          color: C.onErrorContainer,
-          mb: 1,
-          textAlign: "center",
-        }}
-      >
-        Something went wrong
-      </Typography>
-      <Typography
-        sx={{
-          color: C.secondary,
-          mb: 2.5,
-          textAlign: "center",
-          maxWidth: 340,
-          fontSize: "0.85rem",
-        }}
-      >
-        {message || "Failed to load dashboard data."}
-      </Typography>
-      <Button
-        variant="contained"
-        onClick={onRetry}
-        startIcon={<RefreshIcon />}
-        sx={{
-          bgcolor: C.onErrorContainer,
-          "&:hover": { bgcolor: alpha(C.onErrorContainer, 0.85) },
-          borderRadius: 2,
-          textTransform: "none",
-          fontWeight: 600,
-        }}
-      >
-        Retry
-      </Button>
-    </Box>
-  </Fade>
-);
-
-// ─── StatCard ─────────────────────────────────────────────────────────────────
-const StatCard = ({
-  icon: Icon,
-  title,
-  value,
-  trend,
-  trendUp = true,
-  bgColor,
-  iconBg,
-  loading,
-}) => (
-  <Zoom in style={{ transitionDelay: "80ms" }}>
-    <Paper
-      elevation={0}
-      sx={{
-        p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
-        borderRadius: { xs: 2, sm: 2.5, md: 3 },
-        bgcolor: bgColor || "background.paper",
-        border: "1px solid",
-        width:"277px",
-        borderColor: bgColor ? "transparent" : alpha(C.outlineVariant, 0.5),
-        transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
-        "&:hover": bgColor
-          ? { transform: "translateY(-4px)", boxShadow: 6 }
-          : {
-              borderColor: C.outlineVariant,
-              transform: "translateY(-4px)",
-              boxShadow: `0 8px 24px ${alpha(C.primary, 0.12)}`,
-            },
-        position: "relative",
-        overflow: "hidden",
-        height: "100%",
-        minHeight: { xs: 110, sm: 130, md: 140 },
-      }}
-    >
-      {bgColor && (
-        <Box
+      {sub && (
+        <Typography
           sx={{
-            position: "absolute",
-            top: -20,
-            right: -20,
-            width: { xs: 70, md: 110 },
-            height: { xs: 70, md: 110 },
-            borderRadius: "50%",
-            bgcolor: "rgba(255,255,255,0.06)",
-            pointerEvents: "none",
+            fontSize: "0.65rem",
+            color: accent ? alpha("#fff", 0.6) : C.outline,
+            mt: 0.5,
           }}
-        />
+        >
+          {sub}
+        </Typography>
       )}
-      <Box
-        sx={{
-          position: "relative",
-          zIndex: 1,
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            mb: { xs: 1, sm: 1.5, md: 2 },
-          }}
-        >
-          <Box
-            sx={{
-              p: { xs: 0.7, sm: 1, md: 1.2 },
-              borderRadius: { xs: 1.5, sm: 2 },
-              bgcolor:
-                iconBg ||
-                (bgColor ? "rgba(255,255,255,0.15)" : C.secondaryContainer),
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon
-              sx={{
-                fontSize: { xs: 14, sm: 16, md: 18, lg: 20 },
-                color: bgColor ? "white" : C.onSecondaryContainer,
-              }}
-            />
-          </Box>
-          {trend && (
-            <Box
-              sx={{
-                px: { xs: 0.6, sm: 0.8 },
-                py: 0.3,
-                borderRadius: 1,
-                bgcolor: bgColor
-                  ? "rgba(255,255,255,0.15)"
-                  : C.surfaceContainerLow,
-                display: "flex",
-                alignItems: "center",
-                gap: 0.3,
-              }}
-            >
-              {trendUp ? (
-                <TrendingUpIcon
-                  sx={{
-                    fontSize: { xs: 9, md: 11 },
-                    color: bgColor ? "white" : C.success,
-                  }}
-                />
-              ) : (
-                <TrendingDownIcon
-                  sx={{
-                    fontSize: { xs: 9, md: 11 },
-                    color: bgColor ? "white" : C.onErrorContainer,
-                  }}
-                />
-              )}
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: { xs: "0.55rem", md: "0.65rem" },
-                  color: bgColor
-                    ? "white"
-                    : trendUp
-                      ? C.success
-                      : C.onErrorContainer,
-                }}
-              >
-                {trend}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-        <Typography
-          sx={{
-            fontWeight: 600,
-            letterSpacing: "0.05em",
-            color: bgColor ? alpha("#fff", 0.8) : C.secondary,
-            textTransform: "uppercase",
-            fontSize: { xs: "0.55rem", sm: "0.6rem", md: "0.65rem" },
-            mb: 0.5,
-          }}
-        >
-          {loading ? <Skeleton width={70} /> : title}
-        </Typography>
-        <Typography
-          sx={{
-            fontWeight: 800,
-            color: bgColor ? "white" : C.primary,
-            fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem", lg: "1.5rem" },
-            lineHeight: 1.2,
-            wordBreak: "break-word",
-            mt: "auto",
-          }}
-        >
-          {loading ? <Skeleton width={60} /> : (value ?? 0)}
-        </Typography>
-      </Box>
     </Paper>
   </Zoom>
 );
 
-// ─── Revenue Bar Chart ────────────────────────────────────────────────────────
-const RevenueBarChart = ({ data, loading }) => {
-  const theme = useTheme();
-  const sm = useMediaQuery(theme.breakpoints.down("sm"));
-  if (loading)
-    return (
-      <Box
-        sx={{
-          height: { xs: 200, md: 260 },
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <CircularProgress size={28} sx={{ color: C.primaryContainer }} />
-      </Box>
-    );
-  if (!data?.length)
-    return (
-      <EmptyState
-        icon={AnalyticsIcon}
-        title="No revenue data"
-        description="Revenue trends will appear once data is available."
-      />
-    );
-  return (
-    <Box sx={{ width: "550px", height: { xs: 200, sm: 240, md: 260 } }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          margin={{ top: 8, right: 8, left: sm ? 0 : 8, bottom: 4 }}
-          barCategoryGap="30%"
-        >
-          <CartesianGrid
-            vertical={false}
-            stroke="rgba(112,120,124,0.12)"
-            strokeDasharray="4 4"
-          />
-          <XAxis
-            dataKey="month"
-            axisLine={false}
-            tickLine={false}
-            tick={{
-              fontSize: sm ? 10 : 11,
-              fill: C.secondary,
-              fontWeight: 500,
-            }}
-            interval={sm ? 1 : 0}
-          />
-          <YAxis
-            axisLine={false}
-            tickLine={false}
-            tick={{ fontSize: sm ? 9 : 10, fill: C.secondary }}
-            tickFormatter={fmtINR}
-            width={sm ? 44 : 58}
-          />
-          <RTooltip
-            content={<RevTip />}
-            cursor={{ fill: alpha(C.primaryContainer, 0.08), radius: 4 }}
-          />
-          <Bar
-            dataKey="revenue"
-            fill={C.primaryContainer}
-            radius={[5, 5, 0, 0]}
-            maxBarSize={sm ? 28 : 44}
-            animationDuration={700}
-            animationEasing="ease-out"
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </Box>
-  );
-};
+const SectionTitle = ({ icon: Icon, title }) => (
+  <Box display="flex" alignItems="center" gap={1} mb={2}>
+    <Icon sx={{ color: C.primaryLight, fontSize: 20 }} />
+    <Typography sx={{ fontWeight: 700, color: C.primary, fontSize: "0.95rem" }}>
+      {title}
+    </Typography>
+  </Box>
+);
 
-// ─── Subscription Donut Chart ─────────────────────────────────────────────────
-const SubDonutChart = ({ data, loading }) => {
-  const theme = useTheme();
-  const sm = useMediaQuery(theme.breakpoints.down("sm"));
-  if (loading)
-    return (
-      <Stack spacing={1.5}>
-        {[1, 2, 3].map((i) => (
-          <Box key={i}>
-            <Skeleton variant="text" width="50%" height={16} sx={{ mb: 0.5 }} />
-            <Skeleton variant="rounded" height={8} sx={{ borderRadius: 4 }} />
-          </Box>
-        ))}
-      </Stack>
-    );
-  if (!data?.length)
-    return (
-      <EmptyState
-        icon={PaymentsIcon}
-        title="No subscription data"
-        description="Subscription distribution will appear here."
-      />
-    );
-
-  const pieData = data.map((d) => ({
-    name: d.plan || "Unknown",
-    value: d.count || 0,
-    potentialRevenue: d.potentialRevenue || 0,
-  }));
-  const total = pieData.reduce((s, d) => s + d.value, 0);
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: { xs: "column", sm: "row" },
-        alignItems: "center",
-        gap: { xs: 0, sm: 2 },
-        width: "510px",
-      }}
+const ChartCard = ({ title, children, minH = 280 }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2.5,
+      borderRadius: 3,
+      height: "100%",
+      bgcolor: C.white,
+      border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
+      minHeight: minH,
+    }}
+  >
+    <Typography
+      sx={{ fontWeight: 700, color: C.primary, mb: 2, fontSize: "0.85rem" }}
     >
-      {/* donut */}
-      <Box
+      {title}
+    </Typography>
+    {children}
+  </Paper>
+);
+
+const EmptyChart = ({ msg = "No data available" }) => (
+  <Box display="flex" alignItems="center" justifyContent="center" height={220}>
+    <Typography sx={{ color: C.outline, fontSize: "0.8rem" }}>{msg}</Typography>
+  </Box>
+);
+
+// ─── SUPER ADMIN VIEW ─────────────────────────────────────────────────────────
+const SuperAdminDashboard = ({ data, loading }) => {
+  const navigate = useNavigate();
+
+  const clients = data?.clients || {};
+  const revenue = data?.revenue || {};
+  const checklists = data?.checklists || {};
+  const assignments = data?.assignments || {};
+  const requests = data?.requests || {};
+  const activities = data?.recentActivities || [];
+
+  // Revenue by plan for bar chart
+  const revenueByPlan = useMemo(
+    () =>
+      Object.entries(revenue.byPlan || {}).map(([plan, v]) => ({
+        plan: plan.charAt(0).toUpperCase() + plan.slice(1),
+        clients: v.count,
+        revenue: v.revenue,
+        price: v.pricePerMonth,
+      })),
+    [revenue],
+  );
+
+  // Clients by plan for pie
+  const clientsByPlan = useMemo(
+    () =>
+      Object.entries(clients.byPlan || {}).map(([name, value]) => ({
+        name,
+        value,
+      })),
+    [clients],
+  );
+
+  // Requests by urgency
+  const requestByUrgency = useMemo(
+    () =>
+      Object.entries(requests.byUrgency || {}).map(([name, value]) => ({
+        name,
+        value,
+      })),
+    [requests],
+  );
+
+  const statCards = [
+    {
+      icon: PeopleIcon,
+      title: "Total Clients",
+      value: clients.total,
+      sub: `${clients.active} active`,
+    },
+    {
+      icon: CurrencyRupeeIcon,
+      title: "Monthly Revenue",
+      value: `${fmt(revenue.monthlyRecurring)}`,
+      sub: `${fmt(revenue.annualEstimate)} / yr`,
+      accent: true,
+    },
+    {
+      icon: AssignmentIcon,
+      title: "Checklists",
+      value: checklists.total,
+      sub: `${checklists.global} global · ${checklists.custom || 0} custom`,
+    },
+    {
+      icon: TaskAltIcon,
+      title: "Assignments",
+      value: assignments.total,
+      sub: `${assignments.pending} pending · ${assignments.overdue} overdue`,
+    },
+  ];
+
+  const quickActions = [
+    {
+      icon: PeopleIcon,
+      title: "Manage Clients",
+      desc: "View all clients",
+      path: "/admin/clients",
+    },
+    {
+      icon: AssignmentIcon,
+      title: "Checklists",
+      desc: "View all checklists",
+      path: "/admin/checklists",
+    },
+    {
+      icon: AnalyticsIcon,
+      title: "Reports",
+      desc: "View analytics",
+      path: "/admin/reports",
+    },
+  ];
+
+  return (
+    <Box>
+      {/* Stats */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {statCards.map((s, i) => (
+          <Grid item xs={12} sm={6} lg={3} key={i}>
+            <StatCard {...s} loading={loading} />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Charts row 1 */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={8} sx={{width:"560px"}}>
+          <ChartCard title="Revenue by Subscription Plan">
+            {revenueByPlan.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={revenueByPlan} barSize={36}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={alpha(C.outline, 0.15)}
+                  />
+                  <XAxis
+                    dataKey="plan"
+                    tick={{ fontSize: 11, fill: C.secondary }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: C.secondary }} />
+                  <RTooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: `1px solid ${C.outlineVariant}`,
+                    }}
+                  />
+                  <Legend />
+                  <Bar
+                    dataKey="revenue"
+                    name="Revenue"
+                    fill={C.primaryLight}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="clients"
+                    name="Clients"
+                    fill={C.accent}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart />
+            )}
+          </ChartCard>
+        </Grid>
+
+        <Grid item xs={12} md={4} sx={{width:"555px"}}>
+          <ChartCard title="Clients by Plan">
+            {clientsByPlan.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={clientsByPlan}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="52%"
+                    outerRadius="75%"
+                    dataKey="value"
+                    paddingAngle={3}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                    labelLine={false}
+                  >
+                    {clientsByPlan.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart />
+            )}
+          </ChartCard>
+        </Grid>
+      </Grid>
+
+      {/* Charts row 2 */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6} sx={{width:"560px"}}>
+          <ChartCard title="Assignment Overview">
+            {assignments.total > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={[
+                    {
+                      name: "Completed",
+                      value: assignments.completed,
+                      fill: C.success,
+                    },
+                    {
+                      name: "Pending",
+                      value: assignments.pending,
+                      fill: C.accent,
+                    },
+                    {
+                      name: "Overdue",
+                      value: assignments.overdue,
+                      fill: C.onErrorContainer,
+                    },
+                    {
+                      name: "In Review",
+                      value: assignments.pendingReview,
+                      fill: C.secondary,
+                    },
+                  ]}
+                  barSize={32}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={alpha(C.outline, 0.15)}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: C.secondary }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: C.secondary }} />
+                  <RTooltip contentStyle={{ borderRadius: 8 }} />
+                  <Bar dataKey="value" name="Count" radius={[4, 4, 0, 0]}>
+                    {[C.success, C.accent, C.onErrorContainer, C.secondary].map(
+                      (fill, i) => (
+                        <Cell key={i} fill={fill} />
+                      ),
+                    )}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart msg="No assignment data" />
+            )}
+          </ChartCard>
+        </Grid>
+
+        <Grid item xs={12} md={6} sx={{width:"555px"}}>
+          <ChartCard title="Requests by Urgency">
+            {requestByUrgency.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={requestByUrgency}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius="72%"
+                    dataKey="value"
+                    label={({ name, value }) => `${name}: ${value}`}
+                  >
+                    {requestByUrgency.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart msg="No request data" />
+            )}
+          </ChartCard>
+        </Grid>
+      </Grid>
+
+      {/* Recent Activities */}
+      <Paper
+        elevation={0}
         sx={{
-          position: "relative",
-          width: { xs: "100%", sm: "55%" },
-          height: { xs: 190, sm: 210, md: 230 },
-          flexShrink: 0,
+          borderRadius: 1,
+          overflow: "hidden",
+          mb: 3,
+          border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
         }}
       >
         <Box
           sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%,-50%)",
-            textAlign: "center",
-            pointerEvents: "none",
-            zIndex: 1,
+            px: 2.5,
+            py: 2,
+            borderBottom: `1px solid ${alpha(C.outlineVariant, 0.3)}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
           }}
         >
+          <HistoryIcon sx={{ color: C.primaryLight, fontSize: 20 }} />
           <Typography
-            sx={{
-              fontSize: { xs: "1.15rem", sm: "1.3rem" },
-              fontWeight: 800,
-              color: C.primary,
-              lineHeight: 1,
-            }}
+            sx={{ fontWeight: 700, color: C.primary, fontSize: "0.9rem" }}
           >
-            {total}
+            Recent Activities
           </Typography>
-          <Typography
+          <Chip
+            label={activities.length}
+            size="small"
             sx={{
-              fontSize: "0.55rem",
-              color: C.secondary,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              mt: 0.25,
+              ml: "auto",
+              bgcolor: C.surfaceContainerLow,
+              fontWeight: 700,
+              fontSize: "0.7rem",
             }}
-          >
-            Total
-          </Typography>
+          />
         </Box>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={pieData}
-              cx="50%"
-              cy="50%"
-              innerRadius={sm ? "52%" : "55%"}
-              outerRadius={sm ? "72%" : "78%"}
-              dataKey="value"
-              paddingAngle={3}
-              animationDuration={700}
-              animationEasing="ease-out"
-            >
-              {pieData.map((_, i) => (
-                <Cell
-                  key={i}
-                  fill={PIE_COLORS[i % PIE_COLORS.length]}
-                  stroke="transparent"
-                />
-              ))}
-            </Pie>
-            <RTooltip content={<SubTip />} />
-          </PieChart>
-        </ResponsiveContainer>
-      </Box>
-      {/* legend */}
-      <Stack spacing={1} sx={{ mt: { xs: 0.5, sm: 0 }, minWidth: { sm: 120 } }}>
-        {pieData.map((e, i) => (
-          <Box
-            key={i}
-            sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}
-          >
-            <Box
+        <TableContainer sx={{ maxHeight: 360 }}>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                {["Activity", "Detail", "Date"].map((h) => (
+                  <TableCell
+                    key={h}
+                    sx={{
+                      fontWeight: 700,
+                      color: C.secondary,
+                      bgcolor: C.surfaceContainerLow,
+                      fontSize: "0.72rem",
+                    }}
+                  >
+                    {h}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activities.length > 0 ? (
+                activities.map((act, i) => (
+                  <TableRow
+                    key={i}
+                    hover
+                    sx={{ "&:hover": { bgcolor: C.surfaceContainerLow } }}
+                  >
+                    <TableCell>
+                      <Typography
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: "0.75rem",
+                          color: C.primary,
+                        }}
+                      >
+                        {act.title}
+                      </Typography>
+                      <Chip
+                        label={act.type?.replace(/_/g, " ")}
+                        size="small"
+                        sx={{
+                          mt: 0.5,
+                          height: 18,
+                          fontSize: "0.6rem",
+                          bgcolor: alpha(C.primaryLight, 0.08),
+                          color: C.primaryLight,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        sx={{ fontSize: "0.72rem", color: C.secondary }}
+                      >
+                        {act.detail || "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: "0.7rem", color: C.outline }}>
+                        {act.timestamp
+                          ? new Date(act.timestamp).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )
+                          : "N/A"}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                    <Typography sx={{ color: C.secondary, fontSize: "0.8rem" }}>
+                      No recent activities
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* Quick Actions */}
+      <SectionTitle icon={BoltIcon} title="Quick Actions" />
+      <Grid container spacing={2}>
+        {quickActions.map((act, i) => (
+          <Grid item xs={12} sm={4} key={i}>
+            <Button
+              fullWidth
+              onClick={() => navigate(act.path)}
               sx={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                bgcolor: PIE_COLORS[i % PIE_COLORS.length],
-                flexShrink: 0,
-                mt: 0.3,
+                flexDirection: "column",
+                width:"375px",
+                alignItems: "flex-start",
+                p: 2,
+                bgcolor: C.primaryLight,
+                borderRadius: 3,
+                textTransform: "none",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  bgcolor: alpha(C.primaryLight, 0.9),
+                },
               }}
-            />
-            <Box>
-              <Typography
+            >
+              <Box
                 sx={{
-                  fontSize: "0.7rem",
-                  fontWeight: 600,
-                  color: C.primary,
-                  lineHeight: 1.2,
+                  p: 1,
+                  bgcolor: "rgba(255,255,255,0.12)",
+                  borderRadius: 1.5,
+                  mb: 1,
                 }}
               >
-                {e.name}
+                <act.icon sx={{ color: "#fff", fontSize: 18 }} />
+              </Box>
+              <Typography
+                sx={{
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  mb: 0.25,
+                }}
+              >
+                {act.title}
               </Typography>
-              <Typography sx={{ fontSize: "0.6rem", color: C.secondary }}>
-                {e.value} • {fmtINR(e.potentialRevenue)}/mo
+              <Typography
+                sx={{ color: alpha("#fff", 0.65), fontSize: "0.67rem" }}
+              >
+                {act.desc}
               </Typography>
-            </Box>
-          </Box>
+            </Button>
+          </Grid>
         ))}
-      </Stack>
+      </Grid>
     </Box>
   );
 };
 
-// ─── Dashboard (default export) ───────────────────────────────────────────────
-export default function Dashboard() {
-  const theme = useTheme();
+// ─── ADMIN VIEW ───────────────────────────────────────────────────────────────
+const AdminDashboard = ({ data, loading }) => {
   const navigate = useNavigate();
-  const sm = useMediaQuery(theme.breakpoints.down("sm"));
-  const md = useMediaQuery(theme.breakpoints.between("sm", "md"));
-  const lg = useMediaQuery(theme.breakpoints.up("lg"));
-  const xl = useMediaQuery(theme.breakpoints.up("xl"));
+  const sm = useMediaQuery(useTheme().breakpoints.down("sm"));
 
+  const team = data?.team || {};
+  const assets = data?.assets || {};
+  const checklists = data?.checklists || {};
+  const inspections = data?.inspections || {};
+  const activities = data?.recentActivities || [];
+
+  // Asset by category pie
+  const assetByCategory = useMemo(
+    () =>
+      Object.entries(assets.byCategory || {}).map(([name, value]) => ({
+        name,
+        value,
+      })),
+    [assets],
+  );
+
+  // Inspection daily trend — last 14 points
+  const inspTrend = useMemo(
+    () =>
+      (inspections.dailyTrend || []).slice(-14).map((d) => ({
+        ...d,
+        date: d.date?.slice(5), // MM-DD
+      })),
+    [inspections],
+  );
+
+  // Team by role bar
+  const teamByRole = useMemo(
+    () =>
+      Object.entries(team.byRole || {}).map(([role, count]) => ({
+        role: role.replace(/_/g, " "),
+        count,
+      })),
+    [team],
+  );
+
+  const statCards = [
+    {
+      icon: GroupIcon,
+      title: "Team Members",
+      value: team.total,
+      sub: `${team.active} active`,
+    },
+    {
+      icon: InventoryIcon,
+      title: "Total Assets",
+      value: assets.total,
+      sub: `${assets.active} active · ${assets.inMaintenance || 0} maintenance`,
+    },
+    {
+      icon: AssignmentIcon,
+      title: "Checklists",
+      value: checklists.total,
+      sub: `${checklists.totalAssignments} assignments sent`,
+    },
+    {
+      icon: TaskAltIcon,
+      title: "Inspections",
+      value: inspections.total,
+      sub: `${inspections.pendingReview} pending review`,
+      accent: true,
+    },
+  ];
+
+  const quickActions = [
+    {
+      icon: AddCircleIcon,
+      title: "New Checklist",
+      desc: "Create form",
+      path: "/admin/create-checklist/custom",
+    },
+    {
+      icon: PersonAddIcon,
+      title: "Add Team Member",
+      desc: "Register member",
+      path: "/admin/team",
+    },
+    {
+      icon: InventoryIcon,
+      title: "Add Asset",
+      desc: "Register asset",
+      path: "/admin/assets/add",
+    },
+    {
+      icon: AnalyticsIcon,
+      title: "Reports",
+      desc: "View analytics",
+      path: "/admin/reports",
+    },
+  ];
+
+  return (
+    <Box>
+      {/* Stats */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {statCards.map((s, i) => (
+          <Grid item xs={12} sm={6} lg={3} key={i}>
+            <StatCard {...s} loading={loading} />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Charts row 1 */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {/* Inspection trend */}
+        <Grid item xs={12} md={8} sx={{width:"580px"}}>
+          <ChartCard title="Inspection Trend (Daily)">
+            {inspTrend.some((d) => d.total > 0) ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart data={inspTrend}>
+                  <defs>
+                    <linearGradient id="aG" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor={C.primaryLight}
+                        stopOpacity={0.25}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={C.primaryLight}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={alpha(C.outline, 0.12)}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: C.secondary }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: C.secondary }}
+                    allowDecimals={false}
+                  />
+                  <RTooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: `1px solid ${C.outlineVariant}`,
+                    }}
+                  />
+                  <Legend />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    name="Total"
+                    stroke={C.primaryLight}
+                    fill="url(#aG)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="approved"
+                    name="Approved"
+                    stroke={C.success}
+                    fill="transparent"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="rejected"
+                    name="Rejected"
+                    stroke={C.onErrorContainer}
+                    fill="transparent"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart msg="No inspection data for this period" />
+            )}
+          </ChartCard>
+        </Grid>
+
+        {/* Asset distribution */}
+        <Grid item xs={12} md={4} sx={{width:"570px"}}>
+          <ChartCard title="Assets by Category">
+            {assetByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={assetByCategory}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="50%"
+                    outerRadius="73%"
+                    dataKey="value"
+                    paddingAngle={3}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                    labelLine={false}
+                  >
+                    {assetByCategory.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart />
+            )}
+          </ChartCard>
+        </Grid>
+      </Grid>
+
+      {/* Charts row 2 */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {/* Team by role */}
+        <Grid item xs={12} md={5} sx={{width:"580px"}}>
+          <ChartCard title="Team Members by Role">
+            {teamByRole.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={teamByRole} layout="vertical" barSize={18}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={alpha(C.outline, 0.12)}
+                  />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 10, fill: C.secondary }}
+                    allowDecimals={false}
+                  />
+                  <YAxis
+                    dataKey="role"
+                    type="category"
+                    tick={{ fontSize: 10, fill: C.secondary }}
+                    width={100}
+                  />
+                  <RTooltip contentStyle={{ borderRadius: 8 }} />
+                  <Bar
+                    dataKey="count"
+                    name="Members"
+                    fill={C.primaryLight}
+                    radius={[0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart />
+            )}
+          </ChartCard>
+        </Grid>
+
+        {/* Top performers */}
+        <Grid item xs={12} md={7} sx={{width:"576px"}}>
+          <ChartCard title="Top Performing Team Members">
+            {(team.topPerformers || []).length > 0 ? (
+              <Stack spacing={1.5}>
+                {team.topPerformers.slice(0, 5).map((m, i) => (
+                  <Box key={i} display="flex" alignItems="center" gap={1.5}>
+                    <Avatar
+                      sx={{
+                        bgcolor: PIE_COLORS[i % PIE_COLORS.length],
+                        width: 34,
+                        height: 34,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {m.name?.charAt(0)?.toUpperCase() || "U"}
+                    </Avatar>
+                    <Box flex={1}>
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        mb={0.3}
+                      >
+                        <Typography
+                          sx={{ fontWeight: 600, fontSize: "0.78rem" }}
+                        >
+                          {m.name}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: "0.78rem",
+                            color: C.primaryLight,
+                          }}
+                        >
+                          {m.completionRate}%
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          height: 5,
+                          borderRadius: 4,
+                          bgcolor: C.surfaceVariant,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            height: "100%",
+                            width: `${m.completionRate}%`,
+                            bgcolor: PIE_COLORS[i % PIE_COLORS.length],
+                            borderRadius: 4,
+                            transition: "width 0.6s ease",
+                          }}
+                        />
+                      </Box>
+                      <Typography
+                        sx={{ fontSize: "0.62rem", color: C.outline, mt: 0.3 }}
+                      >
+                        {m.role} · {m.totalCompleted}/{m.totalAssigned} tasks
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <EmptyChart msg="No team performance data" />
+            )}
+          </ChartCard>
+        </Grid>
+      </Grid>
+
+      {/* Recent Activities */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 1,
+          overflow: "hidden",
+          mb: 3,
+          border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
+        }}
+      >
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2,
+            borderBottom: `1px solid ${alpha(C.outlineVariant, 0.3)}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <HistoryIcon sx={{ color: C.primaryLight, fontSize: 20 }} />
+          <Typography
+            sx={{ fontWeight: 700, color: C.primary, fontSize: "0.9rem" }}
+          >
+            Recent Activities
+          </Typography>
+          <Chip
+            label={activities.length}
+            size="small"
+            sx={{
+              ml: "auto",
+              bgcolor: C.surfaceContainerLow,
+              fontWeight: 700,
+              fontSize: "0.7rem",
+            }}
+          />
+        </Box>
+        <TableContainer sx={{ maxHeight: 320 }}>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                {["Activity", "Detail", "Date"].map((h) => (
+                  <TableCell
+                    key={h}
+                    sx={{
+                      fontWeight: 700,
+                      color: C.secondary,
+                      bgcolor: C.surfaceContainerLow,
+                      fontSize: "0.72rem",
+                    }}
+                  >
+                    {h}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activities.length > 0 ? (
+                activities.map((act, i) => (
+                  <TableRow
+                    key={i}
+                    hover
+                    sx={{ "&:hover": { bgcolor: C.surfaceContainerLow } }}
+                  >
+                    <TableCell>
+                      <Typography
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: "0.75rem",
+                          color: C.primary,
+                        }}
+                      >
+                        {act.title}
+                      </Typography>
+                      <Chip
+                        label={act.type?.replace(/_/g, " ")}
+                        size="small"
+                        sx={{
+                          mt: 0.5,
+                          height: 18,
+                          fontSize: "0.6rem",
+                          bgcolor: alpha(C.primaryLight, 0.08),
+                          color: C.primaryLight,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        sx={{ fontSize: "0.72rem", color: C.secondary }}
+                      >
+                        {act.detail || "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: "0.7rem", color: C.outline }}>
+                        {act.timestamp
+                          ? new Date(act.timestamp).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )
+                          : "N/A"}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                    <Typography sx={{ color: C.secondary, fontSize: "0.8rem" }}>
+                      No recent activities
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* Quick Actions */}
+      <SectionTitle icon={BoltIcon} title="Quick Actions" />
+      <Grid container spacing={2}>
+        {quickActions.map((act, i) => (
+          <Grid item xs={12} sm={6} md={3} key={i}>
+            <Button
+              fullWidth
+              onClick={() => navigate(act.path)}
+              sx={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                p: 2,
+                bgcolor: C.primaryLight,
+                borderRadius: 3,
+                width:"250px",
+                textTransform: "none",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  bgcolor: alpha(C.primaryLight, 0.9),
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  p: 1,
+                  bgcolor: "rgba(255,255,255,0.12)",
+                  borderRadius: 1.5,
+                  mb: 1,
+                }}
+              >
+                <act.icon sx={{ color: "#fff", fontSize: 18 }} />
+              </Box>
+              <Typography
+                sx={{
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  mb: 0.25,
+                }}
+              >
+                {act.title}
+              </Typography>
+              <Typography
+                sx={{ color: alpha("#fff", 0.65), fontSize: "0.67rem" }}
+              >
+                {act.desc}
+              </Typography>
+            </Button>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
+// ─── TEAM VIEW ────────────────────────────────────────────────────────────────
+const TeamDashboard = ({ data, loading }) => {
+  const navigate = useNavigate();
+
+  const overview = data?.overview || {};
+  const member = data?.memberInfo || {};
+  const upcoming = data?.upcomingTasks || [];
+  const activities = data?.recentActivities || [];
+  const weeklyTrend = data?.charts?.weeklyTrend || [];
+  const dist = data?.charts?.taskDistribution || {};
+
+  const distData = [
+    { name: "Completed", value: dist.completed || 0, fill: C.success },
+    { name: "In Progress", value: dist.inProgress || 0, fill: C.accent },
+    { name: "Pending", value: dist.pending || 0, fill: C.secondary },
+    { name: "Overdue", value: dist.overdue || 0, fill: C.onErrorContainer },
+  ].filter((d) => d.value > 0);
+
+  return (
+    <Box>
+      {/* Member info banner */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2.5,
+          borderRadius: 3,
+          mb: 3,
+          bgcolor: C.primaryLight,
+          border: "none",
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={2}>
+          <Avatar
+            sx={{
+              bgcolor: alpha("#fff", 0.15),
+              color: "#fff",
+              width: 50,
+              height: 50,
+              fontWeight: 800,
+              fontSize: "1.2rem",
+            }}
+          >
+            {member.initials || member.name?.charAt(0)?.toUpperCase() || "U"}
+          </Avatar>
+          <Box>
+            <Typography
+              sx={{ fontWeight: 800, color: "#fff", fontSize: "1.1rem" }}
+            >
+              {member.name || "Team Member"}
+            </Typography>
+            <Typography sx={{ color: alpha("#fff", 0.7), fontSize: "0.75rem" }}>
+              {member.role} {member.department ? `· ${member.department}` : ""}
+            </Typography>
+          </Box>
+          <Box ml="auto" textAlign="right">
+            <Typography
+              sx={{ color: "#fff", fontWeight: 800, fontSize: "1.5rem" }}
+            >
+              {pct(overview.completionRate)}
+            </Typography>
+            <Typography
+              sx={{ color: alpha("#fff", 0.65), fontSize: "0.65rem" }}
+            >
+              Completion Rate
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Stats */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {[
+          {
+            icon: AssignmentIcon,
+            title: "Total Tasks",
+            value: overview.total,
+            sub: `${overview.completed} completed`,
+          },
+          {
+            icon: HourglassIcon,
+            title: "In Progress",
+            value: overview.inProgress,
+            sub: `${overview.pending} pending`,
+          },
+          {
+            icon: WarningIcon,
+            title: "Overdue",
+            value: overview.overdue,
+            sub: "needs attention",
+            accent: overview.overdue > 0,
+          },
+          {
+            icon: TaskAltIcon,
+            title: "On-Time Rate",
+            value: pct(overview.onTimeRate),
+            sub: `Score: ${overview.avgScore}%`,
+          },
+        ].map((s, i) => (
+          <Grid item xs={12} sm={6} lg={3} key={i}>
+            <StatCard {...s} loading={loading} />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Charts */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={7}>
+          <ChartCard title="Weekly Activity (Last 7 Days)">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={weeklyTrend} barSize={20}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={alpha(C.outline, 0.12)}
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: C.secondary }}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: C.secondary }}
+                  allowDecimals={false}
+                />
+                <RTooltip contentStyle={{ borderRadius: 8 }} />
+                <Legend />
+                <Bar
+                  dataKey="completed"
+                  name="Completed"
+                  fill={C.primaryLight}
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="pending"
+                  name="Pending"
+                  fill={C.accent}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <ChartCard title="Task Distribution">
+            {distData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={distData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="48%"
+                    outerRadius="70%"
+                    dataKey="value"
+                    paddingAngle={4}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                    labelLine={false}
+                  >
+                    {distData.map((d, i) => (
+                      <Cell key={i} fill={d.fill} />
+                    ))}
+                  </Pie>
+                  <RTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart msg="No task data" />
+            )}
+          </ChartCard>
+        </Grid>
+      </Grid>
+
+      {/* Upcoming Tasks */}
+      {upcoming.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            overflow: "hidden",
+            mb: 3,
+            border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
+          }}
+        >
+          <Box
+            sx={{
+              px: 2.5,
+              py: 2,
+              borderBottom: `1px solid ${alpha(C.outlineVariant, 0.3)}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <HourglassIcon sx={{ color: C.primaryLight, fontSize: 20 }} />
+            <Typography
+              sx={{ fontWeight: 700, color: C.primary, fontSize: "0.9rem" }}
+            >
+              Upcoming Tasks
+            </Typography>
+          </Box>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  {["Task", "Asset", "Due Date", "Days Left", "Priority"].map(
+                    (h) => (
+                      <TableCell
+                        key={h}
+                        sx={{
+                          fontWeight: 700,
+                          color: C.secondary,
+                          bgcolor: C.surfaceContainerLow,
+                          fontSize: "0.72rem",
+                        }}
+                      >
+                        {h}
+                      </TableCell>
+                    ),
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {upcoming.map((t, i) => (
+                  <TableRow
+                    key={i}
+                    hover
+                    sx={{ "&:hover": { bgcolor: C.surfaceContainerLow } }}
+                  >
+                    <TableCell>
+                      <Typography sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                        {t.checklistName}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        sx={{ fontSize: "0.72rem", color: C.secondary }}
+                      >
+                        {t.assetName || "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: "0.72rem" }}>
+                        {t.dueDate
+                          ? new Date(t.dueDate).toLocaleDateString("en-IN")
+                          : "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={`${t.daysRemaining}d`}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: "0.65rem",
+                          fontWeight: 700,
+                          bgcolor:
+                            t.daysRemaining <= 1
+                              ? alpha(C.onErrorContainer, 0.12)
+                              : t.daysRemaining <= 3
+                                ? alpha(C.accent, 0.12)
+                                : C.surfaceContainerLow,
+                          color:
+                            t.daysRemaining <= 1
+                              ? C.onErrorContainer
+                              : t.daysRemaining <= 3
+                                ? C.accent
+                                : C.secondary,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={t.priority}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: "0.62rem",
+                          textTransform: "capitalize",
+                          bgcolor:
+                            t.priority === "critical"
+                              ? alpha(C.onErrorContainer, 0.1)
+                              : C.surfaceContainerLow,
+                          color:
+                            t.priority === "critical"
+                              ? C.onErrorContainer
+                              : C.secondary,
+                        }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      {/* Quick Actions */}
+      <SectionTitle icon={BoltIcon} title="Quick Actions" />
+      <Grid container spacing={2}>
+        {[
+          {
+            icon: AssignmentTurnedInIcon,
+            title: "My Tasks",
+            desc: "View all tasks",
+            path: "/team",
+          },
+          {
+            icon: HistoryIcon,
+            title: "Inspection History",
+            desc: "Past inspections",
+            path: "/team/history",
+          },
+          {
+            icon: AnalyticsIcon,
+            title: "Reports",
+            desc: "View reports",
+            path: "/team/reports",
+          },
+        ].map((act, i) => (
+          <Grid item xs={12} sm={4} key={i}>
+            <Button
+              fullWidth
+              onClick={() => navigate(act.path)}
+              sx={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                p: 2,
+                bgcolor: C.primaryLight,
+                borderRadius: 3,
+                textTransform: "none",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  bgcolor: alpha(C.primaryLight, 0.9),
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  p: 1,
+                  bgcolor: "rgba(255,255,255,0.12)",
+                  borderRadius: 1.5,
+                  mb: 1,
+                }}
+              >
+                <act.icon sx={{ color: "#fff", fontSize: 18 }} />
+              </Box>
+              <Typography
+                sx={{
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  mb: 0.25,
+                }}
+              >
+                {act.title}
+              </Typography>
+              <Typography
+                sx={{ color: alpha("#fff", 0.65), fontSize: "0.67rem" }}
+              >
+                {act.desc}
+              </Typography>
+            </Button>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
+// ─── Root Dashboard ───────────────────────────────────────────────────────────
+export default function Dashboard() {
   const { user } = useAuth();
-  const {
-    dashboardData,
-    statsData,
-    chartData,
-    activities,
-    loading,
-    error,
-    loadDashboard,
-    exportDashboardReport,
-    clearError,
-  } = useDashboard();
-
+  const { dashboardData, loading, error, loadDashboard, clearError, refresh } =
+    useDashboard();
   const [anchorEl, setAnchorEl] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState({
@@ -864,11 +1646,10 @@ export default function Dashboard() {
     message: "",
     severity: "success",
   });
-  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     loadDashboard();
-  }, [retry]);
+  }, [loadDashboard]);
 
   const toast$ = useCallback(
     (msg, sev = "success") =>
@@ -881,254 +1662,98 @@ export default function Dashboard() {
   );
 
   const handleRefresh = useCallback(() => {
-    setRetry((p) => p + 1);
+    refresh();
     toast$("Refreshing dashboard…", "info");
-  }, [toast$]);
-  const handleRetry = useCallback(() => {
-    setRetry((p) => p + 1);
-    clearError();
-  }, [clearError]);
+  }, [refresh, toast$]);
 
   const handleExport = useCallback(
     async (type) => {
       setExporting(true);
       setAnchorEl(null);
       try {
-        const blob = await exportDashboardReport();
-        if (!blob) throw new Error("No data received");
-        let parsed;
-        try {
-          parsed = JSON.parse(await blob.text());
-        } catch {
-          parsed = {};
-        }
-
-        // enrich with local context
-        const payload = {
-          ...parsed,
-          overview:
-            parsed.overview ||
-            statsData?.overview ||
-            dashboardData?.overview ||
-            {},
-          revenueTrend: parsed.revenueTrend || chartData?.revenueTrend || [],
-          subscriptionDistribution:
-            parsed.subscriptionDistribution ||
-            chartData?.subscriptionDistribution ||
-            [],
-          activities: parsed.activities || activities || [],
-        };
-
-        const name = `dashboard_report_${new Date().toISOString().split("T")[0]}`;
+        const name = `dashboard_${new Date().toISOString().split("T")[0]}`;
         if (type === "csv") {
-          doCSV(payload, name);
-          toast$("CSV exported successfully");
+          doCSV(dashboardData || {}, name);
+          toast$("CSV exported");
         } else {
-          await doPDF(payload, name);
-          toast$("PDF exported successfully");
+          // Build a flat overview for PDF from whatever role data is present
+          const overview =
+            dashboardData?.clients ||
+            dashboardData?.team ||
+            dashboardData?.overview ||
+            {};
+          await doPDF(overview, name);
+          toast$("PDF exported");
         }
       } catch (e) {
-        console.error(e);
         toast$(e.message || "Export failed", "error");
       } finally {
         setExporting(false);
       }
     },
-    [
-      exportDashboardReport,
-      statsData,
-      dashboardData,
-      chartData,
-      activities,
-      toast$,
-    ],
+    [dashboardData, toast$],
   );
 
-  const overview = useMemo(() => {
-    if (statsData?.overview && Object.keys(statsData.overview).length)
-      return statsData.overview;
-    if (dashboardData?.overview && Object.keys(dashboardData.overview).length)
-      return dashboardData.overview;
-    return {
-      totalClients: 0,
-      activeClients: 0,
-      totalRevenue: 0,
-      expiringSoon: 0,
-      totalTeamMembers: 0,
-      activeTeamMembers: 0,
-      totalAssets: 0,
-      totalInspections: 0,
-      totalTasks: 0,
-      completedTasks: 0,
-      completionRate: 0,
-      performanceScore: 0,
-      clientGrowth: 0,
-    };
-  }, [statsData, dashboardData]);
+  const role = user?.role;
 
-  const isAdminRole = user?.role === "super_admin" || user?.role === "admin";
-
-  const stats = useMemo(
-    () =>
-      isAdminRole
-        ? [
-            {
-              icon: GroupIcon,
-              title: "Total Customers",
-              value: overview.totalClients,
-              trend: `${overview.clientGrowth || 0}%`,
-              trendUp: (overview.clientGrowth || 0) >= 0,
-              bgColor: C.primaryContainer,
-            },
-            {
-              icon: CheckCircleIcon,
-              title: "Active Customers",
-              value: overview.activeClients,
-              trend: "8.2%",
-              trendUp: true,
-              iconBg: C.secondaryContainer,
-            },
-            {
-              icon: PaymentsIcon,
-              title: "Total Revenue",
-              value: fmtINR(overview.totalRevenue || 0),
-              trend: "15.3%",
-              trendUp: true,
-            },
-            {
-              icon: WarningIcon,
-              title: "Expiring Soon",
-              value: overview.expiringSoon || 0,
-              trend: "3.1%",
-              trendUp: false,
-              iconBg: C.errorContainer,
-            },
-          ]
-        : [
-            {
-              icon: TaskIcon,
-              title: "Total Tasks",
-              value: overview.totalTasks,
-              bgColor: C.primaryContainer,
-            },
-            {
-              icon: CheckCircleIcon,
-              title: "Completed",
-              value: overview.completedTasks,
-              iconBg: C.secondaryContainer,
-            },
-            {
-              icon: AnalyticsIcon,
-              title: "Completion %",
-              value: `${overview.completionRate || 0}%`,
-            },
-            {
-              icon: TrendingUpIcon,
-              title: "Performance",
-              value: `${overview.performanceScore || 0}%`,
-              iconBg: C.errorContainer,
-            },
-          ],
-    [isAdminRole, overview],
-  );
-
-  const revenueTrend = useMemo(
-    () => chartData?.revenueTrend || [],
-    [chartData],
-  );
-  const subDist = useMemo(
-    () => chartData?.subscriptionDistribution || [],
-    [chartData],
-  );
-
-  const quickActions = useMemo(() => {
-    const a = [];
-    if (isAdminRole)
-      a.push({
-        icon: AddCircleIcon,
-        title: "New Checklist",
-        desc: "Create inspection form",
-        path: "/admin/checklists",
-      });
-    if (user?.role === "super_admin")
-      a.push({
-        icon: PersonAddIcon,
-        title: "Add Client",
-        desc: "Register new client",
-        path: "/admin/clients",
-      });
-    a.push({
-      icon: AnalyticsIcon,
-      title: "Reports",
-      desc: "View analytics",
-      path: "/admin/reports",
-    });
-    return a;
-  }, [isAdminRole, user?.role]);
-
-  const actLimit = sm ? 3 : md ? 4 : lg ? 6 : 5;
-  const gap = sm ? 1.25 : md ? 1.75 : 2.25;
-  const pad = sm ? 1.25 : md ? 1.75 : lg ? 3.5 : 2.5;
-
-  if (loading && !dashboardData && !statsData) return <DashSkeleton />;
-  if (error && !dashboardData && !statsData)
-    return <ErrDisplay message={error} onRetry={handleRetry} />;
+  if (loading && !dashboardData) return <LoadingSkeleton />;
+  if (error && !dashboardData)
+    return (
+      <ErrorDisplay
+        message={error}
+        onRetry={() => {
+          clearError();
+          loadDashboard();
+        }}
+      />
+    );
 
   return (
     <Box
       sx={{
-        bgcolor: C.surface,
         minHeight: "100%",
-        p: pad,
-        position: "relative",
-        width: "100%",
-        overflowX: "hidden",
+        p: { xs: 1.5, sm: 2, md: 3 },
       }}
     >
-      {/* top progress bar */}
       {loading && (
-        <Box
-          sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}
-        >
-          <LinearProgress sx={{ height: 2 }} />
-        </Box>
+        <LinearProgress
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            height: 2,
+          }}
+        />
       )}
 
-      {/* ── Header ── */}
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: { xs: "flex-start", sm: "center" },
-          mb: { xs: 2, sm: 2.5, md: 3 },
+          mb: 3,
           flexDirection: { xs: "column", sm: "row" },
-          gap: { xs: 1.5, sm: 1 },
+          gap: 1.5,
         }}
       >
         <Box>
           <Typography
             sx={{
-              fontWeight: 700,
+              fontWeight: 800,
               color: C.primary,
-              fontSize: {
-                xs: "1.2rem",
-                sm: "1.35rem",
-                md: "1.5rem",
-                lg: "1.65rem",
-              },
-              lineHeight: 1.2,
+              fontSize: { xs: "1.2rem", sm: "1.5rem" },
             }}
           >
-            Dashboard
+            {role === "super_admin"
+              ? "Platform Overview"
+              : role === "admin"
+                ? "Dashboard"
+                : "My Dashboard"}
           </Typography>
-          <Typography
-            sx={{
-              color: C.secondary,
-              fontSize: { xs: "0.65rem", sm: "0.7rem", md: "0.75rem" },
-              display: "block",
-              mt: 0.25,
-            }}
-          >
+          <Typography sx={{ color: C.secondary, fontSize: "0.72rem" }}>
             {new Date().toLocaleDateString("en-IN", {
               weekday: "long",
               year: "numeric",
@@ -1137,467 +1762,68 @@ export default function Dashboard() {
             })}
           </Typography>
         </Box>
-        <Stack
-          direction="row"
-          spacing={{ xs: 0.75, sm: 1 }}
-          alignItems="center"
-        >
+        <Stack direction="row" spacing={1}>
           <Tooltip title="Refresh">
-            <span>
-              <IconButton
-                onClick={handleRefresh}
-                disabled={loading}
-                size={sm ? "small" : "medium"}
-                sx={{
-                  bgcolor: C.surfaceContainerLow,
-                  "&:hover": { bgcolor: C.surfaceVariant },
-                  "&:disabled": { opacity: 0.5 },
-                }}
-              >
-                <RefreshIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-              </IconButton>
-            </span>
+            <IconButton
+              onClick={handleRefresh}
+              disabled={loading}
+              sx={{ bgcolor: C.surfaceContainerLow }}
+            >
+              <RefreshIcon />
+            </IconButton>
           </Tooltip>
-          <Tooltip title="Export report">
-            <span>
-              <IconButton
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-                disabled={exporting || loading}
-                size={sm ? "small" : "medium"}
-                sx={{
-                  bgcolor: C.surfaceContainerLow,
-                  "&:hover": { bgcolor: C.surfaceVariant },
-                  "&:disabled": { opacity: 0.5 },
-                }}
-              >
-                {exporting ? (
-                  <CircularProgress size={sm ? 14 : 16} />
-                ) : (
-                  <DownloadIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-                )}
-              </IconButton>
-            </span>
+          <Tooltip title="Export">
+            <IconButton
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              disabled={exporting || !dashboardData}
+              sx={{ bgcolor: C.surfaceContainerLow }}
+            >
+              {exporting ? <CircularProgress size={20} /> : <DownloadIcon />}
+            </IconButton>
           </Tooltip>
           <Menu
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={() => setAnchorEl(null)}
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            transformOrigin={{ vertical: "top", horizontal: "right" }}
-            PaperProps={{
-              sx: {
-                borderRadius: 2,
-                boxShadow: `0 4px 20px ${alpha(C.primary, 0.12)}`,
-                border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
-                minWidth: 170,
-              },
-            }}
           >
-            <MenuItem onClick={() => handleExport("csv")} disabled={exporting}>
+            <MenuItem onClick={() => handleExport("csv")}>
               <ListItemIcon>
-                <CsvIcon fontSize="small" sx={{ color: C.secondary }} />
+                <CsvIcon />
               </ListItemIcon>
-              <ListItemText
-                primary="Export as CSV"
-                primaryTypographyProps={{ fontSize: "0.8rem" }}
-              />
+              <ListItemText primary="Export as CSV" />
             </MenuItem>
-            <MenuItem onClick={() => handleExport("pdf")} disabled={exporting}>
+            <MenuItem onClick={() => handleExport("pdf")}>
               <ListItemIcon>
-                <PdfIcon fontSize="small" sx={{ color: C.secondary }} />
+                <PdfIcon />
               </ListItemIcon>
-              <ListItemText
-                primary="Export as PDF"
-                primaryTypographyProps={{ fontSize: "0.8rem" }}
-              />
+              <ListItemText primary="Export as PDF" />
             </MenuItem>
           </Menu>
         </Stack>
       </Box>
 
-      {/* error banner */}
-      {error && (
-        <Fade in>
-          <Alert
-            severity="error"
-            onClose={clearError}
-            sx={{ mb: 2.5, borderRadius: 2 }}
-            action={
-              <Button color="inherit" size="small" onClick={handleRetry}>
-                Retry
-              </Button>
-            }
-          >
-            {error}
-          </Alert>
-        </Fade>
+      {/* Role-specific content */}
+      {role === "super_admin" && (
+        <SuperAdminDashboard data={dashboardData} loading={loading} />
+      )}
+      {role === "admin" && (
+        <AdminDashboard data={dashboardData} loading={loading} />
+      )}
+      {role === "team" && (
+        <TeamDashboard data={dashboardData} loading={loading} />
       )}
 
-      {/* ── Stat cards ── */}
-      <Grid container spacing={gap} sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
-        {stats.map((s, i) => (
-          <Grid item xs={12} sm={6} md={6} lg={3} key={i}>
-            <StatCard {...s} loading={loading} />
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* ── Charts ── */}
-      {isAdminRole && (
-        <Grid container spacing={gap} sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
-          {/* Revenue Trend */}
-          <Grid item xs={12} lg={6}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                borderRadius: { xs: 2, sm: 3 },
-                height: "100%",
-                bgcolor: "background.paper",
-                border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, sm: 2 },
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontWeight: 700,
-                    color: C.primary,
-                    fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem" },
-                  }}
-                >
-                  Revenue Trend (₹)
-                </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                  <Box
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "2px",
-                      bgcolor: C.primaryContainer,
-                    }}
-                  />
-                  <Typography sx={{ fontSize: "0.62rem", color: C.secondary }}>
-                    Monthly revenue (₹)
-                  </Typography>
-                </Box>
-              </Box>
-              <RevenueBarChart data={revenueTrend} loading={loading} />
-            </Paper>
-          </Grid>
-
-          {/* Subscription Distribution */}
-          <Grid item xs={12} lg={6}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                borderRadius: { xs: 2, sm: 3 },
-                height: "100%",
-                bgcolor: "background.paper",
-                border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
-              }}
-            >
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  color: C.primary,
-                  fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem" },
-                  mb: { xs: 1.5, sm: 2 },
-                }}
-              >
-                Subscription Distribution
-              </Typography>
-              <SubDonutChart data={subDist} loading={loading} />
-            </Paper>
-          </Grid>
-        </Grid>
-      )}
-
-      {/* ── Recent Activity ── */}
-      <Box sx={{ mb: { xs: 2.5, sm: 3, md: 3.5 } }}>
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: { xs: 2, sm: 3 },
-            overflow: "hidden",
-            bgcolor: "background.paper",
-            border: `1px solid ${alpha(C.outlineVariant, 0.5)}`,
-          }}
-        >
-          <Box
-            sx={{
-              px: { xs: 1.5, sm: 2, md: 2.5 },
-              py: { xs: 1.25, sm: 1.5 },
-              borderBottom: `1px solid ${alpha(C.outlineVariant, 0.3)}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 0.75,
-            }}
-          >
-            <HistoryIcon
-              sx={{ color: C.primaryContainer, fontSize: { xs: 16, sm: 20 } }}
-            />
-            <Typography
-              sx={{
-                fontWeight: 700,
-                color: C.primary,
-                fontSize: { xs: "0.85rem", sm: "1rem" },
-              }}
-            >
-              Recent Activity
-            </Typography>
-          </Box>
-
-          {loading ? (
-            <Box sx={{ p: { xs: 2, sm: 3 } }}>
-              {[1, 2, 3].map((i) => (
-                <Box
-                  key={i}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                    mb: 2,
-                  }}
-                >
-                  <Skeleton variant="circular" width={28} height={28} />
-                  <Box sx={{ flex: 1 }}>
-                    <Skeleton variant="text" width="55%" height={16} />
-                    <Skeleton variant="text" width="38%" height={12} />
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          ) : !activities.length ? (
-            <EmptyState
-              icon={HistoryIcon}
-              title="No recent activity"
-              description="Your recent activities will appear here."
-            />
-          ) : (
-            <TableContainer sx={{ maxHeight: { xs: 260, sm: 300, md: 380 } }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    {["Activity", "Details", !sm && "Date"]
-                      .filter(Boolean)
-                      .map((h) => (
-                        <TableCell
-                          key={h}
-                          sx={{
-                            fontWeight: 700,
-                            color: C.secondary,
-                            fontSize: { xs: "0.58rem", md: "0.65rem" },
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            bgcolor: alpha(C.surfaceContainerLow, 0.8),
-                            py: { xs: 0.75, sm: 1 },
-                            ...(h === "Date" ? { width: 110 } : {}),
-                          }}
-                        >
-                          {h}
-                        </TableCell>
-                      ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {activities.slice(0, actLimit).map((a, i) => (
-                    <TableRow
-                      key={i}
-                      hover
-                      sx={{ "&:last-child td": { border: 0 } }}
-                    >
-                      <TableCell sx={{ py: { xs: 0.9, sm: 1 } }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: { xs: 0.75, sm: 1 },
-                          }}
-                        >
-                          <Avatar
-                            sx={{
-                              width: { xs: 22, md: 28 },
-                              height: { xs: 22, md: 28 },
-                              bgcolor: alpha(C.primary, 0.08),
-                              fontSize: { xs: 10, md: 13 },
-                            }}
-                          >
-                            {a.icon || "📋"}
-                          </Avatar>
-                          <Typography
-                            sx={{
-                              fontWeight: 600,
-                              color: C.primary,
-                              fontSize: { xs: "0.6rem", md: "0.72rem" },
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {a.title || "Activity"}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ py: { xs: 0.9, sm: 1 } }}>
-                        <Typography
-                          sx={{
-                            color: C.secondary,
-                            fontSize: { xs: "0.58rem", md: "0.65rem" },
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {a.details || "No details"}
-                        </Typography>
-                      </TableCell>
-                      {!sm && (
-                        <TableCell sx={{ py: { xs: 0.9, sm: 1 } }}>
-                          <Typography
-                            sx={{
-                              color: C.outline,
-                              fontSize: { xs: "0.58rem", md: "0.65rem" },
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {a.timestamp
-                              ? new Date(a.timestamp).toLocaleDateString(
-                                  "en-IN",
-                                )
-                              : "N/A"}
-                          </Typography>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Paper>
-      </Box>
-
-      {/* ── Quick Actions ── */}
-      {quickActions.length > 0 && (
-        <Box>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.75,
-              mb: { xs: 1.5, sm: 2 },
-            }}
-          >
-            <BoltIcon
-              sx={{
-                color: C.onTertiaryContainer,
-                fontSize: { xs: 16, sm: 20 },
-              }}
-            />
-            <Typography
-              sx={{
-                fontWeight: 700,
-                color: C.primary,
-                fontSize: { xs: "0.85rem", sm: "1rem" },
-              }}
-            >
-              Quick Actions
-            </Typography>
-          </Box>
-          <Grid container spacing={gap}>
-            {quickActions.map((act, i) => (
-              <Grid item xs={12} sm={6} md={4} key={i}>
-                <Button
-                  fullWidth
-                  onClick={() => navigate(act.path)}
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    width:"377px",
-                    p: { xs: 1.5, sm: 2, lg: 2.5 },
-                    bgcolor: C.primaryContainer,
-                    borderRadius: { xs: 2, sm: 3 },
-                    textTransform: "none",
-                    transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
-                    height: "100%",
-                    minHeight: { xs: 90, sm: 110 },
-                    "&:hover": {
-                      transform: "translateY(-4px)",
-                      bgcolor: alpha(C.primaryContainer, 0.88),
-                      boxShadow: `0 8px 24px ${alpha(C.primary, 0.2)}`,
-                    },
-                    boxShadow: `0 2px 8px ${alpha(C.primary, 0.1)}`,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      p: { xs: 0.7, sm: 0.9 },
-                      bgcolor: "rgba(255,255,255,0.13)",
-                      borderRadius: 1.5,
-                      mb: { xs: 0.75, sm: 1 },
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <act.icon
-                      sx={{ color: "white", fontSize: { xs: 14, sm: 18 } }}
-                    />
-                  </Box>
-                  <Typography
-                    sx={{
-                      color: "white",
-                      fontWeight: 700,
-                      fontSize: { xs: "0.75rem", sm: "0.85rem" },
-                      mb: 0.25,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {act.title}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: C.onPrimaryContainer,
-                      fontSize: { xs: 10, sm: "0.65rem" },
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {act.desc}
-                  </Typography>
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {/* ── Toast ── */}
       <Snackbar
         open={toast.open}
         autoHideDuration={4000}
         onClose={closeToast}
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: sm ? "center" : "right",
-        }}
-        sx={{ bottom: { xs: 70, sm: 80, md: 24 } }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           onClose={closeToast}
           severity={toast.severity}
           variant="filled"
-          sx={{
-            borderRadius: 2,
-            fontSize: { xs: "0.7rem", sm: "0.8rem" },
-            boxShadow: 4,
-            width: { xs: "90vw", sm: "auto" },
-            maxWidth: { xs: "90vw", sm: 400 },
-          }}
+          sx={{ borderRadius: 2 }}
         >
           {toast.message}
         </Alert>
@@ -1605,3 +1831,64 @@ export default function Dashboard() {
     </Box>
   );
 }
+
+const LoadingSkeleton = () => (
+  <Box sx={{ p: 3 }}>
+    <Skeleton variant="text" width={220} height={44} sx={{ mb: 2 }} />
+    <Grid container spacing={2} sx={{ mb: 3 }}>
+      {[1, 2, 3, 4].map((i) => (
+        <Grid item xs={12} sm={6} lg={3} key={i}>
+          <Skeleton variant="rounded" height={130} sx={{ borderRadius: 3 }} />
+        </Grid>
+      ))}
+    </Grid>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
+      {[1, 2].map((i) => (
+        <Grid item xs={12} md={6} key={i}>
+          <Skeleton variant="rounded" height={280} sx={{ borderRadius: 3 }} />
+        </Grid>
+      ))}
+    </Grid>
+    <Skeleton variant="rounded" height={200} sx={{ borderRadius: 3 }} />
+  </Box>
+);
+
+const ErrorDisplay = ({ message, onRetry }) => (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "60vh",
+    }}
+  >
+    <ErrorIcon sx={{ fontSize: 56, color: C.onErrorContainer, mb: 2 }} />
+    <Typography sx={{ fontWeight: 600, color: C.onErrorContainer, mb: 1 }}>
+      Something went wrong
+    </Typography>
+    <Typography
+      sx={{
+        color: C.secondary,
+        mb: 2.5,
+        textAlign: "center",
+        maxWidth: 340,
+        fontSize: "0.85rem",
+      }}
+    >
+      {message || "Failed to load dashboard data."}
+    </Typography>
+    <Button
+      variant="contained"
+      onClick={onRetry}
+      startIcon={<RefreshIcon />}
+      sx={{
+        bgcolor: C.onErrorContainer,
+        borderRadius: 2,
+        textTransform: "none",
+      }}
+    >
+      Retry
+    </Button>
+  </Box>
+);

@@ -1,5 +1,6 @@
-// components/ResetPassword.jsx
-import React, { useState } from "react";
+// components/ResetPassword.jsx - Complete with API Integration
+
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -11,28 +12,26 @@ import {
   Stack,
   Link,
   useTheme,
-  useMediaQuery,
   alpha,
   Alert,
   Snackbar,
   InputAdornment,
+  CircularProgress,
 } from "@mui/material";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContexts";
 import Navbar from "../pages/landing/Navbar";
-
-
-
 
 const ResetPassword = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const { resetPassword } = useAuth();
   
   const [formData, setFormData] = useState({
     password: "",
@@ -44,10 +43,21 @@ const ResetPassword = () => {
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [token, setToken] = useState(null);
+  const [tokenError, setTokenError] = useState(false);
 
-  // Get token from URL if needed
-  const queryParams = new URLSearchParams(location.search);
-  const token = queryParams.get("token");
+  // Get token from URL
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const tokenParam = queryParams.get("token");
+    
+    if (!tokenParam) {
+      setTokenError(true);
+      setErrors({ general: "Invalid or missing reset token. Please request a new password reset link." });
+    } else {
+      setToken(tokenParam);
+    }
+  }, [location]);
 
   const validatePassword = (password) => {
     const errors = [];
@@ -84,6 +94,13 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!token) {
+      setErrors({ general: "Invalid reset token. Please request a new password reset link." });
+      setSnackbarOpen(true);
+      return;
+    }
+
     const newErrors = {};
 
     // Validate password
@@ -110,19 +127,28 @@ const ResetPassword = () => {
     }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setErrors({});
+
+    try {
+      const result = await resetPassword(token, formData.password, formData.confirmPassword);
+      
+      if (result.success) {
+        setSubmitted(true);
+      } else {
+        setErrors({ general: result.error });
+        setSnackbarOpen(true);
+      }
+    } catch (err) {
+      console.error("Reset password error:", err);
+      setErrors({ general: "An unexpected error occurred. Please try again." });
+      setSnackbarOpen(true);
+    } finally {
       setLoading(false);
-      setSubmitted(true);
-    }, 1500);
+    }
   };
 
   const handleBackToLogin = () => {
     navigate("/login");
-  };
-
-  const handleHomeClick = () => {
-    navigate("/");
   };
 
   const handleCloseSnackbar = () => {
@@ -148,6 +174,67 @@ const ResetPassword = () => {
     return { text: "Strong", color: "#10b981" };
   };
 
+  // Show error if token is missing
+  if (tokenError) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "#f8fafc",
+        }}
+      >
+        <Navbar />
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            p: { xs: 1.5, sm: 2, md: 3 },
+            mt: { xs: 7, sm: 8, md: 9 },
+          }}
+        >
+          <Paper
+            elevation={0}
+            sx={{
+              maxWidth: { xs: "100%", sm: 480, md: 520 },
+              width: "100%",
+              borderRadius: { xs: "1rem", sm: "1.25rem" },
+              p: { xs: 2.5, sm: 3, md: 4 },
+              textAlign: "center",
+            }}
+          >
+            <ErrorIcon sx={{ fontSize: 64, color: "#ef4444", mb: 2 }} />
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+              Invalid Reset Link
+            </Typography>
+            <Typography sx={{ mb: 3, color: "#64748b" }}>
+              {errors.general || "The password reset link is invalid or has expired."}
+            </Typography>
+            <Button
+              onClick={handleBackToLogin}
+              fullWidth
+              variant="contained"
+              sx={{
+                py: { xs: 1, sm: 1.2 },
+                bgcolor: "#1a4a6b",
+                borderRadius: "0.5rem",
+                fontWeight: 600,
+                textTransform: "none",
+                "&:hover": { bgcolor: "#003350" },
+              }}
+            >
+              Back to Login
+            </Button>
+          </Paper>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
@@ -169,6 +256,7 @@ const ResetPassword = () => {
           alignItems: "center",
           justifyContent: "center",
           p: { xs: 1.5, sm: 2, md: 3 },
+          mt: { xs: 7, sm: 8, md: 9 },
         }}
       >
         <Paper
@@ -248,6 +336,7 @@ const ResetPassword = () => {
                       onChange={handleChange}
                       variant="outlined"
                       error={!!errors.password}
+                      disabled={loading}
                       InputProps={{
                         endAdornment: (
                           <InputAdornment position="end">
@@ -256,6 +345,7 @@ const ResetPassword = () => {
                               edge="end"
                               size="small"
                               sx={{ p: 0.5 }}
+                              disabled={loading}
                             >
                               {showPassword ? (
                                 <VisibilityOffIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
@@ -356,6 +446,7 @@ const ResetPassword = () => {
                       onChange={handleChange}
                       variant="outlined"
                       error={!!errors.confirmPassword}
+                      disabled={loading}
                       InputProps={{
                         endAdornment: (
                           <InputAdornment position="end">
@@ -364,6 +455,7 @@ const ResetPassword = () => {
                               edge="end"
                               size="small"
                               sx={{ p: 0.5 }}
+                              disabled={loading}
                             >
                               {showConfirmPassword ? (
                                 <VisibilityOffIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
@@ -420,7 +512,11 @@ const ResetPassword = () => {
                       },
                     }}
                   >
-                    {loading ? "Resetting Password..." : "Reset Password"}
+                    {loading ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      "Reset Password"
+                    )}
                   </Button>
                 </Stack>
               </form>
@@ -476,29 +572,31 @@ const ResetPassword = () => {
               </Box>
             )}
 
-            <Box sx={{ mt: 3, textAlign: "center" }}>
-              <Typography
-                sx={{
-                  fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                  color: "#94a3b8",
-                }}
-              >
-                Need help?{" "}
-                <Link
-                  href="#"
+            {!submitted && (
+              <Box sx={{ mt: 3, textAlign: "center" }}>
+                <Typography
                   sx={{
-                    color: "#1a4a6b",
-                    fontWeight: 600,
-                    textDecoration: "none",
                     fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                    cursor: "pointer",
-                    "&:hover": { textDecoration: "underline" },
+                    color: "#94a3b8",
                   }}
                 >
-                  Contact Support
-                </Link>
-              </Typography>
-            </Box>
+                  Need help?{" "}
+                  <Link
+                    href="#"
+                    sx={{
+                      color: "#1a4a6b",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                      cursor: "pointer",
+                      "&:hover": { textDecoration: "underline" },
+                    }}
+                  >
+                    Contact Support
+                  </Link>
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Paper>
       </Box>
@@ -509,8 +607,17 @@ const ResetPassword = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: "100%" }}>
-          {errors.password || errors.confirmPassword}
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity="error" 
+          icon={<ErrorIcon />}
+          sx={{ 
+            width: "100%",
+            borderRadius: "0.75rem",
+            fontSize: { xs: "0.7rem", sm: "0.75rem" },
+          }}
+        >
+          {errors.password || errors.confirmPassword || errors.general}
         </Alert>
       </Snackbar>
     </Box>

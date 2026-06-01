@@ -1,4 +1,5 @@
 // components/ForgotPassword.jsx
+
 import React, { useState } from "react";
 import {
   Box,
@@ -6,59 +7,109 @@ import {
   TextField,
   Button,
   Paper,
-  IconButton,
   Avatar,
   Stack,
   Link,
   useTheme,
-  useMediaQuery,
   alpha,
   Alert,
   Snackbar,
+  CircularProgress,
 } from "@mui/material";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EmailIcon from "@mui/icons-material/Email";
 import SendIcon from "@mui/icons-material/Send";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContexts";
 import Navbar from "../pages/landing/Navbar";
 
 const ForgotPassword = () => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { forgotPassword } = useAuth();
+
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
+  const validateEmail = (email) => {
+    if (!email) return "Email is required";
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const handleEmailChange = (e) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    if (emailError) {
+      setEmailError(validateEmail(newEmail));
+    }
+    if (error) {
+      setError("");
+      setEmailError("");
+      setSnackbarOpen(false);
+    }
+  };
+
+  // UPDATED: Shows field-level error + snackbar when email not found
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) {
-      setError("Please enter your email address");
+
+    const validationError = validateEmail(email);
+    if (validationError) {
+      setEmailError(validationError);
+      setError(validationError);
       setSnackbarOpen(true);
       return;
     }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError("");
+    setEmailError("");
+
+    try {
+      const result = await forgotPassword(email);
+
+      if (result.success) {
+        setSuccessMessage(
+          result.message || "Password reset link sent to your email."
+        );
+        setSubmitted(true);
+      } else {
+        // Show error on the field (red highlight) AND in the snackbar
+        const errorMsg =
+          result.error || "Unable to process request. Please try again.";
+        setEmailError(errorMsg);
+        setError(errorMsg);
+        setSnackbarOpen(true);
+      }
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      const errorMsg = "Unable to process request. Please try again later.";
+      setError(errorMsg);
+      setSnackbarOpen(true);
+    } finally {
       setLoading(false);
-      setSubmitted(true);
-    }, 1500);
+    }
   };
 
-  const handleBackToLogin = () => {
-    navigate("/login");
+  const handleBackToLogin = () => navigate("/login");
+
+  const handleResendEmail = () => {
+    setSubmitted(false);
+    setSuccessMessage("");
+    setEmail("");
+    setEmailError("");
+    setError("");
   };
 
-  const handleHomeClick = () => {
-    navigate("/");
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbarOpen(false);
-  };
+  const handleCloseSnackbar = () => setSnackbarOpen(false);
 
   return (
     <Box
@@ -71,8 +122,7 @@ const ForgotPassword = () => {
       }}
     >
       <Navbar />
-  
-      {/* Main Content */}
+
       <Box
         component="main"
         sx={{
@@ -81,6 +131,7 @@ const ForgotPassword = () => {
           alignItems: "center",
           justifyContent: "center",
           p: { xs: 1.5, sm: 2, md: 3 },
+          mt: { xs: 7, sm: 8, md: 9 },
         }}
       >
         <Paper
@@ -93,12 +144,7 @@ const ForgotPassword = () => {
             boxShadow: "0 20px 40px -12px rgba(0,0,0,0.1)",
           }}
         >
-          <Box
-            sx={{
-              p: { xs: 2.5, sm: 3, md: 4 },
-              bgcolor: "white",
-            }}
-          >
+          <Box sx={{ p: { xs: 2.5, sm: 3, md: 4 }, bgcolor: "white" }}>
             <Box sx={{ textAlign: "center", mb: { xs: 3, sm: 4 } }}>
               <Avatar
                 sx={{
@@ -109,7 +155,9 @@ const ForgotPassword = () => {
                   mb: 2,
                 }}
               >
-                <EmailIcon sx={{ fontSize: { xs: 24, sm: 28 }, color: "#1a4a6b" }} />
+                <EmailIcon
+                  sx={{ fontSize: { xs: 24, sm: 28 }, color: "#1a4a6b" }}
+                />
               </Avatar>
               <Typography
                 sx={{
@@ -129,7 +177,8 @@ const ForgotPassword = () => {
                   mx: "auto",
                 }}
               >
-                Enter your email address and we'll send you a link to reset your password.
+                Enter your email address and we'll send you a link to reset
+                your password.
               </Typography>
             </Box>
 
@@ -155,27 +204,38 @@ const ForgotPassword = () => {
                       type="email"
                       placeholder="name@company.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={handleEmailChange}
                       variant="outlined"
                       required
+                      error={!!emailError}
+                      helperText={emailError}
+                      disabled={loading}
+                      autoFocus
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           bgcolor: "#fafbfc",
                           borderRadius: "0.5rem",
                           "& fieldset": {
-                            borderColor: "#e2e8f0",
+                            borderColor: emailError ? "#ef4444" : "#e2e8f0",
                           },
                           "&:hover fieldset": {
-                            borderColor: alpha("#1a4a6b", 0.3),
+                            borderColor: emailError
+                              ? "#ef4444"
+                              : alpha("#1a4a6b", 0.3),
                           },
                           "&.Mui-focused fieldset": {
-                            borderColor: "#1a4a6b",
+                            borderColor: emailError ? "#ef4444" : "#1a4a6b",
                             borderWidth: 1,
                           },
                         },
                         "& .MuiInputBase-input": {
                           py: { xs: 1.2, sm: 1.3 },
                           fontSize: { xs: "0.8rem", sm: "0.85rem" },
+                        },
+                        "& .MuiFormHelperText-root": {
+                          fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                          marginLeft: 0,
+                          color: "#ef4444",
                         },
                       }}
                     />
@@ -186,7 +246,11 @@ const ForgotPassword = () => {
                     fullWidth
                     variant="contained"
                     disabled={loading}
-                    endIcon={<SendIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />}
+                    endIcon={
+                      !loading && (
+                        <SendIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
+                      )
+                    }
                     sx={{
                       py: { xs: 1, sm: 1.2 },
                       bgcolor: "#1a4a6b",
@@ -205,24 +269,30 @@ const ForgotPassword = () => {
                       },
                     }}
                   >
-                    {loading ? "Sending..." : "Send Reset Link"}
+                    {loading ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      "Send Reset Link"
+                    )}
                   </Button>
                 </Stack>
               </form>
             ) : (
               <Box sx={{ textAlign: "center" }}>
+                <CheckCircleIcon
+                  sx={{ fontSize: { xs: 56, sm: 64 }, color: "#10b981", mb: 2 }}
+                />
                 <Alert
                   severity="success"
                   sx={{
                     mb: 3,
                     borderRadius: "0.5rem",
-                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
                     "& .MuiAlert-message": {
                       fontSize: { xs: "0.7rem", sm: "0.75rem" },
                     },
                   }}
                 >
-                  Reset link sent! Please check your email at <strong>{email}</strong>
+                  {successMessage}
                 </Alert>
                 <Typography
                   sx={{
@@ -231,47 +301,72 @@ const ForgotPassword = () => {
                     mb: 2,
                   }}
                 >
-                  Didn't receive the email? Check your spam folder or try again.
+                  We've sent a password reset link to <strong>{email}</strong>
                 </Typography>
-                <Button
-                  onClick={() => setSubmitted(false)}
+                <Typography
                   sx={{
-                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                    color: "#1a4a6b",
-                    textTransform: "none",
-                    "&:hover": {
-                      bgcolor: alpha("#1a4a6b", 0.04),
-                    },
+                    fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                    color: "#94a3b8",
+                    mb: 3,
                   }}
                 >
-                  ← Resend email
+                  Didn't receive the email? Check your spam folder or{" "}
+                  <Link
+                    onClick={handleResendEmail}
+                    sx={{
+                      color: "#1a4a6b",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      "&:hover": { textDecoration: "underline" },
+                    }}
+                  >
+                    try again
+                  </Link>
+                </Typography>
+                <Button
+                  onClick={handleBackToLogin}
+                  fullWidth
+                  variant="contained"
+                  sx={{
+                    py: { xs: 1, sm: 1.2 },
+                    bgcolor: "#1a4a6b",
+                    borderRadius: "0.5rem",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    fontSize: { xs: "0.75rem", sm: "0.8rem" },
+                    "&:hover": { bgcolor: "#003350" },
+                  }}
+                >
+                  Back to Login
                 </Button>
               </Box>
             )}
 
-            <Box sx={{ mt: 3, textAlign: "center" }}>
-              <Typography
-                sx={{
-                  fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                  color: "#94a3b8",
-                }}
-              >
-                Remember your password?{" "}
-                <Link
-                  onClick={handleBackToLogin}
+            {!submitted && (
+              <Box sx={{ mt: 3, textAlign: "center" }}>
+                <Typography
                   sx={{
-                    color: "#1a4a6b",
-                    fontWeight: 600,
-                    textDecoration: "none",
                     fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                    cursor: "pointer",
-                    "&:hover": { textDecoration: "underline" },
+                    color: "#94a3b8",
                   }}
                 >
-                  Back to Login
-                </Link>
-              </Typography>
-            </Box>
+                  Remember your password?{" "}
+                  <Link
+                    onClick={handleBackToLogin}
+                    sx={{
+                      color: "#1a4a6b",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                      cursor: "pointer",
+                      "&:hover": { textDecoration: "underline" },
+                    }}
+                  >
+                    Back to Login
+                  </Link>
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Paper>
       </Box>
@@ -282,7 +377,16 @@ const ForgotPassword = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: "100%" }}>
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity="error"
+          icon={<ErrorIcon />}
+          sx={{
+            width: "100%",
+            borderRadius: "0.75rem",
+            fontSize: { xs: "0.7rem", sm: "0.75rem" },
+          }}
+        >
           {error}
         </Alert>
       </Snackbar>

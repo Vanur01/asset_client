@@ -228,7 +228,7 @@ const Navbar = ({
                       lineHeight: 1.2,
                     }}
                   >
-                    AssetFlow
+                    AssetMach
                   </Typography>
                   <Typography
                     sx={{

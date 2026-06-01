@@ -1,4 +1,4 @@
-// context/ReportContext.js - Updated with Role-Based Access
+// context/ReportContext.js - Updated with Full Role-Based API Integration
 
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContexts';
@@ -61,24 +61,22 @@ export const ReportProvider = ({ children }) => {
 
   // Check if user has access to specific report type
   const hasReportAccess = useCallback((reportType) => {
-    if (isAdmin()) {
-      // Admin has access to: team, asset, financial
-      const adminAccess = ['team', 'assets', 'financial', 'clients', 'inspections'];
-      return adminAccess.includes(reportType);
-    }
     if (isSuperAdmin()) {
-      // Super Admin has access to: financial only
-      const superAdminAccess = ['financial'];
+      const superAdminAccess = ['clients', 'assets', 'team', 'checklists', 'assignments', 'inspections', 'revenue', 'compliance'];
       return superAdminAccess.includes(reportType);
     }
-    // Regular users
-    return ['clients', 'inspections', 'financial'].includes(reportType);
+    if (isAdmin()) {
+      const adminAccess = ['assets', 'team', 'checklists', 'assignments', 'inspections', 'compliance'];
+      return adminAccess.includes(reportType);
+    }
+    // Team member access
+    return ['inspections', 'compliance'].includes(reportType);
   }, [isAdmin, isSuperAdmin]);
 
-  // ==================== CLIENT REPORTS ====================
+  // ==================== CLIENT REPORTS (Super Admin only) ====================
   const getClientReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-
+    
     cancelPreviousRequest();
     setLoading(true);
     setError(null);
@@ -101,9 +99,23 @@ export const ReportProvider = ({ children }) => {
         return response.data;
       }
 
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
+      // Handle response structure: { success, message, generatedAt, reportType, filters, summary, data, totalRecords }
+      if (response.data.success !== false) {
+        // Transform to consistent format
+        const transformedData = {
+          success: true,
+          message: response.data.message || 'Client report generated',
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
       }
       throw new Error(response.data.message || 'Failed to fetch client report');
     } catch (err) {
@@ -116,7 +128,7 @@ export const ReportProvider = ({ children }) => {
     }
   }, [isAuthenticated, token]);
 
-  // ==================== ASSET REPORTS (Admin Only) ====================
+  // ==================== ASSET REPORTS ====================
   const getAssetReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
     if (!hasReportAccess('assets')) {
@@ -147,9 +159,21 @@ export const ReportProvider = ({ children }) => {
         return response.data;
       }
 
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
       }
       throw new Error(response.data.message || 'Failed to fetch asset report');
     } catch (err) {
@@ -162,7 +186,7 @@ export const ReportProvider = ({ children }) => {
     }
   }, [isAuthenticated, token, hasReportAccess]);
 
-  // ==================== TEAM PERFORMANCE REPORTS (Admin Only) ====================
+  // ==================== TEAM PERFORMANCE REPORTS ====================
   const getTeamReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
     if (!hasReportAccess('team')) {
@@ -192,11 +216,139 @@ export const ReportProvider = ({ children }) => {
         return response.data;
       }
 
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
       }
       throw new Error(response.data.message || 'Failed to fetch team report');
+    } catch (err) {
+      if (err.name !== 'CanceledError') {
+        setError(err.response?.data?.message || err.message);
+      }
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, token, hasReportAccess]);
+
+  // ==================== CHECKLIST REPORTS ====================
+  const getChecklistReport = useCallback(async (filters = {}, format = 'json') => {
+    if (!isAuthenticated || !token) return null;
+    if (!hasReportAccess('checklists')) {
+      setError('You do not have permission to access checklist reports');
+      return null;
+    }
+
+    cancelPreviousRequest();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const api = getApiClient(token);
+      const params = new URLSearchParams();
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.type) params.append('type', filters.type);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.category) params.append('category', filters.category);
+      if (format !== 'json') params.append('format', format);
+
+      const response = await api.get(`/reports/checklists?${params.toString()}`, {
+        signal: abortControllerRef.current.signal,
+        ...(format !== 'json' && { responseType: 'blob' })
+      });
+
+      if (format !== 'json') {
+        return response.data;
+      }
+
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
+      }
+      throw new Error(response.data.message || 'Failed to fetch checklist report');
+    } catch (err) {
+      if (err.name !== 'CanceledError') {
+        setError(err.response?.data?.message || err.message);
+      }
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, token, hasReportAccess]);
+
+  // ==================== ASSIGNMENT REPORTS ====================
+  const getAssignmentReport = useCallback(async (filters = {}, format = 'json') => {
+    if (!isAuthenticated || !token) return null;
+    if (!hasReportAccess('assignments')) {
+      setError('You do not have permission to access assignment reports');
+      return null;
+    }
+
+    cancelPreviousRequest();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const api = getApiClient(token);
+      const params = new URLSearchParams();
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.priority) params.append('priority', filters.priority);
+      if (filters.assignedTo) params.append('assignedTo', filters.assignedTo);
+      if (format !== 'json') params.append('format', format);
+
+      const response = await api.get(`/reports/assignments?${params.toString()}`, {
+        signal: abortControllerRef.current.signal,
+        ...(format !== 'json' && { responseType: 'blob' })
+      });
+
+      if (format !== 'json') {
+        return response.data;
+      }
+
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
+      }
+      throw new Error(response.data.message || 'Failed to fetch assignment report');
     } catch (err) {
       if (err.name !== 'CanceledError') {
         setError(err.response?.data?.message || err.message);
@@ -210,6 +362,10 @@ export const ReportProvider = ({ children }) => {
   // ==================== INSPECTION REPORTS ====================
   const getInspectionReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
+    if (!hasReportAccess('inspections')) {
+      setError('You do not have permission to access inspection reports');
+      return null;
+    }
 
     cancelPreviousRequest();
     setLoading(true);
@@ -234,9 +390,21 @@ export const ReportProvider = ({ children }) => {
         return response.data;
       }
 
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
       }
       throw new Error(response.data.message || 'Failed to fetch inspection report');
     } catch (err) {
@@ -247,13 +415,13 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, hasReportAccess]);
 
-  // ==================== FINANCIAL REPORTS (Admin & Super Admin) ====================
-  const getFinancialReport = useCallback(async (filters = {}, format = 'json') => {
+  // ==================== REVENUE REPORTS (Super Admin only) ====================
+  const getRevenueReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
-    if (!hasReportAccess('financial')) {
-      setError('You do not have permission to access financial reports');
+    if (!isSuperAdmin()) {
+      setError('Revenue reports are only available to super administrators');
       return null;
     }
 
@@ -268,7 +436,7 @@ export const ReportProvider = ({ children }) => {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (format !== 'json') params.append('format', format);
 
-      const response = await api.get(`/reports/financial?${params.toString()}`, {
+      const response = await api.get(`/reports/revenue?${params.toString()}`, {
         signal: abortControllerRef.current.signal,
         ...(format !== 'json' && { responseType: 'blob' })
       });
@@ -277,11 +445,23 @@ export const ReportProvider = ({ children }) => {
         return response.data;
       }
 
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
       }
-      throw new Error(response.data.message || 'Failed to fetch financial report');
+      throw new Error(response.data.message || 'Failed to fetch revenue report');
     } catch (err) {
       if (err.name !== 'CanceledError') {
         setError(err.response?.data?.message || err.message);
@@ -290,11 +470,15 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, hasReportAccess]);
+  }, [isAuthenticated, token, isSuperAdmin]);
 
   // ==================== COMPLIANCE REPORTS ====================
   const getComplianceReport = useCallback(async (filters = {}, format = 'json') => {
     if (!isAuthenticated || !token) return null;
+    if (!hasReportAccess('compliance')) {
+      setError('You do not have permission to access compliance reports');
+      return null;
+    }
 
     cancelPreviousRequest();
     setLoading(true);
@@ -316,9 +500,22 @@ export const ReportProvider = ({ children }) => {
         return response.data;
       }
 
-      if (response.data.success) {
-        setReportData(response.data);
-        return response.data;
+      if (response.data.success !== false) {
+        const transformedData = {
+          success: true,
+          message: response.data.message,
+          data: {
+            reportType: response.data.reportType,
+            generatedAt: response.data.generatedAt,
+            filters: response.data.filters,
+            summary: response.data.summary,
+            recommendations: response.data.recommendations,
+            data: response.data.data,
+            totalRecords: response.data.totalRecords
+          }
+        };
+        setReportData(transformedData.data);
+        return transformedData;
       }
       throw new Error(response.data.message || 'Failed to fetch compliance report');
     } catch (err) {
@@ -329,7 +526,7 @@ export const ReportProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, hasReportAccess]);
 
   // ==================== DASHBOARD ANALYTICS ====================
   const getDashboardAnalytics = useCallback(async (dateRange = 30, startDate = null, endDate = null) => {
@@ -350,7 +547,8 @@ export const ReportProvider = ({ children }) => {
         signal: abortControllerRef.current.signal
       });
 
-      if (response.data.success) {
+      // Handle response structure: { success, message, role, clientGrowth, revenueTrend, ... }
+      if (response.data.success !== false) {
         setAnalyticsData(response.data);
         return response.data;
       }
@@ -379,7 +577,7 @@ export const ReportProvider = ({ children }) => {
         signal: abortControllerRef.current.signal
       });
 
-      if (response.data.success) {
+      if (response.data.success !== false) {
         setKpiData(response.data);
         return response.data;
       }
@@ -420,8 +618,9 @@ export const ReportProvider = ({ children }) => {
     }
   }, [isAuthenticated, token]);
 
-  // Clear error
+  // Clear error and data
   const clearError = useCallback(() => setError(null), []);
+  const clearReportData = useCallback(() => setReportData(null), []);
 
   // Cleanup
   const cleanup = useCallback(() => {
@@ -439,18 +638,23 @@ export const ReportProvider = ({ children }) => {
     reportData,
     analyticsData,
     kpiData,
-    // Client Reports
+    // Report Methods
     getClientReport,
     getAssetReport,
     getTeamReport,
+    getChecklistReport,
+    getAssignmentReport,
     getInspectionReport,
-    getFinancialReport,
+    getRevenueReport,
     getComplianceReport,
     getDashboardAnalytics,
     getKPISummary,
     exportBulkReports,
+    // Utility
     clearError,
+    clearReportData,
     cleanup,
+    // Role Helpers
     isAdmin: isAdmin(),
     isSuperAdmin: isSuperAdmin(),
     hasReportAccess,

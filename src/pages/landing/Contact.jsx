@@ -1,4 +1,4 @@
-// components/Contact.jsx - Fully Responsive for All Devices (320px - 1200px+)
+// components/Contact.jsx - Fully Responsive with Email Notifications & Delay Simulation
 import React, { useState } from "react";
 import {
   Box,
@@ -19,6 +19,11 @@ import {
   Grid,
   Tooltip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogActions,
+  Fade,
+  LinearProgress,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
@@ -30,6 +35,7 @@ import TwitterIcon from "@mui/icons-material/Twitter";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import InstagramIcon from "@mui/icons-material/Instagram";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import axios from "axios";
 
 const Contact = () => {
@@ -60,6 +66,10 @@ const Contact = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [emailSentDialogOpen, setEmailSentDialogOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -155,6 +165,34 @@ const Contact = () => {
     return !Object.values(newErrors).some((error) => error !== "");
   };
 
+  // Simulate email sending with progress
+  const simulateEmailSending = async () => {
+    return new Promise((resolve) => {
+      const steps = [
+        { progress: 10, message: "Validating your information..." },
+        { progress: 25, message: "Preparing your message..." },
+        { progress: 40, message: "Connecting to mail server..." },
+        { progress: 55, message: "Sending confirmation email..." },
+        { progress: 70, message: "Notifying support team..." },
+        { progress: 85, message: "Finalizing..." },
+        { progress: 100, message: "Email sent successfully!" },
+      ];
+
+      let currentStep = 0;
+
+      const interval = setInterval(() => {
+        if (currentStep < steps.length) {
+          setProgress(steps[currentStep].progress);
+          setProgressMessage(steps[currentStep].message);
+          currentStep++;
+        } else {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 500); // 500ms per step = 3.5 seconds total
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -169,8 +207,11 @@ const Contact = () => {
     }
 
     setIsSubmitting(true);
+    setProgress(0);
+    setProgressMessage("Starting...");
 
     try {
+      // First, send the API request to save the inquiry
       const response = await axios.post(
         `https://assset-management-backend-4.onrender.com/api/v1/user/contact`,
         {
@@ -183,17 +224,18 @@ const Contact = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          timeout: 10000,
+          timeout: 30000, // Increased timeout to 30 seconds
         },
       );
 
-      if (response.data && (response.data.success || response.status === 200)) {
-        setSnackbar({
-          open: true,
-          message:
-            response.data.message || "Thank you! We'll get back to you soon.",
-          severity: "success",
-        });
+      if (
+        response.data &&
+        (response.data.success ||
+          response.status === 200 ||
+          response.status === 201)
+      ) {
+        // Simulate email sending delay with progress
+        await simulateEmailSending();
 
         // Reset form
         setFormData({
@@ -214,11 +256,17 @@ const Contact = () => {
           phone: false,
           message: false,
         });
+
+        // Close progress dialog and show success dialog
+        setEmailSentDialogOpen(false);
+        setSuccessDialogOpen(true);
       } else {
         throw new Error(response.data?.message || "Failed to send message");
       }
     } catch (error) {
       console.error("Contact form submission error:", error);
+
+      setEmailSentDialogOpen(false);
 
       let errorMessage = "Failed to send message. Please try again later.";
 
@@ -241,11 +289,46 @@ const Contact = () => {
       });
     } finally {
       setIsSubmitting(false);
+      setProgress(0);
+      setProgressMessage("");
     }
+  };
+
+  // Show email sending progress dialog
+  const handleShowProgress = () => {
+    setEmailSentDialogOpen(true);
+  };
+
+  // Trigger submit with progress dialog
+  const handleSubmitWithProgress = (e) => {
+    e.preventDefault();
+    if (!validateForm()) {
+      setSnackbar({
+        open: true,
+        message: "Please fix the errors in the form",
+        severity: "error",
+      });
+      return;
+    }
+    handleShowProgress();
+    // Small delay to show dialog before starting submission
+    setTimeout(() => {
+      handleSubmit(e);
+    }, 5000);
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleCloseSuccessDialog = () => {
+    setSuccessDialogOpen(false);
+  };
+
+  const handleCloseEmailSentDialog = () => {
+    if (!isSubmitting) {
+      setEmailSentDialogOpen(false);
+    }
   };
 
   const fadeInUp = {
@@ -728,7 +811,7 @@ const Contact = () => {
                 <Card
                   elevation={0}
                   component="form"
-                  onSubmit={handleSubmit}
+                  onSubmit={handleSubmitWithProgress}
                   sx={{
                     borderRadius: {
                       xs: "1.25rem",
@@ -1032,7 +1115,158 @@ const Contact = () => {
         </motion.div>
       </Container>
 
-      {/* Snackbar for notifications */}
+      {/* Email Sending Progress Dialog */}
+      <Dialog
+        open={emailSentDialogOpen}
+        onClose={handleCloseEmailSentDialog}
+        maxWidth="xs"
+        fullWidth
+        disableEscapeKeyDown={isSubmitting}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
+            overflow: "hidden",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            background: `linear-gradient(135deg, #0f4c61 0%, #1a6e8a 100%)`,
+            p: 2.5,
+            textAlign: "center",
+          }}
+        >
+          <HourglassEmptyIcon sx={{ fontSize: 48, color: "#fff", mb: 1 }} />
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}
+          >
+            Sending Your Message
+          </Typography>
+        </Box>
+        <DialogContent sx={{ p: 3, textAlign: "center" }}>
+          <Typography
+            variant="body2"
+            sx={{ color: "#6b7280", mb: 2, lineHeight: 1.6 }}
+          >
+            {progressMessage}
+          </Typography>
+          <Box sx={{ width: "100%", mb: 2 }}>
+            <LinearProgress
+              variant="determinate"
+              value={progress}
+              sx={{
+                height: 8,
+                borderRadius: 4,
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                "& .MuiLinearProgress-bar": {
+                  borderRadius: 4,
+                  bgcolor: theme.palette.primary.main,
+                },
+              }}
+            />
+          </Box>
+          <Typography
+            variant="caption"
+            sx={{ color: "#9ca3af", display: "block" }}
+          >
+            Please wait while we send your message...
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: "#9ca3af", display: "block", mt: 1 }}
+          >
+            This may take a few seconds
+          </Typography>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog
+        open={successDialogOpen}
+        onClose={handleCloseSuccessDialog}
+        maxWidth="sm"
+        fullWidth
+        TransitionComponent={Fade}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
+            overflow: "hidden",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            background: `linear-gradient(135deg, #10b981 0%, #059669 100%)`,
+            p: 2.5,
+            textAlign: "center",
+          }}
+        >
+          <CheckCircleIcon sx={{ fontSize: 48, color: "#fff", mb: 1 }} />
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, color: "#fff", fontSize: "1.1rem" }}
+          >
+            Message Sent Successfully!
+          </Typography>
+        </Box>
+        <DialogContent sx={{ p: 3, textAlign: "center" }}>
+          <Typography
+            variant="body1"
+            sx={{ mb: 2, fontWeight: 500, color: "#1f2937" }}
+          >
+            Thank you for reaching out to us!
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: "#6b7280", lineHeight: 1.6 }}
+          >
+            We have received your message and our support team will respond to
+            you within 24 hours. A confirmation email has been sent to{" "}
+            <strong>{formData.email}</strong>.
+          </Typography>
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              bgcolor: "#f0fdf4",
+              borderRadius: "1rem",
+              border: "1px solid #86efac",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "#166534", display: "block" }}
+            >
+              📧 Check your inbox for a confirmation email
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: "#166534", display: "block", mt: 0.5 }}
+            >
+              ⏱️ Average response time: 2 hours
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, justifyContent: "center" }}>
+          <Button
+            onClick={handleCloseSuccessDialog}
+            variant="contained"
+            sx={{
+              bgcolor: "#10b981",
+              "&:hover": { bgcolor: "#059669" },
+              textTransform: "none",
+              fontWeight: 600,
+              px: 4,
+              borderRadius: "0.75rem",
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for errors */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={5000}

@@ -1,6 +1,4 @@
-// CustomChecklistBuilder.jsx - Fixed Version with Complete PDF Export
-// All form fields are preserved exactly as shown in UI when downloading PDF
-
+// CustomChecklistBuilder.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   Box,
@@ -58,7 +56,6 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: "none",
-          fontFamily: "'DM Sans', sans-serif",
           fontWeight: 500,
           fontSize: 13,
           borderRadius: 8,
@@ -71,7 +68,6 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 10,
-          fontFamily: "'DM Sans', sans-serif",
           fontSize: 14,
           "& fieldset": { borderColor: "#e5e7eb" },
           "&:hover fieldset": { borderColor: "#cbd5e1" },
@@ -82,15 +78,12 @@ const theme = createTheme({
   },
 });
 
-// Location options
 const LOCATION_OPTIONS = [
   "Warehouse A",
   "Warehouse B",
   "Factory Floor",
   "Office Building",
 ];
-
-// Equipment category options
 const CATEGORY_OPTIONS = [
   "Heavy Machinery",
   "Electrical",
@@ -98,7 +91,7 @@ const CATEGORY_OPTIONS = [
   "Tools",
 ];
 
-// ─── Section Header ───────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 function SectionHeader({ title }) {
   return (
     <Box
@@ -111,7 +104,6 @@ function SectionHeader({ title }) {
   );
 }
 
-// ─── Form Field Label ─────────────────────────────────────────────────────────
 function FieldLabel({ label, required }) {
   return (
     <Typography
@@ -123,12 +115,10 @@ function FieldLabel({ label, required }) {
   );
 }
 
-// ─── Signature Pad ────────────────────────────────────────────────────────────
 function SignaturePad({ readOnly = false, onSignatureChange }) {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
-  const [hasSignature, setHasSignature] = useState(false);
-  const [signatureDataUrl, setSignatureDataUrl] = useState(null);
+  const [hasSig, setHasSig] = useState(false);
 
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
@@ -146,7 +136,6 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
   };
-
   const draw = (e) => {
     if (!drawing.current || readOnly) return;
     e.preventDefault();
@@ -158,28 +147,25 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
     const pos = getPos(e, canvas);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
-    if (!hasSignature) {
-      setHasSignature(true);
+    if (!hasSig) {
+      setHasSig(true);
       if (onSignatureChange) onSignatureChange(true);
     }
   };
-
   const stopDraw = () => {
     drawing.current = false;
-    if (hasSignature && canvasRef.current) {
-      const signatureData = canvasRef.current.toDataURL();
-      setSignatureDataUrl(signatureData);
-      if (onSignatureChange) onSignatureChange(true, signatureData);
+    if (hasSig && canvasRef.current && onSignatureChange) {
+      onSignatureChange(true, canvasRef.current.toDataURL());
     }
   };
-
   const clearCanvas = () => {
     if (readOnly) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setHasSignature(false);
-    setSignatureDataUrl(null);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasSig(false);
     if (onSignatureChange) onSignatureChange(false);
   };
 
@@ -231,9 +217,7 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
         }}
       >
         <Typography sx={{ fontSize: 12.5, color: "#2a7a9b" }}>
-          {hasSignature
-            ? "Signature captured"
-            : "Sign above using mouse or touch"}
+          {hasSig ? "Signature captured" : "Sign above using mouse or touch"}
         </Typography>
         {!readOnly && (
           <Button
@@ -249,10 +233,8 @@ function SignaturePad({ readOnly = false, onSignatureChange }) {
   );
 }
 
-// ─── Success Dialog ───────────────────────────────────────────────────────────
-function SuccessDialog({ open, onClose, message, checklistId }) {
+function SuccessDialog({ open, onClose, message }) {
   const navigate = useNavigate();
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ textAlign: "center", pb: 1 }}>
@@ -282,18 +264,23 @@ function SuccessDialog({ open, onClose, message, checklistId }) {
   );
 }
 
-// ─── Main Page with API Integration ────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function CustomChecklistBuilder() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { createChecklist, loading, error, success, clearMessages } =
     useChecklistBuilder();
 
-  const formRef = useRef(null);
-  const signatureCanvasRef = useRef(null);
   const [signatureData, setSignatureData] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
-  // Form Data State
   const [formData, setFormData] = useState({
     name: "Equipment Safety Inspection Form",
     description:
@@ -316,36 +303,36 @@ export default function CustomChecklistBuilder() {
     photos: [],
   });
 
-  const [editMode, setEditMode] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [createdChecklistId, setCreatedChecklistId] = useState(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-
-  const toggleCheck = (index) => {
-    if (!editMode) return;
-    const newChecks = [...formData.preInspectionChecks];
-    newChecks[index].checked = !newChecks[index].checked;
-    setFormData({ ...formData, preInspectionChecks: newChecks });
-  };
+  const showSnack = (message, severity = "success") =>
+    setSnackbar({ open: true, message, severity });
 
   const handleInputChange = (field, value) => {
     if (!editMode) return;
-    setFormData({ ...formData, [field]: value });
+    setFormData((p) => ({ ...p, [field]: value }));
   };
 
-  const handleSignatureChange = (hasSig, dataUrl) => {
-    setSignatureData(dataUrl);
+  const toggleCheck = (index) => {
+    if (!editMode) return;
+    const newChecks = formData.preInspectionChecks.map((c, i) =>
+      i === index ? { ...c, checked: !c.checked } : c,
+    );
+    setFormData((p) => ({ ...p, preInspectionChecks: newChecks }));
   };
 
-  // Prepare data for API submission
-  const prepareChecklistData = () => {
-    const sections = [
+  // ─── Prepare data for API ─────────────────────────────────────────────────
+  // IMPORTANT: fieldType values MUST match the Mongoose enum exactly.
+  const prepareChecklistData = () => ({
+    name: formData.name.trim(),
+    description: formData.description.trim(),
+    type: "custom",
+    category: formData.category,
+    status: "active",
+    tags: ["Safety", "Equipment", "Inspection"],
+    sections: [
       {
         sectionTitle: "Basic Information",
         sectionDescription: "Equipment and inspection details",
+        order: 0,
         fields: [
           {
             label: "Equipment Name",
@@ -366,7 +353,6 @@ export default function CustomChecklistBuilder() {
             fieldType: "dropdown",
             isRequired: true,
             options: LOCATION_OPTIONS,
-            placeholder: "Select location",
             order: 2,
           },
           {
@@ -374,14 +360,12 @@ export default function CustomChecklistBuilder() {
             fieldType: "dropdown",
             isRequired: true,
             options: CATEGORY_OPTIONS,
-            placeholder: "Select category",
             order: 3,
           },
           {
             label: "Inspection Date",
             fieldType: "date_picker",
             isRequired: true,
-            placeholder: "Select date",
             order: 4,
           },
           {
@@ -396,19 +380,21 @@ export default function CustomChecklistBuilder() {
       {
         sectionTitle: "Safety Checks",
         sectionDescription: "Pre-inspection safety checklist",
+        order: 1,
         fields: [
           {
             label: "Pre-Inspection Checklist",
-            fieldType: "checkbox",
+            fieldType: "checkbox", // ← correct enum value
             isRequired: true,
             checkboxItems: formData.preInspectionChecks.map((c) => c.label),
             order: 0,
           },
           {
             label: "Overall Equipment Condition",
-            fieldType: "rating",
+            fieldType: "rating", // ← correct enum value
             isRequired: true,
             ratingMax: 5,
+            ratingIcon: "star",
             order: 1,
           },
         ],
@@ -416,6 +402,7 @@ export default function CustomChecklistBuilder() {
       {
         sectionTitle: "Documentation",
         sectionDescription: "Upload supporting documents",
+        order: 2,
         fields: [
           {
             label: "Upload Equipment Photos",
@@ -427,7 +414,7 @@ export default function CustomChecklistBuilder() {
             label: "Additional Notes",
             fieldType: "text_area",
             isRequired: false,
-            placeholder: "Enter any additional observations...",
+            placeholder: "Enter any additional observations…",
             order: 1,
           },
           {
@@ -438,173 +425,106 @@ export default function CustomChecklistBuilder() {
           },
         ],
       },
-    ];
+    ],
+  });
 
-    let totalFields = 0;
-    sections.forEach((section) => {
-      totalFields += section.fields.length;
-    });
-
-    return {
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      type: "custom",
-      category: formData.category,
-      status: "active",
-      sections: sections,
-      tags: ["Safety", "Equipment", "Inspection"],
-      totalFields: totalFields,
-      version: "v1.0",
-    };
-  };
-
-  // Handle Save/Create Checklist
   const handleSave = async () => {
     if (!editMode) {
       setEditMode(true);
       return;
     }
-
     if (!formData.name.trim()) {
-      setSnackbarMessage("Please enter a checklist name");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnack("Please enter a checklist name", "error");
       return;
     }
 
-    const checklistData = prepareChecklistData();
     setSubmitting(true);
-    const result = await createChecklist(checklistData);
+    const result = await createChecklist(prepareChecklistData());
     setSubmitting(false);
 
     if (result.success) {
-      setCreatedChecklistId(result.data?._id || result.data?.data?._id);
       setSuccessDialogOpen(true);
       setEditMode(false);
     } else {
-      setSnackbarMessage(result.error || "Failed to create checklist");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnack(result.error || "Failed to create checklist", "error");
     }
   };
 
-  // Complete PDF Download - ALL FIELDS exactly as in UI
   const downloadFormAsPDF = async () => {
-    // Create a temporary div for PDF generation with exact same structure
     const pdfContent = document.createElement("div");
-    pdfContent.style.width = "800px";
-    pdfContent.style.padding = "40px";
-    pdfContent.style.fontFamily = "'DM Sans', 'Helvetica Neue', sans-serif";
-    pdfContent.style.backgroundColor = "#ffffff";
-    pdfContent.style.color = "#1a1d23";
+    pdfContent.style.cssText =
+      "width:800px;padding:40px;font-family:'DM Sans','Helvetica Neue',sans-serif;background:#fff;color:#1a1d23;";
 
-    // Helper to format checkbox status
-    const getCheckStatus = (checked) => checked ? "✓ Yes" : "☐ No";
+    const checkStar = (c) => (c ? "✓ Yes" : "☐ No");
 
     pdfContent.innerHTML = `
-      <div style="margin-bottom: 30px; border-bottom: 3px solid #1a4a5c; padding-bottom: 20px;">
-        <h1 style="font-size: 24px; font-weight: 700; color: #1a4a5c; margin: 0 0 8px 0;">${formData.name}</h1>
-        <p style="font-size: 13px; color: #6b7280; margin: 0;">${formData.description}</p>
+      <div style="margin-bottom:30px;border-bottom:3px solid #1a4a5c;padding-bottom:20px;">
+        <h1 style="font-size:24px;font-weight:700;color:#1a4a5c;margin:0 0 8px 0;">${formData.name}</h1>
+        <p style="font-size:13px;color:#6b7280;margin:0;">${formData.description}</p>
       </div>
 
-      <!-- Basic Information Section -->
-      <div style="margin-bottom: 25px;">
-        <div style="background-color: #eef2f5; padding: 10px 16px; border-radius: 10px; margin-bottom: 20px;">
-          <h2 style="font-size: 16px; font-weight: 700; color: #1a4a5c; margin: 0;">Basic Information</h2>
+      <div style="margin-bottom:25px;">
+        <div style="background:#eef2f5;padding:10px 16px;border-radius:10px;margin-bottom:20px;">
+          <h2 style="font-size:16px;font-weight:700;color:#1a4a5c;margin:0;">Basic Information</h2>
         </div>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr><th style="text-align: left; padding: 8px 12px; background-color: #f8fafc; width: 50%; font-weight: 600; color: #1a4a5c;">Equipment Name *</th>
-            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formData.equipmentName}</td>
-          </tr>
-          <tr><th style="text-align: left; padding: 8px 12px; background-color: #f8fafc; font-weight: 600; color: #1a4a5c;">Equipment ID *</th>
-            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formData.equipmentId}</td>
-          </tr>
-          <tr><th style="text-align: left; padding: 8px 12px; background-color: #f8fafc; font-weight: 600; color: #1a4a5c;">Location *</th>
-            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formData.location}</td>
-          </tr>
-          <tr><th style="text-align: left; padding: 8px 12px; background-color: #f8fafc; font-weight: 600; color: #1a4a5c;">Equipment Category *</th>
-            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formData.equipmentCategory }</td>
-          </tr>
-          <tr><th style="text-align: left; padding: 8px 12px; background-color: #f8fafc; font-weight: 600; color: #1a4a5c;">Inspection Date *</th>
-            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formData.inspectionDate}</td>
-          </tr>
-          <tr><th style="text-align: left; padding: 8px 12px; background-color: #f8fafc; font-weight: 600; color: #1a4a5c;">Inspector Name *</th>
-            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formData.inspectorName}</td>
-          </tr>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><th style="text-align:left;padding:8px 12px;background:#f8fafc;font-weight:600;color:#1a4a5c;">Equipment Name *</th><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${formData.equipmentName || "—"}</td></tr>
+          <tr><th style="text-align:left;padding:8px 12px;background:#f8fafc;font-weight:600;color:#1a4a5c;">Equipment ID *</th><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${formData.equipmentId || "—"}</td></tr>
+          <tr><th style="text-align:left;padding:8px 12px;background:#f8fafc;font-weight:600;color:#1a4a5c;">Location *</th><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${formData.location || "—"}</td></tr>
+          <tr><th style="text-align:left;padding:8px 12px;background:#f8fafc;font-weight:600;color:#1a4a5c;">Equipment Category *</th><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${formData.equipmentCategory || "—"}</td></tr>
+          <tr><th style="text-align:left;padding:8px 12px;background:#f8fafc;font-weight:600;color:#1a4a5c;">Inspection Date *</th><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${formData.inspectionDate}</td></tr>
+          <tr><th style="text-align:left;padding:8px 12px;background:#f8fafc;font-weight:600;color:#1a4a5c;">Inspector Name *</th><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${formData.inspectorName || "—"}</td></tr>
         </table>
       </div>
 
-      <!-- Safety Checks Section -->
-      <div style="margin-bottom: 25px;">
-        <div style="background-color: #eef2f5; padding: 10px 16px; border-radius: 10px; margin-bottom: 20px;">
-          <h2 style="font-size: 16px; font-weight: 700; color: #1a4a5c; margin: 0;">Safety Checks</h2>
+      <div style="margin-bottom:25px;">
+        <div style="background:#eef2f5;padding:10px 16px;border-radius:10px;margin-bottom:20px;">
+          <h2 style="font-size:16px;font-weight:700;color:#1a4a5c;margin:0;">Safety Checks</h2>
         </div>
-        
-        <div style="margin-bottom: 20px;">
-          <h3 style="font-size: 14px; font-weight: 600; color: #1a4a5c; margin: 0 0 12px 0;">Pre-Inspection Checklist *</h3>
-          <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px;">
-            ${formData.preInspectionChecks.map((check, idx) => `
-              <tr style="${idx % 2 === 0 ? 'background-color: #fafafa;' : ''}">
-                <td style="padding: 8px 12px; border-bottom: ${idx === formData.preInspectionChecks.length - 1 ? 'none' : '1px solid #e5e7eb'};">
-                  <span style="font-size: 14px;">${getCheckStatus(check.checked)}</span>
-                  <span style="font-size: 13px; margin-left: 8px; color: #374151;">${check.label}</span>
-                </td>
-              </tr>
-            `).join('')}
-          </table>
-        </div>
-
-        <div>
-          <h3 style="font-size: 14px; font-weight: 600; color: #1a4a5c; margin: 0 0 12px 0;">Overall Equipment Condition *</h3>
-          <div style="padding: 12px 16px; background-color: #fafafa; border-radius: 10px; border: 1px solid #e5e7eb;">
-            <span style="font-size: 18px; letter-spacing: 2px; color: #ffb74d;">
-              ${"★".repeat(formData.overallCondition)}${"☆".repeat(5 - formData.overallCondition)}
-            </span>
-            <span style="font-size: 13px; color: #6b7280; margin-left: 10px;">Rating: ${formData.overallCondition}/5</span>
-          </div>
+        <h3 style="font-size:14px;font-weight:600;color:#1a4a5c;margin:0 0 12px 0;">Pre-Inspection Checklist *</h3>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:10px;">
+          ${formData.preInspectionChecks
+            .map(
+              (c, i) => `
+            <tr style="${i % 2 === 0 ? "background:#fafafa;" : ""}">
+              <td style="padding:8px 12px;border-bottom:${i === formData.preInspectionChecks.length - 1 ? "none" : "1px solid #e5e7eb"};">
+                <span style="font-size:14px;">${checkStar(c.checked)}</span>
+                <span style="font-size:13px;margin-left:8px;color:#374151;">${c.label}</span>
+              </td>
+            </tr>`,
+            )
+            .join("")}
+        </table>
+        <h3 style="font-size:14px;font-weight:600;color:#1a4a5c;margin:20px 0 12px 0;">Overall Equipment Condition *</h3>
+        <div style="padding:12px 16px;background:#fafafa;border-radius:10px;border:1px solid #e5e7eb;">
+          <span style="font-size:18px;color:#ffb74d;">${"★".repeat(formData.overallCondition)}${"☆".repeat(5 - formData.overallCondition)}</span>
+          <span style="font-size:13px;color:#6b7280;margin-left:10px;">Rating: ${formData.overallCondition}/5</span>
         </div>
       </div>
 
-      <!-- Documentation Section -->
-      <div style="margin-bottom: 25px;">
-        <div style="background-color: #eef2f5; padding: 10px 16px; border-radius: 10px; margin-bottom: 20px;">
-          <h2 style="font-size: 16px; font-weight: 700; color: #1a4a5c; margin: 0;">Documentation</h2>
+      <div style="margin-bottom:25px;">
+        <div style="background:#eef2f5;padding:10px 16px;border-radius:10px;margin-bottom:20px;">
+          <h2 style="font-size:16px;font-weight:700;color:#1a4a5c;margin:0;">Documentation</h2>
         </div>
-
-        <div style="margin-bottom: 20px;">
-          <h3 style="font-size: 14px; font-weight: 600; color: #1a4a5c; margin: 0 0 12px 0;">Upload Equipment Photos</h3>
-          <div style="padding: 12px 16px; background-color: #fafafa; border-radius: 10px; border: 1px solid #e5e7eb;">
-            <p style="font-size: 13px; color: #6b7280; margin: 0;">${formData.photos && formData.photos.length > 0 ? `${formData.photos.length} photo(s) uploaded` : "No photos uploaded"}</p>
-          </div>
+        <h3 style="font-size:14px;font-weight:600;color:#1a4a5c;margin:0 0 12px 0;">Additional Notes</h3>
+        <div style="padding:12px 16px;background:#fafafa;border-radius:10px;border:1px solid #e5e7eb;min-height:80px;">
+          <p style="font-size:13px;color:#374151;margin:0;white-space:pre-wrap;">${formData.additionalNotes || "[No notes added]"}</p>
         </div>
-
-        <div style="margin-bottom: 20px;">
-          <h3 style="font-size: 14px; font-weight: 600; color: #1a4a5c; margin: 0 0 12px 0;">Additional Notes</h3>
-          <div style="padding: 12px 16px; background-color: #fafafa; border-radius: 10px; border: 1px solid #e5e7eb; min-height: 80px;">
-            <p style="font-size: 13px; color: #374151; margin: 0; white-space: pre-wrap;">${formData.additionalNotes || "[No notes added]"}</p>
-          </div>
-        </div>
-
-        <div>
-          <h3 style="font-size: 14px; font-weight: 600; color: #1a4a5c; margin: 0 0 12px 0;">Inspector Signature *</h3>
-          <div style="padding: 12px 16px; background-color: #fafafa; border-radius: 10px; border: 1px solid #e5e7eb; min-height: 100px;">
-            <p style="font-size: 13px; color: ${signatureData ? '#1a4a5c' : '#9ca3af'}; margin: 0;">
-              ${signatureData ? "✓ Signature captured" : "[Signature not captured yet]"}
-            </p>
-          </div>
+        <h3 style="font-size:14px;font-weight:600;color:#1a4a5c;margin:20px 0 12px 0;">Inspector Signature *</h3>
+        <div style="padding:12px 16px;background:#fafafa;border-radius:10px;border:1px solid #e5e7eb;min-height:60px;">
+          <p style="font-size:13px;color:${signatureData ? "#1a4a5c" : "#9ca3af"};margin:0;">
+            ${signatureData ? "✓ Signature captured" : "[Signature not captured yet]"}
+          </p>
         </div>
       </div>
 
-      <!-- Footer -->
-      <div style="margin-top: 30px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center;">
-        <p style="font-size: 10px; color: #9ca3af; margin: 0;">
+      <div style="margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+        <p style="font-size:10px;color:#9ca3af;margin:0;">
           Form ID: CUSTOM-${Date.now()} | Generated: ${new Date().toLocaleString()}
         </p>
-      </div>
-    `;
+      </div>`;
 
     document.body.appendChild(pdfContent);
-
     try {
       const canvas = await html2canvas(pdfContent, {
         scale: 2,
@@ -612,101 +532,66 @@ export default function CustomChecklistBuilder() {
         logging: false,
         useCORS: true,
       });
-      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
       const imgWidth = 210;
+      const imgData = canvas.toDataURL("image/png");
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
+      let heightLeft = imgHeight,
+        position = 0;
       pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
       heightLeft -= pdf.internal.pageSize.height;
-
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
         heightLeft -= pdf.internal.pageSize.height;
       }
-
       pdf.save(`${formData.name.replace(/\s/g, "_")}_Inspection_Report.pdf`);
-    } catch (error) {
-      console.error("PDF generation error:", error);
-      setSnackbarMessage("Failed to generate PDF");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+    } catch (err) {
+      console.error("PDF error:", err);
+      showSnack("Failed to generate PDF", "error");
     } finally {
       document.body.removeChild(pdfContent);
     }
   };
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
-    clearMessages();
-  };
+  useEffect(() => {
+    if (error) showSnack(error, "error");
+    if (success && !successDialogOpen) showSnack(success, "success");
+  }, [error, success, successDialogOpen]);
 
   const clearForm = () => {
-    if (editMode) {
-      setFormData({
-        ...formData,
-        equipmentName: "",
-        equipmentId: "",
-        location: "",
-        equipmentCategory: "",
-        inspectorName: "",
-        preInspectionChecks: formData.preInspectionChecks.map((c) => ({
-          ...c,
-          checked: false,
-        })),
-        overallCondition: 3,
-        additionalNotes: "",
-        photos: [],
-      });
-      setSignatureData(null);
-      setSnackbarMessage("Form cleared successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    }
+    if (!editMode) return;
+    setFormData((p) => ({
+      ...p,
+      equipmentName: "",
+      equipmentId: "",
+      location: "",
+      equipmentCategory: "",
+      inspectorName: "",
+      preInspectionChecks: p.preInspectionChecks.map((c) => ({
+        ...c,
+        checked: false,
+      })),
+      overallCondition: 3,
+      additionalNotes: "",
+      photos: [],
+    }));
+    setSignatureData(null);
+    showSnack("Form cleared!");
   };
-
-  const submitInspection = () => {
-    if (!editMode) {
-      setSnackbarMessage("Please enter edit mode to fill the form");
-      setSnackbarSeverity("info");
-      setSnackbarOpen(true);
-    } else {
-      setSnackbarMessage("Inspection submitted successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    }
-  };
-
-  useEffect(() => {
-    if (error) {
-      setSnackbarMessage(error);
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    }
-    if (success && !successDialogOpen) {
-      setSnackbarMessage(success);
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    }
-  }, [error, success, successDialogOpen]);
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
 
-      <Box
-        sx={{ minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", p: 3 }}
-      >
-        {/* Top Nav */}
+      <Box sx={{ minHeight: "100vh", p: 3 }}>
+        {/* Top nav */}
         <Box
           sx={{
             bgcolor: "#fff",
@@ -773,7 +658,7 @@ export default function CustomChecklistBuilder() {
               sx={{ bgcolor: editMode ? "#1a4a5c" : "#374151" }}
             >
               {submitting ? (
-                <CircularProgress size={20} />
+                <CircularProgress size={20} color="inherit" />
               ) : editMode ? (
                 "Save Checklist"
               ) : (
@@ -783,7 +668,6 @@ export default function CustomChecklistBuilder() {
           </Box>
         </Box>
 
-        {/* Body */}
         <Box
           sx={{
             display: "flex",
@@ -791,9 +675,8 @@ export default function CustomChecklistBuilder() {
             alignItems: "flex-start",
             flexDirection: { xs: "column", md: "row" },
           }}
-          ref={formRef}
         >
-          {/* Left: Form */}
+          {/* Form */}
           <Box sx={{ flex: 1, minWidth: 0, width: { xs: "100%", md: "auto" } }}>
             <Paper
               elevation={0}
@@ -803,13 +686,12 @@ export default function CustomChecklistBuilder() {
                 p: { xs: 2, sm: 3, md: 4 },
               }}
             >
-              {/* Form Title */}
               {editMode ? (
                 <TextField
                   fullWidth
                   value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
                   variant="standard"
+                  onChange={(e) => handleInputChange("name", e.target.value)}
                   sx={{
                     mb: 1,
                     "& .MuiInputBase-input": { fontSize: 22, fontWeight: 800 },
@@ -827,17 +709,16 @@ export default function CustomChecklistBuilder() {
                   {formData.name}
                 </Typography>
               )}
-
               {editMode ? (
                 <TextField
                   fullWidth
                   multiline
                   rows={2}
                   value={formData.description}
+                  variant="standard"
                   onChange={(e) =>
                     handleInputChange("description", e.target.value)
                   }
-                  variant="standard"
                   sx={{ mb: 1 }}
                 />
               ) : (
@@ -845,8 +726,7 @@ export default function CustomChecklistBuilder() {
                   {formData.description}
                 </Typography>
               )}
-
-              <Divider sx={{ mb: 3, borderColor: "#f1f3f5" }} />
+              <Divider sx={{ mb: 3 }} />
 
               {/* Basic Information */}
               <SectionHeader title="Basic Information" />
@@ -890,9 +770,9 @@ export default function CustomChecklistBuilder() {
                     disabled={!editMode}
                   >
                     <MenuItem value="">Select location</MenuItem>
-                    {LOCATION_OPTIONS.map((opt) => (
-                      <MenuItem key={opt} value={opt}>
-                        {opt}
+                    {LOCATION_OPTIONS.map((o) => (
+                      <MenuItem key={o} value={o}>
+                        {o}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -910,9 +790,9 @@ export default function CustomChecklistBuilder() {
                     disabled={!editMode}
                   >
                     <MenuItem value="">Select category</MenuItem>
-                    {CATEGORY_OPTIONS.map((opt) => (
-                      <MenuItem key={opt} value={opt}>
-                        {opt}
+                    {CATEGORY_OPTIONS.map((o) => (
+                      <MenuItem key={o} value={o}>
+                        {o}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -955,12 +835,17 @@ export default function CustomChecklistBuilder() {
                   px: 2.5,
                   py: 1.5,
                   mb: 3,
-                  bgcolor: "#fff",
                 }}
               >
                 {formData.preInspectionChecks.map((item, i) => (
                   <FormControlLabel
                     key={i}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      mb: 0.5,
+                      ml: 0,
+                    }}
                     control={
                       <Checkbox
                         checked={item.checked}
@@ -978,12 +863,6 @@ export default function CustomChecklistBuilder() {
                         {item.label}
                       </Typography>
                     }
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      mb: 0.5,
-                      ml: 0,
-                    }}
                   />
                 ))}
               </Box>
@@ -996,7 +875,6 @@ export default function CustomChecklistBuilder() {
                   px: 2.5,
                   py: 1.8,
                   mb: 3,
-                  bgcolor: "#fff",
                   display: "flex",
                   alignItems: "center",
                   gap: 1.5,
@@ -1004,9 +882,9 @@ export default function CustomChecklistBuilder() {
               >
                 <Rating
                   value={formData.overallCondition}
-                  onChange={(_, v) => handleInputChange("overallCondition", v)}
-                  readOnly={!editMode}
                   size="large"
+                  readOnly={!editMode}
+                  onChange={(_, v) => handleInputChange("overallCondition", v)}
                   sx={{ "& .MuiRating-iconFilled": { color: "#ffb74d" } }}
                 />
                 <Typography sx={{ fontSize: 13, color: "#9ca3af" }}>
@@ -1035,12 +913,12 @@ export default function CustomChecklistBuilder() {
                 <Typography sx={{ fontSize: 14, color: "#374151" }}>
                   {editMode
                     ? "Drag and drop images here or click to browse"
-                    : formData.photos && formData.photos.length > 0
-                    ? `${formData.photos.length} photo(s) uploaded`
-                    : "Image upload area"}
+                    : formData.photos?.length
+                      ? `${formData.photos.length} photo(s) uploaded`
+                      : "Image upload area"}
                 </Typography>
                 <Typography sx={{ fontSize: 12.5, color: "#2a7a9b" }}>
-                  Supported formats: JPG, PNG, PDF (Max 10MB)
+                  Supported: JPG, PNG, PDF (Max 10MB)
                 </Typography>
               </Box>
 
@@ -1049,7 +927,7 @@ export default function CustomChecklistBuilder() {
                 fullWidth
                 multiline
                 rows={3}
-                placeholder="Enter any additional observations..."
+                placeholder="Enter any additional observations…"
                 value={formData.additionalNotes}
                 onChange={(e) =>
                   handleInputChange("additionalNotes", e.target.value)
@@ -1061,10 +939,9 @@ export default function CustomChecklistBuilder() {
               <FieldLabel label="Inspector Signature" required />
               <SignaturePad
                 readOnly={!editMode}
-                onSignatureChange={handleSignatureChange}
+                onSignatureChange={(_, data) => setSignatureData(data)}
               />
 
-              {/* Footer */}
               <Divider sx={{ mt: 4, mb: 2.5 }} />
               <Box
                 display="flex"
@@ -1075,8 +952,8 @@ export default function CustomChecklistBuilder() {
               >
                 <Typography sx={{ fontSize: 12.5, color: "#9ca3af" }}>
                   {editMode
-                    ? "Edit Mode: Make changes to the form"
-                    : "View Mode: Click Edit Form to make changes"}
+                    ? "Edit mode: Make changes to the form"
+                    : "View mode: Click Edit Form to make changes"}
                 </Typography>
                 <Box display="flex" gap={1.2}>
                   <Button
@@ -1088,8 +965,12 @@ export default function CustomChecklistBuilder() {
                   </Button>
                   <Button
                     variant="contained"
-                    onClick={submitInspection}
                     sx={{ bgcolor: "#1a4a5c" }}
+                    onClick={() => {
+                      if (!editMode)
+                        showSnack("Please enter edit mode first", "info");
+                      else showSnack("Inspection submitted!");
+                    }}
                   >
                     Submit Inspection
                   </Button>
@@ -1098,7 +979,7 @@ export default function CustomChecklistBuilder() {
             </Paper>
           </Box>
 
-          {/* Right: Form Details Panel */}
+          {/* Details panel */}
           <Box sx={{ width: { xs: "100%", md: 280 }, flexShrink: 0 }}>
             <Paper
               elevation={0}
@@ -1114,93 +995,71 @@ export default function CustomChecklistBuilder() {
                 Form Details
               </Typography>
 
-              <Box display="flex" alignItems="flex-start" gap={1.5} mb={2.5}>
+              {[
+                {
+                  icon: (
+                    <FolderOutlinedIcon
+                      sx={{ fontSize: 17, color: "#6b7280" }}
+                    />
+                  ),
+                  label: "Form Name",
+                  value: formData.name,
+                },
+                {
+                  icon: (
+                    <PersonOutlineIcon
+                      sx={{ fontSize: 17, color: "#6b7280" }}
+                    />
+                  ),
+                  label: "Created By",
+                  value: user?.firstName
+                    ? `${user.firstName} ${user.lastName || ""}`.trim()
+                    : user?.email || "System Admin",
+                },
+                {
+                  icon: (
+                    <CalendarTodayOutlinedIcon
+                      sx={{ fontSize: 17, color: "#6b7280" }}
+                    />
+                  ),
+                  label: "Created On",
+                  value: new Date().toLocaleDateString(),
+                },
+              ].map(({ icon, label, value }) => (
                 <Box
-                  sx={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "8px",
-                    bgcolor: "#f1f5f9",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                  key={label}
+                  display="flex"
+                  alignItems="flex-start"
+                  gap={1.5}
+                  mb={2.5}
                 >
-                  <FolderOutlinedIcon sx={{ fontSize: 17, color: "#6b7280" }} />
-                </Box>
-                <Box>
-                  <Typography
-                    sx={{ fontSize: 11.5, color: "#9ca3af", mb: 0.2 }}
+                  <Box
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: "8px",
+                      bgcolor: "#f1f5f9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    Form Name
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: 13.5, fontWeight: 600, color: "#1a1d23" }}
-                  >
-                    {formData.name}
-                  </Typography>
+                    {icon}
+                  </Box>
+                  <Box>
+                    <Typography
+                      sx={{ fontSize: 11.5, color: "#9ca3af", mb: 0.2 }}
+                    >
+                      {label}
+                    </Typography>
+                    <Typography
+                      sx={{ fontSize: 13.5, fontWeight: 600, color: "#1a1d23" }}
+                    >
+                      {value}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
-
-              <Box display="flex" alignItems="flex-start" gap={1.5} mb={2.5}>
-                <Box
-                  sx={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "8px",
-                    bgcolor: "#f1f5f9",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <PersonOutlineIcon sx={{ fontSize: 17, color: "#6b7280" }} />
-                </Box>
-                <Box>
-                  <Typography
-                    sx={{ fontSize: 11.5, color: "#9ca3af", mb: 0.2 }}
-                  >
-                    Created By
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: 13.5, fontWeight: 600, color: "#1a1d23" }}
-                  >
-                    {user?.firstName
-                      ? `${user.firstName} ${user.lastName || ""}`
-                      : user?.email || "System Admin"}
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box display="flex" alignItems="flex-start" gap={1.5} mb={2.5}>
-                <Box
-                  sx={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "8px",
-                    bgcolor: "#f1f5f9",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <CalendarTodayOutlinedIcon
-                    sx={{ fontSize: 17, color: "#6b7280" }}
-                  />
-                </Box>
-                <Box>
-                  <Typography
-                    sx={{ fontSize: 11.5, color: "#9ca3af", mb: 0.2 }}
-                  >
-                    Created On
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: 13.5, fontWeight: 600, color: "#1a1d23" }}
-                  >
-                    {new Date().toLocaleDateString()}
-                  </Typography>
-                </Box>
-              </Box>
+              ))}
 
               <Box display="flex" alignItems="flex-start" gap={1.5} mb={2.5}>
                 <Box
@@ -1274,27 +1133,29 @@ export default function CustomChecklistBuilder() {
         </Box>
       </Box>
 
-      {/* Success Dialog */}
       <SuccessDialog
         open={successDialogOpen}
         onClose={() => setSuccessDialogOpen(false)}
         message="Custom checklist has been created successfully!"
-        checklistId={createdChecklistId}
       />
 
-      {/* Snackbar */}
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={6000}
-        onClose={handleSnackbarClose}
+        onClose={() => {
+          setSnackbar((s) => ({ ...s, open: false }));
+          clearMessages();
+        }}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
-          onClose={handleSnackbarClose}
-          severity={snackbarSeverity}
-          sx={{ width: "100%" }}
+          severity={snackbar.severity}
+          onClose={() => {
+            setSnackbar((s) => ({ ...s, open: false }));
+            clearMessages();
+          }}
         >
-          {snackbarMessage}
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </ThemeProvider>
